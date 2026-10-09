@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { makeCarPaint, makeAutomotiveGlass } from './materials.js';
+import {CAR_SPECS,tyreGrip,contactSlip,ackermannAngles,torqueAtRpm,
+  aerodynamicDrag,brakingAssist,tractionAssist,normalizedTyreForce} from './vehicle-dynamics.js';
 
 const WHEEL_RADIUS = 0.38;
 const GEAR_RATIOS = [3.48, 2.15, 1.52, 1.17, 0.94, 0.78];
@@ -36,7 +38,13 @@ export class PlayerVehicle {
     this.speedKmh = 0;
     this.steering = 0;
     this.throttleSmooth = 0;
-    this.mass = 1370;
+    this.spec = CAR_SPECS.coupe;
+    this.mass = this.spec.massKg;
+    this.tyreCompound = 'road';
+    this.assists = {abs:true,tcs:true,esc:true};
+    this.shiftTimer = 0;
+    this.clutchEngagement = 1;
+    this.lastDiagnostics = {surface:'dry', grip:1, slip:0, wheelContact:0, enginePowerKW:0, suspension:[], wheelSlip:[], tractionIntervention:0};
     this.brakeActive = false;
     this.indicatorSide = 0;
     this.detailLevel = true;
@@ -46,7 +54,7 @@ export class PlayerVehicle {
     this.chassis = new CANNON.Body({
       mass: this.mass,
       material: new CANNON.Material('chassis'),
-      angularDamping: 0.42,
+      angularDamping: 0.25,
       linearDamping: 0.009,
       allowSleep: false
     });
@@ -77,7 +85,11 @@ export class PlayerVehicle {
     for (const z of [1.37, -1.39]) {
       for (const x of [-0.87, 0.87]) {
         this.vehicle.addWheel({
-          ...options, chassisConnectionPointLocal: new CANNON.Vec3(x, -0.18, z)
+          ...options,
+          suspensionStiffness: z > 0 ? this.spec.springFront : this.spec.springRear,
+          dampingRelaxation:this.spec.dampingRelaxation,
+          dampingCompression:this.spec.dampingCompression,
+          chassisConnectionPointLocal: new CANNON.Vec3(x, -0.18, z)
         });
       }
     }
@@ -184,6 +196,7 @@ export class PlayerVehicle {
     const wheel = part(cockpit, new THREE.TorusGeometry(0.21, 0.035, 8, 20),
       dark, [-0.37, 0.54, 0.19]);
     wheel.rotation.x = 0.6;
+    this.steeringWheel = wheel;
     const instrumentCanvas = document.createElement('canvas');
     instrumentCanvas.width = 256;
     instrumentCanvas.height = 128;
@@ -392,12 +405,25 @@ export class PlayerVehicle {
     this.steering = 0;
     this.rpm = 850;
     this.brakeActive = false;
+    this.shiftTimer = 0;
     this.updateVisuals();
   }
 
+  setTyreCompound(type='road') {
+    if(['road','sport','track'].includes(type))this.tyreCompound=type;
+  }
+
+  setAssists(assists={}) {
+    for(const key of ['abs','tcs','esc']) {
+      if(typeof assists[key]==='boolean')this.assists[key]=assists[key];
+    }
+  }
+
   shift(delta) {
-    if (!this.manual) return;
-    this.gear = clamp(this.gear + delta, 1, GEAR_RATIOS.length);
+    if(!this.manual||this.shiftTimer>0)return;
+    this.gear=clamp(this.gear+delta,-1,this.spec.gearRatios.length);
+    this.reverse=this.gear===-1;
+    this.shiftTimer=this.spec.shiftTimeS;
   }
 
   getForwardVelocity() {
@@ -405,73 +431,155 @@ export class PlayerVehicle {
     return this.chassis.velocity.dot(forward);
   }
 
-  updatePhysics(dt, controls, surface = 'clear') {
-    const forwardSpeed = this.getForwardVelocity();
-    const absSpeed = Math.abs(forwardSpeed);
-    const vehicleSpeed = this.chassis.velocity.length();
-    this.speedKmh = vehicleSpeed * 3.6;
-    const steeringLimit = 0.52 / (1 + absSpeed * 0.038);
-    this.steering = THREE.MathUtils.damp(this.steering,
-      -controls.steer * steeringLimit, 8, dt);
-    this.vehicle.setSteeringValue(this.steering, 0);
-    this.vehicle.setSteeringValue(this.steering, 1);
-    const targetThrottle = controls.accelerate || 0;
-    this.throttleSmooth = THREE.MathUtils.damp(this.throttleSmooth, targetThrottle, 5, dt);
+  updatePhysics(dt, controls, surfaceQuery='dry') {
+    // Called once per fixed 1/60s simulation tick, not once per drawn frame.
+    const spec=this.spec;
+    this.shiftTimer=Math.max(0,this.shiftTimer-dt);
+    const forwardSpeed=this.getForwardVelocity();
+    const absSpeed=Math.abs(forwardSpeed);
+    const vehicleSpeed=this.chassis.velocity.length();
+    this.speedKmh=vehicleSpeed*3.6;
+    const targetSteer=-clamp(controls.steer||0,-1,1)*
+      (0.52/(1+absSpeed*.023));
+    this.steering=THREE.MathUtils.damp(this.steering,targetSteer,7,dt);
+    const [left,right]=ackermannAngles(this.steering,spec.wheelbaseM,spec.trackM);
+    this.vehicle.setSteeringValue(left,0);
+    this.vehicle.setSteeringValue(right,1);
+    // Animated steering wheel uses the exact front axle command.
+    if(this.steeringWheel)this.steeringWheel.rotation.z=-this.steering*2.6;
 
-    let braking = 0;
-    let throttle = this.throttleSmooth;
-    if ((controls.brake || 0) > 0) {
-      if (forwardSpeed > 1.4) {
-        braking = controls.brake;
-      } else if (forwardSpeed < -1.4 && targetThrottle > 0) {
-        braking = targetThrottle;
-        throttle = 0;
-      } else if (targetThrottle < 0.01) {
-        this.reverse = true;
-        throttle = -controls.brake * 0.48;
-      }
-    } else if (targetThrottle > 0) {
-      if (forwardSpeed < -1.4) {
-        braking = targetThrottle;
-        throttle = 0;
-      } else {
-        this.reverse = false;
-      }
-    } else if (Math.abs(forwardSpeed) < 0.5) {
-      this.reverse = false;
+    const pedal=clamp(controls.accelerate||0,0,1);
+    this.throttleSmooth=THREE.MathUtils.damp(this.throttleSmooth,pedal,5,dt);
+    const brake=clamp(controls.brake||0,0,1);
+    let braking=0;
+    let direction=this.manual ? (this.gear<0?-1:this.gear===0?0:1) : (this.reverse?-1:1);
+    if(!this.manual){
+      if(brake>.05&&forwardSpeed<1.0&&pedal<.05){this.reverse=true;direction=-1;}
+      if(pedal>.05&&forwardSpeed>-0.8){this.reverse=false;direction=1;}
+      // On automatic cars S is brake while moving forward; reverses from a stop.
+      braking=brake*(forwardSpeed>1.2||direction===1?1:0);
+      if(direction<0)braking=pedal>0&&forwardSpeed<-.8?pedal:0;
+    } else {
+      braking=brake;
     }
 
-    if (!this.manual && !this.reverse) {
-      const revs = 850 + absSpeed * 60 / (2 * Math.PI * WHEEL_RADIUS) *
-        FINAL_DRIVE * GEAR_RATIOS[this.gear - 1];
-      if (revs > 6100 && this.gear < GEAR_RATIOS.length) this.gear++;
-      if (revs < 1900 && this.gear > 1) this.gear--;
+    // Surface is sampled independently below the four suspension contact points.
+    const rightVec=this.chassis.quaternion.vmult(new CANNON.Vec3(1,0,0));
+    const lateralVelocity=this.chassis.velocity.dot(rightVec);
+    const wheelSurface=[],gripFactors=[],slips=[];
+    let averageGrip=0,contactCount=0,rolling=0;
+    for(let i=0;i<4;i++) {
+      const wheel=this.vehicle.wheelInfos[i];
+      const hit=wheel.raycastResult;
+      const local=wheel.chassisConnectionPointLocal;
+      const rotated=this.chassis.quaternion.vmult(local);
+      const pos=hit?.hasHit ? hit.hitPointWorld : this.chassis.position.vadd(rotated);
+      const surface=typeof surfaceQuery==='function' ?
+        surfaceQuery(pos.x,pos.z)?.surface||'grass' : (surfaceQuery==='rain'?'wet':surfaceQuery);
+      const grip=tyreGrip(surface,this.tyreCompound);
+      wheelSurface.push(surface);gripFactors.push(grip);
+      averageGrip+=grip.longitudinal;
+      rolling+=grip.rolling;
+      if(hit?.hasHit)contactCount++;
+      // Cannon RaycastVehicle updates wheel angular velocity inside its physics
+      // callback; this slip is feedback for next tick's ABS/TCS decisions.
+      const rollingMS=(wheel.deltaRotation||0)*spec.wheelRadiusM/dt;
+      const slip=contactSlip(forwardSpeed,rollingMS,lateralVelocity);
+      slips.push(slip);
+      const requested=4.6*grip.lateral;
+      wheel.frictionSlip=THREE.MathUtils.damp(wheel.frictionSlip,requested,7,dt);
     }
-    const ratio = this.reverse ? 3.2 : GEAR_RATIOS[this.gear - 1];
-    const wheelRpm = absSpeed * 60 / (2 * Math.PI * WHEEL_RADIUS);
-    const calculatedRpm = 850 + wheelRpm * ratio * FINAL_DRIVE;
-    this.rpm = clamp(calculatedRpm + Math.abs(throttle) * 220, 850, RPM_LIMIT);
-    const normalizedRpm = this.rpm / RPM_LIMIT;
-    const torqueCurve = normalizedRpm < 0.2 ? 0.65 + normalizedRpm * 1.2 :
-      normalizedRpm < 0.65 ? 0.89 + (normalizedRpm - 0.2) * 0.18 :
-      Math.max(0.54, 0.97 - (normalizedRpm - 0.65) * 1.2);
-    const wheelForce = Math.abs(throttle) * 345 * torqueCurve *
-      ratio * FINAL_DRIVE / WHEEL_RADIUS * 0.46;
-    const engineForce = this.rpm >= RPM_LIMIT && throttle > 0 ? 0 :
-      -Math.sign(throttle) * wheelForce;
-    this.brakeActive = braking > 0.08 || Boolean(controls.handbrake);
-    const grip = surface === 'rain' ? 0.71 : 1;
-    for (let i = 0; i < 4; i++) {
-      this.vehicle.wheelInfos[i].frictionSlip = 4.6 * grip;
-      this.vehicle.applyEngineForce(i >= 2 ? engineForce / 2 : 0, i);
-      this.vehicle.setBrake((braking * 3000 + (controls.handbrake && i >= 2 ? 4500 : 0)), i);
+    averageGrip/=4;
+    rolling/=4;
+    // The state-dependent, progressively saturating tyre curve is reported to
+    // diagnostics while the Cannon raycast solver applies lateral contact force.
+    const driven=spec.drivetrain==='FWD'?[0,1]:
+      spec.drivetrain==='AWD'?[0,1,2,3]:[2,3];
+    const drivenSlip=driven.reduce((n,i)=>n+Math.max(0,slips[i].longitudinal),0)/driven.length;
+    const reduction=tractionAssist(1,drivenSlip,this.assists.tcs&&vehicleSpeed>2);
+    let throttle=this.throttleSmooth*reduction;
+    // Do not transmit drive torque while selecting a gear or clutch is open.
+    const clutch=clamp(controls.clutch===undefined?1:1-controls.clutch,0,1);
+    this.clutchEngagement=THREE.MathUtils.damp(this.clutchEngagement,
+      this.shiftTimer>0?0:clutch,15,dt);
+
+    let ratio=this.manual ? (this.gear===-1?-spec.reverseRatio:
+      this.gear===0?0:spec.gearRatios[this.gear-1]) :
+      (direction<0?-spec.reverseRatio:spec.gearRatios[this.gear-1]);
+    ratio=Number.isFinite(ratio)?ratio:0;
+    const wheelRpm=absSpeed*60/(2*Math.PI*spec.wheelRadiusM);
+    const targetRpm=Math.abs(ratio)>0&&this.clutchEngagement>.2 ?
+      spec.idleRpm+wheelRpm*Math.abs(ratio)*spec.finalDrive :
+      spec.idleRpm+throttle*3400;
+    this.rpm=THREE.MathUtils.damp(this.rpm,
+      clamp(targetRpm,spec.idleRpm,spec.redlineRpm),10,dt);
+
+    if(!this.manual&&!this.reverse&&this.shiftTimer===0){
+      if(this.rpm>6100&&this.gear<spec.gearRatios.length){
+        this.gear++;this.shiftTimer=spec.shiftTimeS;ratio=0;
+      } else if(this.rpm<1800&&this.gear>1) {
+        this.gear--;this.shiftTimer=spec.shiftTimeS;ratio=0;
+      }
     }
-    // Quadratic air drag plus rolling resistance, independent of driving input.
-    if (vehicleSpeed > 0.15) {
-      const totalResist = 0.39 * vehicleSpeed * vehicleSpeed + 145;
-      const direction = this.chassis.velocity.scale(-totalResist / vehicleSpeed);
-      this.chassis.applyForce(direction, new CANNON.Vec3(0, 0, 0));
+    const torque=torqueAtRpm(this.rpm,spec);
+    const maxTraction=spec.massKg*9.81*averageGrip*(spec.drivetrain==='AWD'?.91:.55);
+    const wheelForce=Math.min(maxTraction,
+      throttle*torque*Math.abs(ratio)*spec.finalDrive*spec.drivetrainEfficiency/
+      spec.wheelRadiusM)*this.clutchEngagement;
+    const forceDirection=ratio<0 ? 1 : -1;
+    const force=this.rpm>=spec.redlineRpm&&throttle>.01?0:
+      forceDirection*wheelForce/driven.length;
+    for(let i=0;i<4;i++){
+      const grip=gripFactors[i];
+      this.vehicle.applyEngineForce(driven.includes(i)?force:0,i);
+      let b=braking * (i<2?spec.brakeTorqueFrontNm:spec.brakeTorqueRearNm);
+      if(!this.manual&&direction<0&&pedal>.05)b+=pedal*1600;
+      const wheelSlip=slips[i].longitudinal;
+      b*=brakingAssist(1,wheelSlip,this.assists.abs&&vehicleSpeed>4);
+      if(controls.handbrake&&i>=2)b+=3900;
+      // ESC resists large yaw excursions with restrained one-wheel braking.
+      if(this.assists.esc&&vehicleSpeed>9){
+        const desiredYaw=forwardSpeed*Math.tan(this.steering)/spec.wheelbaseM;
+        const yawError=this.chassis.angularVelocity.y-desiredYaw;
+        if(Math.abs(yawError)>.6&&Math.sign(yawError)===Math.sign(i%2===0?1:-1))
+          b+=Math.min(700,(Math.abs(yawError)-.6)*250);
+      }
+      this.vehicle.setBrake(b,i);
     }
+    // Anti-roll bars transmit force from compressed to extended suspension
+    // at the front and rear. This acts on the Cannon rigid body, not the camera.
+    for(const [leftIndex,rightIndex,axleZ] of [[0,1,1.37],[2,3,-1.39]]){
+      const l=this.vehicle.wheelInfos[leftIndex],r=this.vehicle.wheelInfos[rightIndex];
+      if(!l.raycastResult?.hasHit||!r.raycastResult?.hasHit)continue;
+      const roll=clamp((l.suspensionLength-r.suspensionLength)*
+        -spec.antiRollStiffness,-1600,1600);
+      this.chassis.applyLocalForce(new CANNON.Vec3(0,roll,0),
+        new CANNON.Vec3(-spec.trackM/2,-.18,axleZ));
+      this.chassis.applyLocalForce(new CANNON.Vec3(0,-roll,0),
+        new CANNON.Vec3(spec.trackM/2,-.18,axleZ));
+    }
+    // Newtonian aerodynamic drag and rolling resistance, independent of fps.
+    if(vehicleSpeed>.15){
+      const drag=aerodynamicDrag(vehicleSpeed,spec);
+      const resist=spec.massKg*9.81*spec.rollingResistance*rolling;
+      this.chassis.applyForce(this.chassis.velocity.scale(-(drag+resist)/vehicleSpeed),
+        new CANNON.Vec3(0,0,0));
+    }
+    const downforce=spec.downforceCoefficient*vehicleSpeed*vehicleSpeed;
+    this.chassis.applyForce(new CANNON.Vec3(0,-downforce,0),new CANNON.Vec3(0,0,0));
+    this.brakeActive=braking>.08||Boolean(controls.handbrake);
+    const mostCommon=wheelSurface.sort((a,b)=>wheelSurface.filter(v=>v===a).length-
+      wheelSurface.filter(v=>v===b).length).at(-1)||'grass';
+    this.lastDiagnostics={
+      surface:mostCommon,grip:Number(averageGrip.toFixed(2)),
+      slip:Number(drivenSlip.toFixed(3)),wheelContact:contactCount,
+      enginePowerKW:Math.round(torque*this.rpm*2*Math.PI/60000),
+      driveForceN:Math.round(wheelForce),
+      tractionIntervention:Number((1-reduction).toFixed(2)),
+      suspension:this.vehicle.wheelInfos.map(w=>Number(w.suspensionLength.toFixed(3))),
+      wheelSlip:slips.map(w=>Number(w.longitudinal.toFixed(3))),
+      lateralSlip:slips.map(w=>Number(normalizedTyreForce(w.lateral).toFixed(3)))
+    };
   }
 
   updateVisuals(night = false) {
@@ -520,7 +628,7 @@ export class PlayerVehicle {
   }
 
   getGearLabel() {
-    return this.reverse ? 'R' : String(this.gear);
+    return this.reverse || this.gear===-1 ? 'R' : this.gear===0 ? 'N' : String(this.gear);
   }
 
   getTelemetry() {
@@ -528,7 +636,8 @@ export class PlayerVehicle {
       speed: Math.round(this.speedKmh),
       rpm: Math.round(this.rpm),
       gear: this.getGearLabel(),
-      gearbox: this.manual ? 'MANUAL' : 'AUTO'
+      gearbox: this.manual ? 'MANUAL' : 'AUTO',
+      ...this.lastDiagnostics
     };
   }
 
