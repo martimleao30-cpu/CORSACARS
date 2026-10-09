@@ -199,6 +199,16 @@ export class PremiumInterface {
       <label>SENSIBILIDADE DA DIREÇÃO <input type="range" id="steeringSensitivity" min=".5" max="1.6" step=".1" value="1"></label>
       <label>ZONA MORTA DO ANALÓGICO <input type="range" id="gamepadDeadzone" min=".05" max=".4" step=".01" value=".12"></label>
       <p class="secondary-info">W/S: acelerar/travar · A/D: virar · Espaço: travão de mão · C: câmara · ESC: pausa. O remapeamento completo fica reservado para um sistema de Input Actions. Navegação nos menus: TAB, Enter, setas/D-Pad e A/Cruz no comando.</p>
+      <div id="keyBindingGrid" class="option-grid">
+        <button class="outline" data-bind="accelerate">ACELERAR: W</button>
+        <button class="outline" data-bind="brake">TRAVAR: S</button>
+        <button class="outline" data-bind="left">ESQUERDA: A</button>
+        <button class="outline" data-bind="right">DIREITA: D</button>
+        <button class="outline" data-bind="handbrake">TRAVÃO MÃO: ESPAÇO</button>
+        <button class="outline" data-bind="camera">CÂMARA: C</button>
+      </div>
+      <p class="minor">Clica num botão para escolher outra tecla. ESC cancela. Atalhos de menus e caixa de velocidades ficam reservados.</p>
+      <button id="bindingsReset" class="outline">REPOR TECLAS <span>↻</span></button>
       <button id="controlsReset" class="outline">REPOR SENSIBILIDADE <span>↻</span></button>`);
     visual.insertAdjacentHTML('beforeend',`
       <label>COR PRINCIPAL DOS MENUS <input type="color" id="menuAccent" value="#c9f173"></label>
@@ -264,6 +274,7 @@ export class PremiumInterface {
       this.draft=cleanHud(profile);this.writeEditor();this.setHud(this.draft);
     });
     this.bindGraphicsSettings();
+    this.bindKeyBindings();
   }
 
   bindGraphicsSettings() {
@@ -369,6 +380,62 @@ export class PremiumInterface {
     if(position==='left'){p.posX=.02;p.posY=.66;}
     if(position==='topRight'){p.posX=.70;p.posY=.08;}
     this.setHud(p);
+  }
+
+  bindKeyBindings() {
+    const cfg=this.api.settings;
+    const defaults={
+      accelerate:'w',brake:'s',left:'a',right:'d',handbrake:' ',camera:'c'
+    };
+    cfg.bindings={...defaults,...(cfg.bindings||{})};
+    const names={
+      accelerate:'ACELERAR',brake:'TRAVAR',left:'ESQUERDA',
+      right:'DIREITA',handbrake:'TRAVÃO MÃO',camera:'CÂMARA'
+    };
+    let recording=null;
+    const display=k=>k===' '?'ESPAÇO':k.toUpperCase();
+    const refresh=()=>{
+      for(const button of document.querySelectorAll('[data-bind]')){
+        const k=button.dataset.bind;
+        button.textContent=names[k]+': '+display(cfg.bindings[k]);
+      }
+      const hintElements=$('hud').querySelectorAll('.hud-hints span');
+      const entries=[
+        ['accelerate','ACELERAR'],['brake','TRAVAR'],
+        ['left','VIRAR'],['camera','CÂMARA'],['handbrake','TRAVÃO MÃO']
+      ];
+      entries.forEach(([key,label],i)=>{
+        if(!hintElements[i])return;
+        hintElements[i].innerHTML='<kbd>'+display(cfg.bindings[key])+'</kbd> '+label;
+      });
+    };
+    for(const button of document.querySelectorAll('[data-bind]')){
+      button.addEventListener('click',()=>{
+        recording=button.dataset.bind;
+        button.textContent='PREMIR NOVA TECLA...';
+      });
+    }
+    document.addEventListener('keydown',event=>{
+      if(!recording)return;
+      event.preventDefault();event.stopImmediatePropagation();
+      const key=event.key.toLowerCase();
+      const binding=recording;recording=null;
+      const reserved=['q','e','m','r','n','k','x','z','tab'];
+      if(key==='escape'){refresh();return;}
+      if(!/^[a-z0-9 ]$/.test(key)||reserved.includes(key)||
+          Object.entries(cfg.bindings).some(([name,assigned])=>name!==binding&&assigned===key)) {
+        this.api.toast('TECLA RESERVADA OU JÁ UTILIZADA');
+        refresh();return;
+      }
+      cfg.bindings[binding]=key;
+      this.api.persistSettings();
+      refresh();
+    },true);
+    $('bindingsReset').addEventListener('click',()=>{
+      cfg.bindings={...defaults};
+      this.api.persistSettings();refresh();
+    });
+    refresh();
   }
 
   createHud(){this.dial=document.querySelector('.speed-dial');}
