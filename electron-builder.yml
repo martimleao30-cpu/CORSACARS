@@ -1,0 +1,20 @@
+appId: pt.corsacars.game
+productName: CORSACARS
+copyright: Copyright (c) 2026 CORSACARS
+asar: true
+directories:
+  output: release
+files:
+  - desktop/main.cjs
+  - dist/**/*
+  - package.json
+  - '!**/*.map'
+win:
+  executableName: CORSACARS
+  target:
+    - target: portable
+      arch:
+        - x64
+portable:
+  artifactName: CORSACARS-Windows-${version}-${arch}.exe
+compression: normal
