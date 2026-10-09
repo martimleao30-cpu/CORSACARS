@@ -481,6 +481,12 @@ function frame(now) {
 }
 
 applyQuality();
+// Load optional detailed car and natural environment lighting already in the 3D menu.
+// Network failures keep the procedural car and the rest of the game functional.
+if (!window.__CORSACARS_DISABLE_REMOTE_ASSETS__) {
+  void assets.start(settings.quality);
+  void indirect.load();
+}
 camera.position.copy(car.getPosition()).add(new THREE.Vector3(0, 5, -13));
 camera.lookAt(car.getPosition());
 $('loading').classList.add('hidden');
