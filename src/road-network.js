@@ -20,7 +20,10 @@ export const REGIONAL_LINKS = Object.freeze([
     via:[[35,-480],[-165,-525],[-385,-465],[-455,-320]]},
   {id:'gravilha',name:'Acesso à Pedreira',surface:'gravel',width:8,
     from:65,to:115,
-    via:[[-470,-130],[-580,-25],[-525,150],[-375,235]]}
+    via:[[-470,-130],[-580,-25],[-525,150],[-375,235]]},
+  {id:'provas',name:'Centro de Testes Físicos',surface:'dry',width:13,
+    from:343,to:20,
+    via:[[125,-470],[-65,-620],[-260,-650],[-440,-550],[-415,-375]]}
 ]);
 
 function materialFor(surface,quality) {
@@ -132,7 +135,7 @@ export class RoadNetwork {
         for(let cx=minX;cx<=maxX;cx++)for(let cz=minZ;cz<=maxZ;cz++){
           const key=cx+','+cz;
           if(!this.cells.has(key))this.cells.set(key,[]);
-          this.cells.get(key).push({road,a,b});
+          this.cells.get(key).push({road,a,b,index:i});
         }
       }
     }
@@ -141,15 +144,21 @@ export class RoadNetwork {
   query(x,z,weather='clear'){
     const key=Math.floor(x/this.cellSize)+','+Math.floor(z/this.cellSize);
     const candidates=this.cells.get(key)||[];
-    let road=null, min=Infinity;
+    let road=null, min=Infinity, closestSegment=null;
     for(const link of candidates){
       const distanceSq=sqDistanceToSegment(x,z,link.a,link.b);
-      if(distanceSq<min) {min=distanceSq;road=link.road;}
+      if(distanceSq<min) {min=distanceSq;road=link.road;closestSegment=link;}
     }
     if(!road)return {surface:'grass',road:null,distance:Infinity};
     const distance=Math.sqrt(min);
     if(distance<=road.width*.5+.65){
-      const type=(road.surface==='dry'&&weather==='rain')?'wet':road.surface;
+      let type=(road.surface==='dry'&&weather==='rain')?'wet':road.surface;
+      if(road.id==='provas'){
+        const u=closestSegment.index/(road.points.length-1);
+        if(u>.50&&u<.59)type='dirt';
+        if(u>=.59&&u<.72)type='wet';
+        if(u>=.72&&u<.80)type='gravel';
+      }
       return {surface:type,road:road.name,distance};
     }
     if(distance<=road.width*.5+3.1){
