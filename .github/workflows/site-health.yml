@@ -1,0 +1,29 @@
+name: Verificar site CORSACARS online
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check-online:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Verificar se o jogo responde publicamente
+        shell: bash
+        run: |
+          URL="https://martimleao30-cpu.github.io/CORSACARS/"
+          for i in 1 2 3 4 5; do
+            echo "Verificacao $i: $URL"
+            STATUS=$(curl --location --silent --show-error --max-time 12 --output /tmp/corsacars-public.html --write-out '%{http_code}' "$URL" || true)
+            echo "HTTP status: $STATUS"
+            if [ "$STATUS" = "200" ] && grep -iq 'CORSACARS' /tmp/corsacars-public.html; then
+              echo "OK: jogo publico responde HTTP 200 e HTML valido."
+              exit 0
+            fi
+            sleep 12
+          done
+          echo "::error::A pagina publica ainda nao responde corretamente."
+          head -c 150 /tmp/corsacars-public.html || true
+          exit 1
