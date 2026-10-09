@@ -57,4 +57,4 @@ assert.equal(near.id,spot.id);
 sectors.update(new THREE.Vector3(3500,0,3500),6);
 assert.equal(sectors.active.size,0,'Out-of-range sectors must unload');
 assert.equal(physics.bodies.length,initial,'Sector collider objects must be removed');
-console.log('PASS: 5 interconnected routes, collision-backed surfaces, road lookup, and dynamic loading/unloading of POI sectors.');
+console.log('PASS: 6 interconnected routes, collision-backed surfaces, road lookup, and dynamic loading/unloading of POI sectors.');
