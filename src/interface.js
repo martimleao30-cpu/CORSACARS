@@ -491,7 +491,7 @@ export class PremiumInterface {
       event.preventDefault();event.stopImmediatePropagation();
       const key=event.key.toLowerCase();
       const binding=recording;recording=null;
-      const reserved=['q','e','m','r','n','k','x','z','tab'];
+      const reserved=['q','e','m','r','n','k','x','z','f','tab'];
       if(key==='escape'){refresh();return;}
       if(!/^[a-z0-9 ]$/.test(key)||reserved.includes(key)||
           Object.entries(cfg.bindings).some(([name,assigned])=>name!==binding&&assigned===key)) {
