@@ -51,4 +51,18 @@ assert.match(premiumCss,/style-racing/);
 assert.match(main,/ui\.updateTelemetry/);
 assert.match(main,/saveSession/);
 assert.match(main,/settings\.bindings/);
-console.log('PASS: interface, photo-assets fallback, irradiance and performance checks.');
+const details=readFileSync(new URL('../src/world-details.js',import.meta.url),'utf8');
+for(const feature of ['buildGrass','buildShrubs','buildClouds','buildPuddles',
+  'buildGuardrails','buildSigns','animateTreeLeaves','setDensity']) {
+  assert.ok(details.includes(feature),'World detail feature missing: '+feature);
+}
+assert.match(details,/InstancedMesh/);
+assert.match(details,/uCorsaWind/);
+assert.match(world,/details\.update/);
+assert.match(world,/createTerrainMaterial/);
+assert.match(vehicle,/contactShadow/);
+assert.match(vehicle,/tireTreads/);
+assert.match(vehicle,/dashLight/);
+assert.match(premium,/style-glass/);
+assert.match(premiumCss,/style-glass/);
+console.log('PASS: vehicle, road, 3D vegetation, wet weather, clouds and translucent HUD integrations.');
