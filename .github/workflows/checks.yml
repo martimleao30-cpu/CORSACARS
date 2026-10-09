@@ -32,6 +32,8 @@ jobs:
         run: |
           python3 -m http.server 8080 >/tmp/corsacars-http.log 2>&1 &
           sleep 2
+      - name: Verify instanced vegetation, wind, clouds and wet/dry transitions
+        run: npm run test:world
       - name: Browser WebGL driving smoke test
         run: npm run test:browser
       - name: Verify licensed external car, texture and HDRI (advisory)
