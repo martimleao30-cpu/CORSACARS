@@ -14,10 +14,12 @@ function restoreSettings() {
     return {
       quality: ['low', 'medium', 'high', 'ultra'].includes(saved.quality) ? saved.quality : 'high',
       fps: [0, 30, 60, 120].includes(saved.fps) ? saved.fps : 60,
-      sound: saved.sound !== false
+      sound: saved.sound !== false,
+      ao: saved.ao !== false,
+      reflections: saved.reflections !== false
     };
   } catch {
-    return { quality: 'high', fps: 60, sound: true };
+    return { quality: 'high', fps: 60, sound: true, ao: true, reflections: true };
   }
 }
 const settings = restoreSettings();
@@ -45,7 +47,7 @@ physics.broadphase = new CANNON.SAPBroadphase(physics);
 const world = new DrivingWorld(scene, physics, settings.quality);
 const car = new PlayerVehicle(physics, scene, world.spawn);
 const graphics = new GraphicsPipeline(renderer, scene, camera, car, world);
-graphics.setQuality(settings.quality);
+graphics.setQuality(settings.quality, settings);
 void graphics.initialize();
 
 let active = false;
@@ -262,7 +264,7 @@ function applyQuality() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8) * scales[settings.quality]);
   renderer.shadowMap.enabled = settings.quality !== 'low';
   renderer.shadowMap.needsUpdate = true;
-  graphics.setQuality(settings.quality);
+  graphics.setQuality(settings.quality, settings);
   resize();
 }
 function resize() {
@@ -291,6 +293,18 @@ $('qualitySelect').addEventListener('change', event => {
 $('fpsSelect').value = String(settings.fps);
 $('fpsSelect').addEventListener('change', event => {
   settings.fps = Number(event.target.value);
+  persistSettings();
+});
+$('aoToggle').checked = settings.ao;
+$('reflectionToggle').checked = settings.reflections;
+$('aoToggle').addEventListener('change', event => {
+  settings.ao = Boolean(event.target.checked);
+  graphics.setQuality(settings.quality, settings);
+  persistSettings();
+});
+$('reflectionToggle').addEventListener('change', event => {
+  settings.reflections = Boolean(event.target.checked);
+  graphics.setQuality(settings.quality, settings);
   persistSettings();
 });
 $('soundToggle').checked = settings.sound;
