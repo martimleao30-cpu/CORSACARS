@@ -16,7 +16,7 @@ for (const id of ids) {
 }
 assert.match(html, /three@0\.168\.0/);
 assert.match(html, /cannon-es@0\.20\.0/);
-assert.match(main, /physics\.fixedStep/);
+assert.match(main, /physics\.step/);
 assert.match(main, /navigator\.getGamepads/);
 assert.match(main, /requestFullscreen/);
 assert.match(world, /new CANNON\.Trimesh/);
