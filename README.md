@@ -1,6 +1,27 @@
-# CORSACARS — Open Road v0.5
+# CORSACARS — Open Road v0.6
 
 **CORSACARS** é um projeto de jogo de automóveis 3D independente, disponível em **aplicação Windows (.exe) e navegador** com [Three.js](https://threejs.org/) e [cannon-es](https://pmndrs.github.io/cannon-es/). **Não utiliza Unity** e não partilha quaisquer ficheiros com o projeto Minecraft.
+
+## Aplicação Windows com atualizações automáticas — v0.6
+
+O CORSACARS dispõe agora de um instalador Windows **NSIS** gerado no GitHub Actions. Instala o jogo localmente, cria um atalho no ambiente de trabalho e passa a procurar atualizações automaticamente ao arrancar (e, durante sessões longas, de hora a hora).
+
+1. **Uma única instalação inicial:** abre [GitHub Releases](https://github.com/martimleao30-cpu/CORSACARS/releases/latest) e descarrega o ficheiro **CORSACARS-Setup-0.6.x-x64.exe** da última versão publicada (quando a primeira publicação terminar). Os executáveis NSIS ainda não têm uma assinatura digital comercial, pelo que o Windows poderá apresentar um aviso.
+2. Executa o instalador, escolhe a pasta e abre o atalho **CORSACARS** que é criado no ambiente de trabalho.
+3. Quando houver uma versão nova, surge um aviso **ATUALIZAÇÃO DISPONÍVEL** dentro do jogo. Carrega em **ATUALIZAR AGORA** para descarregar, ou **Mais tarde** para continuares a conduzir.
+4. Quando terminar, carrega em **REINICIAR E INSTALAR**. O jogo guarda a sessão antes de reiniciar. Também há um botão **PROCURAR ATUALIZAÇÕES** nas Definições.
+5. Continua a jogar no mesmo atalho; deixa de ser necessário descarregar manualmente os executáveis de cada nova versão.
+
+**Importante:** o antigo executável portátil **0.5.0** não suporta atualizações automáticas. Tens de instalar a versão 0.6 com instalador **uma única vez** para ativar o sistema.
+
+### Funcionamento e segurança
+
+- As atualizações são publicadas automaticamente como **GitHub Releases** na rama `main` quando se altera o código desktop; cada build recebe uma versão única `0.6.N`.
+- A aplicação usa o serviço `electron-updater` do Electron Builder, metadata `latest.yml` e verificação SHA-512 dos ficheiros descarregados.
+- A aplicação pergunta antes de descarregar e pergunta antes de reiniciar. Se não houver Internet, continua jogável.
+- Não está configurada assinatura de código paga. Para uma distribuição de produção, deve ser adicionada assinatura Authenticode.
+- Ao atualizar, o Electron reinstala o executável e preserva os dados persistidos na mesma aplicação; não altera o teu projeto Minecraft.
+- Não é um site encapsulado: os ficheiros 3D, física e interface estão compilados e instalados no computador. Os recursos gráficos opcionais externos ainda precisam de Internet.
 
 ## Aplicação Windows (CORSACARS.exe) — jogo instalado no computador
 
@@ -17,7 +38,7 @@ Uma aplicação tem de ser descarregada **uma vez** para funcionar no computador
 
 Para testar a versão desktop localmente: `npm install`, depois `npm run desktop:run`.
 Para criar o executável no Windows: `npm run desktop:build` e `npm run desktop:package`.
-O executável é colocado em `release/`. Não existe atualização automática nem assinatura digital comercial nesta versão.
+O executável é colocado em `release/`. A versão **0.5 portátil** não atualiza automaticamente; instala a versão **0.6 NSIS** descrita acima para receber atualizações. Os builds continuam sem assinatura digital comercial.
 
 ## Abrir online e colocar um atalho no Windows
 
