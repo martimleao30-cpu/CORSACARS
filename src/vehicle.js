@@ -89,6 +89,7 @@ export class PlayerVehicle {
   buildModel() {
     const root = this.model = new THREE.Group();
     const navy = makeCarPaint(0x29445d);
+    this.paintMaterial=navy;
     const dark = painted(0x101820, 0.22, 0.45);
     const glass = makeAutomotiveGlass();
     this.reflectiveMaterials = [navy, glass];
@@ -210,7 +211,12 @@ export class PlayerVehicle {
     this.updateVisuals();
   }
 
-  setImportedCar(model) {
+  setPaintColor(hex) {
+    if(/^#[0-9a-f]{6}$/i.test(hex) && this.paintMaterial)
+      this.paintMaterial.color.set(hex);
+  }
+
+    setImportedCar(model) {
     // Physics and cameras remain attached to the original chassis.
     if (this.importedCar) this.model.remove(this.importedCar);
     this.importedCar = model;
