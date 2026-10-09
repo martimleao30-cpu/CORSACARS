@@ -26,7 +26,7 @@ function restoreSettings() {
       autoQuality: saved.autoQuality === true,
       paint: /^#[0-9a-f]{6}$/i.test(saved.paint) ? saved.paint : '#29445d',
       bindings: saved.bindings && typeof saved.bindings==='object' ? saved.bindings : undefined,
-      ...Object.fromEntries(['renderScale','antiAlias','shadowQuality','drawDistance','vegetation','textureQuality','bloom','engineVolume','steeringSensitivity','gamepadDeadzone','menuAccent'].filter(k => saved[k] !== undefined).map(k => [k,saved[k]]))
+      ...Object.fromEntries(['renderScale','antiAlias','shadowQuality','drawDistance','vegetation','textureQuality','bloom','engineVolume','steeringSensitivity','gamepadDeadzone','menuAccent','tyreCompound','absEnabled','tcsEnabled','escEnabled','analogCurve','invertSteering'].filter(k => saved[k] !== undefined).map(k => [k,saved[k]]))
     };
   } catch {
     return { quality: 'high', fps: 60, sound: true, ao: true, reflections: true, model: true, autoQuality: false };
@@ -83,6 +83,9 @@ let lastSessionSave = 0;
 let cameraMode = 0;
 let cameraLook = new THREE.Vector3();
 let lastFrame = 0;
+const FIXED_DT = 1/60;
+let physicsAccumulator = 0;
+let physicsStepMs = 0;
 let notifyUntil = 0;
 let gamepadLast = { camera: false, menu: false };
 const viewNames = ['SEGUIMENTO', 'EXTERIOR', 'INTERIOR', 'CAPÔ', 'CINEMATOGRÁFICA'];
@@ -155,7 +158,8 @@ window.addEventListener('keydown', event => {
   if (key === 'r') { car.reset(); toast('CARRO RECOLOCADO NA ESTRADA'); }
   if (key === 'm') {
     car.manual = !car.manual;
-    toast(car.manual ? 'CAIXA MANUAL' : 'CAIXA AUTOMÁTICA');
+    if(!car.manual){car.gear=Math.max(1,car.gear);car.reverse=false;}
+    toast(car.manual ? 'CAIXA MANUAL · Q/E: MUDANÇAS' : 'CAIXA AUTOMÁTICA');
   }
   if (key === 'z') { car.setIndicator(-1); toast('PISCA ESQUERDO'); }
   if (key === 'x') { car.setIndicator(1); toast('PISCA DIREITO'); }
@@ -185,9 +189,13 @@ function sampleControls() {
   stick.handbrake = keys.has(bindings.handbrake || ' ');
   const gp = navigator.getGamepads?.()?.find(p => p?.connected && p.mapping === 'standard');
   if (gp) {
-    const steer = gp.axes[0] || 0;
-    stick.steer = Math.abs(steer) > (settings.gamepadDeadzone ?? .12) ?
-      Math.max(-1,Math.min(1,steer * (settings.steeringSensitivity ?? 1))) : stick.steer;
+    const steer=gp.axes[0]||0;
+    const deadzone=Math.max(.05,Math.min(.4,Number(settings.gamepadDeadzone)||.12));
+    const magnitude=Math.max(0,(Math.abs(steer)-deadzone)/(1-deadzone));
+    const linearity=Math.max(.6,Math.min(2.2,Number(settings.analogCurve)||1));
+    const mapped=Math.sign(steer)*Math.pow(magnitude,linearity)*
+      (settings.invertSteering?-1:1)*(settings.steeringSensitivity??1);
+    if(magnitude>0)stick.steer=Math.max(-1,Math.min(1,mapped));
     stick.accelerate = Math.max(stick.accelerate, gp.buttons[7]?.value || 0);
     stick.brake = Math.max(stick.brake, gp.buttons[6]?.value || 0);
     stick.handbrake ||= gp.buttons[0]?.pressed || false;
@@ -205,6 +213,7 @@ function sampleControls() {
       sampleControls.lastUp = up;
     }
   }
+  stick.steer=Math.max(-1,Math.min(1,stick.steer));
   return stick;
 }
 
@@ -363,6 +372,47 @@ function restoreSession() {
     car.chassis.angularVelocity.set(0,0,0);
   } catch {}
 }
+
+function createDiagnostics(){
+  const node=document.createElement('div');
+  node.id='physicsDiagnostics';
+  node.hidden=true;
+  node.setAttribute('aria-live','off');
+  node.style.cssText=[
+    'position:fixed;top:76px;right:22px;z-index:12',
+    'width:270px;padding:14px 15px;border:1px solid #92b77e',
+    'border-radius:8px;background:rgba(8,21,29,.87)',
+    'color:#dbecef;font:11px/1.5 monospace;white-space:pre-line',
+    'pointer-events:none;backdrop-filter:blur(8px)'
+  ].join(';');
+  document.body.appendChild(node);
+  let last=0;
+  return {node,update(data,stepMs,roadCount){
+    if(node.hidden)return;
+    const now=performance.now();
+    if(now-last<160)return;
+    last=now;
+    node.textContent=[
+      'FÍSICA CORSACARS · F3 PARA FECHAR',
+      'Velocidade: '+data.speed+' km/h',
+      'RPM: '+data.rpm+' | '+data.gearbox+' '+data.gear,
+      'Superfície: '+data.surface+' | μ='+data.grip,
+      'Força motriz: '+data.driveForceN+' N',
+      'Potência instantânea: '+data.enginePowerKW+' kW',
+      'Patinagem motriz: '+data.slip,
+      'Rodas em contacto: '+data.wheelContact+'/4',
+      'Suspensão [m]: '+(data.suspension||[]).join(' · '),
+      'Slip rodas: '+(data.wheelSlip||[]).join(' · '),
+      'TCS redução: '+Math.round((data.tractionIntervention||0)*100)+'%',
+      'Tempo física: '+stepMs.toFixed(2)+' ms',
+      'Estradas da região: '+roadCount
+    ].join('\n');
+  }};
+}
+window.addEventListener('keydown',e=>{
+  if(e.key==='F3'){e.preventDefault();diagnostics.node.hidden=!diagnostics.node.hidden;}
+});
+
 function resize() {
   const width = window.innerWidth, height = window.innerHeight;
   camera.aspect = width / Math.max(height, 1);
@@ -371,6 +421,7 @@ function resize() {
   graphics.resize();
 }
 window.addEventListener('resize', resize);
+const diagnostics = createDiagnostics();
 const ui = new PremiumInterface({
   vehicle:car,world,settings,persistSettings,applyQuality,
   showPanel,backPanel,closeSettings,
@@ -379,6 +430,12 @@ const ui = new PremiumInterface({
   reloadTextures:(quality)=>assets.loadPhotographicAsphalt(quality==='high'?'ultra':'high')
 });
 car.setPaintColor(settings.paint);
+car.setTyreCompound(settings.tyreCompound||'road');
+car.setAssists({
+  abs:settings.absEnabled!==false,
+  tcs:settings.tcsEnabled!==false,
+  esc:settings.escEnabled!==false
+});
 if(localStorage.getItem(SESSION_KEY)) {
   $('startButton').innerHTML='CONTINUAR A CONDUZIR <span>↗</span>';
 }
@@ -453,9 +510,18 @@ function frame(now) {
   let controls = { steer: 0, accelerate: 0, brake: 0, handbrake: false };
   if (play) {
     controls = sampleControls();
-    car.updatePhysics(dt, controls, world.weather);
-    physics.step(1 / 60, dt, 4);
+    physicsAccumulator=Math.min(.12,physicsAccumulator+dt);
+    const physicsStart=performance.now();
+    let substeps=0;
+    while(physicsAccumulator>=FIXED_DT && substeps<5){
+      car.updatePhysics(FIXED_DT,controls,(x,z)=>world.surfaceAt(x,z));
+      physics.step(FIXED_DT);
+      physicsAccumulator-=FIXED_DT;
+      substeps++;
+    }
+    physicsStepMs=performance.now()-physicsStart;
   } else {
+    physicsAccumulator=0;
     // Detect gamepad Start even when paused.
     const gp = navigator.getGamepads?.()?.find(p => p?.connected && p.mapping === 'standard');
     const pressed = Boolean(gp?.buttons[9]?.pressed);
@@ -471,7 +537,8 @@ function frame(now) {
   graphics.update(dt, play);
   const telemetry = car.getTelemetry();
   ui.updateTelemetry(telemetry,controls.handbrake);
-  $('hudState').textContent = telemetry.gearbox + ' · RWD · FÍSICA ALPHA';
+  $('hudState').textContent = telemetry.gearbox + ' · '+car.spec.drivetrain+' · '+(telemetry.surface||'ASFALTO').toUpperCase();
+  diagnostics.update(telemetry,physicsStepMs,world.network?.roads.length||1);
   const hours = Math.floor(world.hour), mins = Math.floor(world.hour % 1 * 60);
   $('worldTime').textContent = String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
   $('weatherLabel').textContent = { clear: 'CÉU LIMPO', rain: 'CHUVA', fog: 'NEVOEIRO' }[world.weather];
