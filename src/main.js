@@ -433,6 +433,9 @@ function createDiagnostics(){
       'Slip rodas: '+(data.wheelSlip||[]).join(' · '),
       'TCS redução: '+Math.round((data.tractionIntervention||0)*100)+'%',
       'Tempo física: '+stepMs.toFixed(2)+' ms',
+      'FPS estimados: '+performanceMonitor.current.fps,
+      'Render: '+renderer.info.render.calls+' draw calls · '+renderer.info.render.triangles+' tri',
+      'Memória GPU aprox.: '+renderer.info.memory.textures+' texturas / '+renderer.info.memory.geometries+' geometrias',
       'Estradas da região: '+roadCount
     ].join('\n');
   }};
