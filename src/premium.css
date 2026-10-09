@@ -85,3 +85,13 @@
 .hud .speed-dial{transform-origin:bottom right}
 #assetStatus{display:none}
 }
+
+#startScreen .button-stack{display:grid;grid-template-columns:1fr 1fr;gap:9px;max-width:480px}
+#startScreen .button-stack .primary{grid-column:1/-1}
+#startScreen .button-stack button{min-width:0;padding:15px 17px}
+#startScreen .start-footer{margin-top:24px}
+#startScreen .screen-content h1{font-size:clamp(54px,8vw,108px);margin:15px 0}
+#startScreen .lead{margin-bottom:19px}
+#startScreen .screen-content{max-height:95vh;overflow-y:auto;scrollbar-width:thin;padding:12px 4px 12px 0}
+#pauseScreen .panel button{padding:14px 18px;margin-bottom:7px}
+@media(max-width:560px){#startScreen .button-stack{grid-template-columns:1fr 1fr;max-width:calc(100vw - 40px)}#startScreen .button-stack button{padding:12px;font-size:9px}#startScreen .screen-content{max-height:96vh}#startScreen .start-footer{display:none}}
