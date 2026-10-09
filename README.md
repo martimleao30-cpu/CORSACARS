@@ -1,4 +1,4 @@
-# CORSACARS — Open Road v0.3
+# CORSACARS — Open Road v0.4
 
 **CORSACARS** é um projeto de jogo de automóveis 3D independente, feito para **navegador** com [Three.js](https://threejs.org/) e [cannon-es](https://pmndrs.github.io/cannon-es/). **Não utiliza Unity** e não partilha quaisquer ficheiros com o projeto Minecraft.
 
@@ -79,6 +79,31 @@ Para ver os recursos de alta qualidade, começa a conduzir com qualidade gráfic
 ### Metas ainda não garantidas
 
 A versão 0.3 **ainda não equivale à qualidade de Forza Horizon 5**. Faltam modelos artísticos adicionais de produção, GI multirressalto física, geometria de alta densidade do ambiente, cenários fotogramétricos, LODs automáticos de malha, renderização em consola e validação visual/performance real no computador do jogador (por exemplo RTX 4070 Super, 2560 × 1440). Os testes automáticos do GitHub Actions usam WebGL por software, não a tua placa gráfica.
+
+## Interface Premium v0.4
+
+O jogo continua a ser feito com **Three.js, cannon-es e HTML/CSS nativos**. Não há Unity, React ou dependência de backend para os menus.
+
+- **Menu principal** com fundo 3D cinematográfico e botões Jogar, Garagem, Personalizar HUD, Definições, Créditos e Sair. O navegador não permite fechar separadores abertos pelo utilizador: o botão Sair explica essa limitação, em vez de simular que fecha.
+- **Pausa** com tecla ESC e acesso ao mapa do circuito atual, garagem, definições e editor de HUD. A simulação da física é suspensa durante a pausa.
+- **Garagem** com um veículo real no jogo (Concept Coupé, 1370 kg, tração traseira, binário de referência 345 Nm). Não apresenta potência ou velocidade máxima inventadas. Permite trocar a cor do modelo físico original; o modelo glTF opcional preserva as texturas licenciadas originais.
+- **Velocímetro com cinco estilos** digital, analógico, Racing, minimalista e personalizado. Os valores vêm da telemetria do carro; pode escolher km/h ou mph, cor, escala, opacidade, visibilidade de RPM e mudança, posição arrastável e animações.
+- **Editor de HUD** com pré-visualização no jogo; Aplicar guarda, Cancelar reverte; três perfis persistentes, Repor e posição por arrastamento do rato.
+- **Definições** em separadores Gráficos, Áudio, Controlos e Interface. Controlo da escala de renderização, resolução efetiva interna, FPS, ecrã inteiro do navegador, sombras, distância de renderização, vegetação, modo gráfico, FXAA, TAA experimental, bloom, SSAO, reflexos dinâmicos, texturas novas 1K/2K, qualidade adaptativa, volume do motor, sensibilidade e zona morta do analógico, remapeamento de teclas, cor da interface e tamanho rápido do HUD.
+- **Comando e teclado**: menus navegáveis com TAB/Enter ou direcional/analógico e A/Cruz; B/Círculo para voltar em submenus. O mapeamento usa o perfil padrão Web Gamepad e pode variar conforme navegador/comando.
+- **Persistência** em localStorage das definições do jogo, da posição do automóvel e do HUD.
+
+### Limites reais do navegador
+
+- O V-Sync é gerido pelo navegador e não pode ser desligado de forma fiável por JavaScript. O jogo suporta limite de FPS próprio.
+- **Não estão implementados** ray tracing, DLSS/FSR ou um sistema de oclusão de geometria de alta complexidade. Frustum culling e instancing padrão do Three.js continuam ativos.
+- Motion Blur e Depth of Field não são aplicados nesta versão; evitamos efeitos artificiais e impacto no desempenho do mundo aberto.
+- **TAA experimental** está disponível no perfil Ultra quando o addon de pós-processamento funcionar; caso contrário, recua para FXAA ou MSAA nativo.
+- A resolução interna é regulada pela escala de pixel ratio, sem simular uma alteração física da resolução do monitor.
+- O áudio do motor é sintetizado; não existem ainda pistas independentes para pneus, efeitos, música e ambiente.
+- O mapa apresenta a estrada já construída e a posição atual, não ruas que ainda não existem.
+- Há apenas um automóvel jogável. A seleção na garagem é real para esse carro, sem apresentar modelos inexistentes.
+- Os testes do CI usam Chromium com renderização WebGL por software: **não validam FPS numa RTX 4070 Super**. É preciso medir em hardware real.
 
 ## Limitações e próximas fases
 
