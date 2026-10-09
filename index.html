@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1421">
+  <title>CORSACARS — Open Road</title>
+  <link rel="stylesheet" href="./src/style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+        "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game" aria-label="Mundo 3D de CORSACARS"></canvas>
+  <div id="loading" class="loading">
+    <div class="loading-mark">C<span>/</span>C</div>
+    <p>Preparar o mundo e a física...</p>
+  </div>
+
+  <header id="topbar" class="topbar hidden">
+    <div class="brand">CORSA<span>CARS</span><small> OPEN ROAD / ALPHA</small></div>
+    <div class="top-right"><span id="worldTime">14:00</span><span id="weatherLabel">CÉU LIMPO</span><button class="glass small" id="pauseButton">PAUSA <kbd>ESC</kbd></button></div>
+  </header>
+
+  <aside id="hud" class="hud hidden" aria-live="off">
+    <div class="speed-dial">
+      <div class="speed-caption">VELOCIDADE</div>
+      <div class="speed-row"><strong id="speedValue">0</strong><span>KM/H</span></div>
+      <div class="rpm-track"><div id="rpmBar"></div></div>
+      <div class="dial-footer"><span id="rpmValue">850 RPM</span><b id="gearValue">N</b></div>
+    </div>
+    <div class="hud-hints"><span><kbd>W</kbd> ACELERAR</span><span><kbd>S</kbd> TRAVAR / RÉ</span><span><kbd>A</kbd> <kbd>D</kbd> VIRAR</span><span><kbd>C</kbd> CÂMARA</span><span><kbd>ESPAÇO</kbd> TRAVÃO MÃO</span></div>
+    <div class="hud-state" id="hudState">AUTO · RWD · ABS</div>
+  </aside>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <section id="startScreen" class="screen hidden">
+    <div class="darken"></div>
+    <div class="screen-content">
+      <div class="eyebrow">UM NOVO CAMINHO COMEÇA AQUI <span class="line"></span> V0.1</div>
+      <h1>CORSA<span>CARS</span></h1>
+      <p class="lead">A estrada é tua. Explora um território 3D, sente a suspensão e descobre cada curva.</p>
+      <div class="button-stack"><button id="startButton" class="primary">COMEÇAR A CONDUZIR <span>↗</span></button><button class="outline" data-open-settings>DEFINIÇÕES <span>⚙</span></button></div>
+      <div class="start-footer"><span>TECLADO + COMANDO</span><span>FÍSICA COM SUSPENSÃO</span><span>SEM UNITY</span></div>
+    </div>
+    <div class="side-decoration">OPEN ROAD // PROTÓTIPO JOGÁVEL</div>
+  </section>
+
+  <section id="pauseScreen" class="screen hidden">
+    <div class="darken"></div>
+    <div class="panel">
+      <div class="eyebrow">CORSACARS / MENU</div>
+      <h2>PAUSA<span>.</span></h2>
+      <p>O teu carro fica aqui à espera.</p>
+      <button id="resumeButton" class="primary">CONTINUAR <span>↗</span></button>
+      <button class="outline" data-open-settings>DEFINIÇÕES <span>⚙</span></button>
+      <button id="restartButton" class="outline">REINICIAR CARRO <span>↻</span></button>
+      <button id="homeButton" class="outline">MENU PRINCIPAL <span>⌂</span></button>
+    </div>
+  </section>
+
+  <section id="settingsScreen" class="screen hidden">
+    <div class="darken"></div>
+    <div class="panel settings-panel">
+      <div class="eyebrow">PERSONALIZAÇÃO / CORSACARS</div>
+      <h2>DEFINIÇÕES<span>.</span></h2>
+      <label>QUALIDADE GRÁFICA<select id="qualitySelect"><option value="low">Baixo</option><option value="medium">Médio</option><option value="high" selected>Alto</option><option value="ultra">Ultra</option></select></label>
+      <label>LIMITAR FPS<select id="fpsSelect"><option value="0">Sem limite</option><option value="30">30 FPS</option><option value="60" selected>60 FPS</option><option value="120">120 FPS</option></select></label>
+      <label>CLIMA<select id="weatherSelect"><option value="clear" selected>Céu limpo</option><option value="rain">Chuva</option><option value="fog">Nevoeiro</option></select></label>
+      <label>HORA DO DIA<input id="timeRange" type="range" min="0" max="24" step="0.25" value="14"></label>
+      <label class="check"><input id="soundToggle" type="checkbox" checked> SOM SINTETIZADO DO MOTOR</label>
+      <button id="fullscreenButton" class="outline">ALTERNAR ECRÃ INTEIRO <span>⛶</span></button>
+      <div class="settings-tip">A resolução acompanha o ecrã. <b>C</b> câmaras · <b>N</b> noite/dia · <b>K</b> clima · <b>R</b> repor veículo · <b>M</b> caixa manual · <b>Q/E</b> mudanças.</div>
+      <button id="settingsBack" class="primary">VOLTAR <span>←</span></button>
+    </div>
+  </section>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
