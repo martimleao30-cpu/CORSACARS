@@ -66,7 +66,7 @@ export class DrivingWorld {
     this.buildScenery();
     this.buildStreetLights();
     this.details = new WorldDetails(this.scene, this.roadPoints, this.roadWidth,
-      groundHeight, this.quality);
+      groundHeight, this.quality, this.vegetation);
     this.buildRain();
     this.updateAtmosphere();
   }
