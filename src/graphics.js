@@ -22,6 +22,7 @@ export class GraphicsPipeline {
     this.vehicle.setReflectionMap(this.reflectionTarget.texture);
     this.ready = false;
     this.failedPostprocessing = false;
+    this.indirect = null;
   }
 
   async initialize() {
@@ -75,6 +76,7 @@ export class GraphicsPipeline {
     this.renderer.toneMappingExposure = THREE.MathUtils.damp(
       this.renderer.toneMappingExposure, targetExposure, 0.8, dt
     );
+    this.indirect?.update(this.world.hour, this.world.weather, this.quality);
     this.frameCount++;
     const frequency = this.quality === 'ultra' ? 25 : 65;
     if (active && this.reflectionEnabled && this.frameCount % frequency === 0) {
@@ -86,6 +88,10 @@ export class GraphicsPipeline {
       for (const wheel of this.vehicle.wheelModels) wheel.visible = false;
       try {
         this.reflectionCamera.update(this.renderer, this.scene);
+        if (this.indirect && !this.indirect.probeAttempted) {
+          // SH samples the lit surrounding scene, a lightweight indirect-light approximation.
+          void this.indirect.captureProbe(this.reflectionTarget);
+        }
       } catch (error) {
         console.warn('[CORSACARS] Reflexos dinâmicos desativados:', error);
         this.reflectionEnabled = false;
