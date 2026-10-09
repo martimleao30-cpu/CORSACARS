@@ -33,7 +33,7 @@ function windMaterial(color, amplitude = 0.12) {
 }
 
 export class WorldDetails {
-  constructor(scene, roadPoints, roadWidth, terrainY, quality = 'high') {
+  constructor(scene, roadPoints, roadWidth, terrainY, quality = 'high', trees = null) {
     this.scene = scene;
     this.points = roadPoints;
     this.width = roadWidth;
@@ -46,9 +46,11 @@ export class WorldDetails {
     this.buildGuardrails();
     this.buildSigns();
     this.buildGrass();
+    this.buildShrubs();
     this.buildFlowers();
     this.buildClouds();
     this.buildPuddles();
+    this.animateTreeLeaves(trees);
   }
 
   roadPoint(index, lateral = 0) {
@@ -197,6 +199,50 @@ export class WorldDetails {
     }
   }
 
+  animateTreeLeaves(trees) {
+    if(!trees) return;
+    // Wind deformation is in the vertex shader, never in a per-frame CPU loop.
+    for (const [mesh,baseColor,strength] of [
+      [trees.leaves,0x879b77,.18],
+      [trees.conifers,0x345b39,.15]
+    ]) {
+      const {mat,shaderUniform}=windMaterial(baseColor,strength);
+      mesh.material.dispose();
+      mesh.material=mat;
+      this.winds.push(shaderUniform);
+    }
+  }
+
+  buildShrubs() {
+    const count=this.quality==='low'?150:this.quality==='medium'?260:530;
+    const geometry=new THREE.IcosahedronGeometry(1,1);
+    const material=new THREE.MeshStandardMaterial({
+      color:0x6c7c4d,roughness:.96,metalness:0
+    });
+    const shrubs=new THREE.InstancedMesh(geometry,material,count);
+    const t=new THREE.Object3D();
+    const palettes=[C(0x527143),C(0x5a7a52),C(0x879866),C(0x496a43)];
+    for(let i=0;i<count;i++) {
+      const p=this.points[Math.floor(rand()*(this.points.length-1))];
+      const side=(rand()<.5?-1:1)*(this.width/2+8+rand()*85);
+      const x=p.center.x+p.side.x*side;
+      const z=p.center.z+p.side.z*side;
+      const scale=.5+rand()*1.15;
+      t.position.set(x,this.terrainY(x,z)+.38*scale,z);
+      t.rotation.set(rand()*.35,rand()*TAU,rand()*.35);
+      t.scale.set(scale*.95,scale*.54,scale);
+      t.updateMatrix();
+      shrubs.setMatrixAt(i,t.matrix);
+      shrubs.setColorAt(i,palettes[Math.floor(rand()*palettes.length)]);
+    }
+    shrubs.instanceMatrix.needsUpdate=true;
+    shrubs.instanceColor.needsUpdate=true;
+    shrubs.receiveShadow=true;
+    shrubs.castShadow=this.quality==='ultra';
+    this.scene.add(shrubs);
+    this.shrubs=shrubs;
+  }
+
   buildFlowers() {
     const amount=this.quality==='low'?90:this.quality==='medium'?220:400;
     const stem=new THREE.InstancedMesh(
@@ -288,6 +334,7 @@ export class WorldDetails {
     for (const patch of this.grassPatches) {
       patch.mesh.count = Math.max(1,Math.floor(patch.mesh.instanceMatrix.count*f));
     }
+    if(this.shrubs)this.shrubs.count=Math.max(1,Math.floor(this.shrubs.instanceMatrix.count*f));
   }
 
   update(dt, car, weather, hour, paused=false) {
