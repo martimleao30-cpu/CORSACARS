@@ -10,6 +10,13 @@ const browser = await chromium.launch({
   ]
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+await page.addInitScript(() => {
+  // CI normally runs WebGL through SwiftShader CPU rendering. Keep driving test deterministic.
+  window.__CORSACARS_DISABLE_REMOTE_ASSETS__ = true;
+  localStorage.setItem('corsacars.settings.v1', JSON.stringify({
+    quality: 'low', fps: 30, ao: false, reflections: false, sound: false
+  }));
+});
 const browserErrors = [];
 page.on('pageerror', err => browserErrors.push(err.message));
 page.on('console', message => {
@@ -25,7 +32,11 @@ try {
 
   await page.locator('#startButton').click();
   await page.keyboard.down('w');
-  await page.waitForTimeout(2800);
+  await page.waitForFunction(() => Number(document.querySelector('#speedValue')?.textContent) > 0,
+    { timeout: 23000, polling: 250 }).catch(async error => {
+    throw new Error('Sem aceleração com WebGL em software: ' + error.message +
+      '. Console: ' + JSON.stringify(browserErrors));
+  });
   await page.keyboard.up('w');
   const speed = Number(await page.locator('#speedValue').textContent());
   assert.ok(speed > 0, 'Car did not accelerate; measured speed=' + speed);
