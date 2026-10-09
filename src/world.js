@@ -347,6 +347,7 @@ export class DrivingWorld {
         pos.needsUpdate = true;
       }
     }
+    this.updateAtmosphere();
     if (vehiclePosition) {
       this.rain.position.set(vehiclePosition.x, vehiclePosition.y - 3, vehiclePosition.z);
       this.stars.position.set(vehiclePosition.x, 0, vehiclePosition.z);
@@ -355,6 +356,5 @@ export class DrivingWorld {
       this.sun.position.z = vehiclePosition.z + Math.sin((this.hour - 6) / 24 * TAU) * 180;
       this.sun.target.updateMatrixWorld();
     }
-    this.updateAtmosphere();
   }
 }
