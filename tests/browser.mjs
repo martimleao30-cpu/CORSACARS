@@ -33,7 +33,7 @@ try {
   await page.locator('#startButton').click();
   await page.keyboard.down('w');
   await page.waitForFunction(() => Number(document.querySelector('#speedValue')?.textContent) > 0,
-    { timeout: 23000, polling: 250 }).catch(async error => {
+    null, { timeout: 23000, polling: 250 }).catch(async error => {
     throw new Error('Sem aceleração com WebGL em software: ' + error.message +
       '. Console: ' + JSON.stringify(browserErrors));
   });
