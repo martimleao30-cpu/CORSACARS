@@ -257,6 +257,29 @@ export class PlayerVehicle {
       this.scene.add(pivot);
       this.wheelModels.push(pivot);
     }
+    // Soft ground-contact shadow supplements the existing cast shadow map.
+    // Transparent radial alpha gives a grounding cue in low quality modes too.
+    const contactCanvas=document.createElement('canvas');
+    contactCanvas.width=contactCanvas.height=128;
+    const ctx=contactCanvas.getContext('2d');
+    const gradient=ctx.createRadialGradient(64,64,5,64,64,63);
+    gradient.addColorStop(0,'rgba(4,9,13,.57)');
+    gradient.addColorStop(.58,'rgba(7,13,16,.29)');
+    gradient.addColorStop(1,'rgba(5,12,16,0)');
+    ctx.fillStyle=gradient;
+    ctx.fillRect(0,0,128,128);
+    const contactMap=new THREE.CanvasTexture(contactCanvas);
+    this.contactShadow=new THREE.Mesh(
+      new THREE.PlaneGeometry(2.65,5.15),
+      new THREE.MeshBasicMaterial({
+        map:contactMap,transparent:true,depthWrite:false,
+        opacity:.66,polygonOffset:true,polygonOffsetFactor:-2
+      })
+    );
+    this.contactShadow.rotation.order='YXZ';
+    this.contactShadow.rotation.x=-Math.PI/2;
+    this.contactShadow.renderOrder=1;
+    this.scene.add(this.contactShadow);
     this.headlights = [];
     for (const side of [-1, 1]) {
       const light = new THREE.SpotLight(0xfff3d8, 0, 55, Math.PI / 8.5, 0.6, 1.2);
@@ -465,6 +488,14 @@ export class PlayerVehicle {
         trans.quaternion.x, trans.quaternion.y, trans.quaternion.z, trans.quaternion.w
       );
     }
+    if (this.contactShadow) {
+      const wheels=this.vehicle.wheelInfos.map(w=>w.worldTransform.position.y-WHEEL_RADIUS);
+      const wheelFloor=Math.min(...wheels);
+      const height=Math.max(-100,Math.min(300,wheelFloor+.025));
+      this.contactShadow.position.set(this.chassis.position.x,height,this.chassis.position.z);
+      const fwd=new THREE.Vector3(0,0,1).applyQuaternion(this.model.quaternion);
+      this.contactShadow.rotation.y=Math.atan2(fwd.x,fwd.z);
+    }
     for (const light of this.headlights) light.intensity = night ? 55 : 0;
     if(this.dashLight)this.dashLight.intensity=night?.75:.11;
     this.brakeMaterial.emissiveIntensity = this.brakeActive ? 2.6 : (night ? 0.58 : 0.14);
@@ -504,6 +535,12 @@ export class PlayerVehicle {
   dispose() {
     this.vehicle.removeFromWorld(this.physics);
     this.scene.remove(this.model);
+    if(this.contactShadow){
+      this.scene.remove(this.contactShadow);
+      this.contactShadow.geometry.dispose();
+      this.contactShadow.material.map?.dispose();
+      this.contactShadow.material.dispose();
+    }
     for (const wheel of this.wheelModels) this.scene.remove(wheel);
   }
 }
