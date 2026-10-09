@@ -3,3 +3,8 @@
 Thumbs.db
 node_modules/
 dist/
+
+# Aplicação Windows: ficheiros compilados e executáveis locais
+release/
+desktop/index.html
+*.blockmap
