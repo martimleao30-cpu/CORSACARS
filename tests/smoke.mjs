@@ -37,4 +37,18 @@ assert.match(lighting, /LightProbeGenerator/);
 assert.match(performance, /drawCalls/);
 assert.match(vehicle, /setVisualDetail/);
 assert.match(vehicle, /this\.wheelModels/);
+const premium=readFileSync(new URL('../src/interface.js',import.meta.url),'utf8');
+const premiumCss=readFileSync(new URL('../src/premium.css',import.meta.url),'utf8');
+for(const id of ['garageScreen','mapScreen','hudEditorScreen','creditsScreen',
+  'hudStyle','hudScale','hudColor','hudUnit','hudApply','hudCancel','hudProfile',
+  'renderScale','antiAlias','shadowQuality','drawDistance','engineVolume']) {
+  assert.ok(premium.includes(id), 'Premium interface missing: '+id);
+}
+assert.match(premium,/localStorage\.setItem/);
+assert.match(premium,/data-bind/);
+assert.match(premiumCss,/style-analog/);
+assert.match(premiumCss,/style-racing/);
+assert.match(main,/ui\.updateTelemetry/);
+assert.match(main,/saveSession/);
+assert.match(main,/settings\.bindings/);
 console.log('PASS: interface, photo-assets fallback, irradiance and performance checks.');
