@@ -6,15 +6,27 @@ directories:
   output: release
 files:
   - desktop/main.cjs
+  - desktop/preload.cjs
+  - desktop/updates.cjs
   - dist/**/*
   - package.json
   - '!**/*.map'
 win:
   executableName: CORSACARS
   target:
-    - target: portable
+    - target: nsis
       arch:
         - x64
-portable:
-  artifactName: CORSACARS-Windows-${version}-${arch}.exe
+nsis:
+  artifactName: CORSACARS-Setup-${version}-x64.exe
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  createDesktopShortcut: true
+  shortcutName: CORSACARS
 compression: normal
+publish:
+  - provider: github
+    owner: martimleao30-cpu
+    repo: CORSACARS
+    releaseType: release
