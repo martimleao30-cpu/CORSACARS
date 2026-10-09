@@ -17,7 +17,7 @@ page.on('console', message => {
 });
 try {
   await page.goto('http://127.0.0.1:8080', { waitUntil: 'domcontentloaded' });
-  await page.locator('#loading.hidden').waitFor({ timeout: 45000 });
+  await page.locator('#loading').waitFor({ state: 'hidden', timeout: 45000 });
   assert.equal(await page.locator('#startButton').isVisible(), true);
   const hasWebGL = await page.evaluate(() =>
     Boolean(document.querySelector('#game').getContext('webgl2')));
