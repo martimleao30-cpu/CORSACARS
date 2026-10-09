@@ -58,7 +58,7 @@ for(const feature of ['buildGrass','buildShrubs','buildClouds','buildPuddles',
 }
 assert.match(details,/InstancedMesh/);
 assert.match(details,/uCorsaWind/);
-assert.match(world,/details\.update/);
+assert.match(world,/details\?\.update/);
 assert.match(world,/createTerrainMaterial/);
 assert.match(vehicle,/contactShadow/);
 assert.match(vehicle,/tireTreads/);
