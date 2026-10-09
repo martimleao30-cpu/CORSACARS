@@ -1,112 +1,149 @@
 import * as THREE from 'three';
 
-// Performance-aware optional effects: failure to load postprocessing never stops driving.
+// Optional post-processing degrades to direct WebGL rendering when unavailable.
+// FXAA: shader post anti-aliasing; TAA: sample accumulation. Browser native MSAA
+// remains enabled at renderer creation, independent of these optional passes.
 export class GraphicsPipeline {
   constructor(renderer, scene, camera, vehicle, world) {
-    this.renderer = renderer;
-    this.scene = scene;
-    this.camera = camera;
-    this.vehicle = vehicle;
-    this.world = world;
-    this.quality = 'high';
-    this.composer = null;
-    this.ssao = null;
-    this.frameCount = 0;
-    this.reflectionEnabled = true;
-    this.options = { ao: true, reflections: true };
-    this.reflectionTarget = new THREE.WebGLCubeRenderTarget(128, {
-      generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter
+    this.renderer=renderer;this.scene=scene;this.camera=camera;
+    this.vehicle=vehicle;this.world=world;
+    this.quality='high';this.options={ao:true,reflections:true,antiAlias:'native',bloom:'off'};
+    this.composer=null;this.ssao=null;this.taa=null;this.renderPass=null;
+    this.fxaa=null;this.bloom=null;
+    this.frameCount=0;this.reflectionEnabled=true;
+    this.reflectionTarget=new THREE.WebGLCubeRenderTarget(128,{
+      generateMipmaps:true,minFilter:THREE.LinearMipmapLinearFilter
     });
-    this.reflectionCamera = new THREE.CubeCamera(0.75, 155, this.reflectionTarget);
+    this.reflectionCamera=new THREE.CubeCamera(.75,155,this.reflectionTarget);
     this.scene.add(this.reflectionCamera);
     this.vehicle.setReflectionMap(this.reflectionTarget.texture);
-    this.ready = false;
-    this.failedPostprocessing = false;
-    this.indirect = null;
+    this.ready=false;this.failedPostprocessing=false;this.indirect=null;
   }
 
   async initialize() {
     try {
-      const [{ EffectComposer }, { RenderPass }, { SSAOPass }, { OutputPass }] =
-        await Promise.all([
-          import('three/addons/postprocessing/EffectComposer.js'),
-          import('three/addons/postprocessing/RenderPass.js'),
-          import('three/addons/postprocessing/SSAOPass.js'),
-          import('three/addons/postprocessing/OutputPass.js')
-        ]);
-      this.composer = new EffectComposer(this.renderer);
-      this.composer.addPass(new RenderPass(this.scene, this.camera));
-      this.ssao = new SSAOPass(this.scene, this.camera,
-        Math.max(1, window.innerWidth), Math.max(1, window.innerHeight), 16);
-      this.ssao.kernelRadius = 10;
-      this.ssao.minDistance = 0.004;
-      this.ssao.maxDistance = 0.11;
+      const [{EffectComposer},{RenderPass},{SSAOPass},{OutputPass}] = await Promise.all([
+        import('three/addons/postprocessing/EffectComposer.js'),
+        import('three/addons/postprocessing/RenderPass.js'),
+        import('three/addons/postprocessing/SSAOPass.js'),
+        import('three/addons/postprocessing/OutputPass.js')
+      ]);
+      this.composer=new EffectComposer(this.renderer);
+      this.renderPass=new RenderPass(this.scene,this.camera);
+      this.composer.addPass(this.renderPass);
+      this.ssao=new SSAOPass(this.scene,this.camera,
+        Math.max(1,window.innerWidth),Math.max(1,window.innerHeight),16);
+      this.ssao.kernelRadius=10;
+      this.ssao.minDistance=.004;this.ssao.maxDistance=.11;
       this.composer.addPass(this.ssao);
+
+      // One failure in an optional pass must not prevent other effects.
+      try{
+        const [{UnrealBloomPass}] = await Promise.all([
+          import('three/addons/postprocessing/UnrealBloomPass.js')
+        ]);
+        this.bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.12,.36,.91);
+        this.composer.addPass(this.bloom);
+      }catch(e){console.warn('[CORSACARS] Bloom indisponível:',e);}
+      try{
+        const [{ShaderPass},{FXAAShader}] = await Promise.all([
+          import('three/addons/postprocessing/ShaderPass.js'),
+          import('three/addons/shaders/FXAAShader.js')
+        ]);
+        this.fxaa=new ShaderPass(FXAAShader);
+        this.composer.addPass(this.fxaa);
+      }catch(e){console.warn('[CORSACARS] FXAA indisponível:',e);}
+      try{
+        const {TAARenderPass}=await import('three/addons/postprocessing/TAARenderPass.js');
+        this.taa=new TAARenderPass(this.scene,this.camera);
+        this.taa.sampleLevel=1;
+        this.taa.accumulate=true;
+        this.composer.insertPass(this.taa,0);
+      }catch(e){console.warn('[CORSACARS] TAA indisponível:',e);}
       this.composer.addPass(new OutputPass());
-      this.ready = true;
-      this.setQuality(this.quality, this.options);
+      this.ready=true;
+      this.configureEffects(this.options);
       this.resize();
-    } catch (error) {
-      // Optional effect: unsupported hardware/CDN errors should not crash gameplay.
-      this.failedPostprocessing = true;
-      console.warn('[CORSACARS] Oclusão ambiente indisponível:', error);
+    }catch(error){
+      this.failedPostprocessing=true;
+      console.warn('[CORSACARS] Pós-processamento indisponível; renderização direta ativa.',error);
     }
   }
 
-  setQuality(quality, options = this.options) {
-    this.quality = quality;
-    this.options = { ...options };
-    const advanced = quality === 'high' || quality === 'ultra';
-    this.reflectionEnabled = advanced && this.options.reflections !== false;
-    if (this.ssao) this.ssao.enabled = advanced && this.options.ao !== false;
-    if (this.composer) this.resize();
+  setQuality(quality,options=this.options) {
+    this.quality=quality;
+    this.options={...this.options,...options};
+    this.reflectionEnabled=['high','ultra'].includes(quality)&&this.options.reflections!==false;
+    this.configureEffects(this.options);
+  }
+
+  configureEffects(options=this.options) {
+    this.options={...this.options,...options};
+    const advanced=['high','ultra'].includes(this.quality);
+    this.reflectionEnabled=advanced&&this.options.reflections!==false;
+    if(this.ssao) this.ssao.enabled=advanced&&this.options.ao!==false;
+    if(this.bloom){
+      this.bloom.enabled=this.options.bloom==='low'||this.options.bloom==='medium';
+      this.bloom.strength=this.options.bloom==='medium'?.25:.11;
+      this.bloom.radius=.4;
+      this.bloom.threshold=.93;
+    }
+    const taa=this.options.antiAlias==='taa'&&this.quality==='ultra';
+    if(this.taa){
+      this.taa.enabled=taa;
+      if(this.renderPass)this.renderPass.enabled=!taa;
+    }
+    if(this.fxaa)this.fxaa.enabled=this.options.antiAlias==='fxaa'||
+      (this.options.antiAlias==='taa'&&!taa);
+    this.resize();
   }
 
   resize() {
-    if (!this.composer) return;
+    if(!this.composer)return;
     this.composer.setPixelRatio(this.renderer.getPixelRatio());
-    this.composer.setSize(window.innerWidth, window.innerHeight);
+    this.composer.setSize(innerWidth,innerHeight);
+    if(this.fxaa){
+      const size=new THREE.Vector2();
+      this.renderer.getDrawingBufferSize(size);
+      this.fxaa.material.uniforms.resolution.value.set(1/Math.max(1,size.x),1/Math.max(1,size.y));
+    }
   }
 
-  update(dt, active = true) {
-    const daytime = Math.max(0, Math.sin(((this.world.hour - 6) / 24) * Math.PI * 2));
-    let targetExposure = 0.86 + 0.3 * daytime;
-    if (this.world.weather === 'fog') targetExposure += 0.08;
-    if (this.world.weather === 'rain') targetExposure -= 0.08;
-    this.renderer.toneMappingExposure = THREE.MathUtils.damp(
-      this.renderer.toneMappingExposure, targetExposure, 0.8, dt
-    );
-    this.indirect?.update(this.world.hour, this.world.weather, this.quality);
+  update(dt,active=true){
+    const daytime=Math.max(0,Math.sin(((this.world.hour-6)/24)*Math.PI*2));
+    let targetExposure=.86+.3*daytime;
+    if(this.world.weather==='fog')targetExposure+=.08;
+    if(this.world.weather==='rain')targetExposure-=.08;
+    this.renderer.toneMappingExposure=THREE.MathUtils.damp(
+      this.renderer.toneMappingExposure,targetExposure,.8,dt);
+    this.indirect?.update(this.world.hour,this.world.weather,this.quality);
     this.frameCount++;
-    const frequency = this.quality === 'ultra' ? 25 : 65;
-    if (active && this.reflectionEnabled && this.frameCount % frequency === 0) {
+    const frequency=this.quality==='ultra'?25:65;
+    if(active&&this.reflectionEnabled&&this.frameCount%frequency===0){
       this.reflectionCamera.position.copy(this.vehicle.model.position)
-        .add(new THREE.Vector3(0, 0.6, 0));
-      const oldCarVisibility = this.vehicle.model.visible;
-      const oldWheels = this.vehicle.wheelModels.map(w => w.visible);
-      this.vehicle.model.visible = false;
-      for (const wheel of this.vehicle.wheelModels) wheel.visible = false;
-      try {
-        this.reflectionCamera.update(this.renderer, this.scene);
-        if (this.indirect && !this.indirect.probeAttempted) {
-          // SH samples the lit surrounding scene, a lightweight indirect-light approximation.
+        .add(new THREE.Vector3(0,.6,0));
+      const oldCarVisibility=this.vehicle.model.visible;
+      const oldWheels=this.vehicle.wheelModels.map(w=>w.visible);
+      this.vehicle.model.visible=false;
+      for(const wheel of this.vehicle.wheelModels)wheel.visible=false;
+      try{
+        this.reflectionCamera.update(this.renderer,this.scene);
+        if(this.indirect&&!this.indirect.probeAttempted)
           void this.indirect.captureProbe(this.reflectionTarget);
-        }
-      } catch (error) {
-        console.warn('[CORSACARS] Reflexos dinâmicos desativados:', error);
-        this.reflectionEnabled = false;
-      } finally {
-        this.vehicle.model.visible = oldCarVisibility;
-        this.vehicle.wheelModels.forEach((w, i) => { w.visible = oldWheels[i]; });
+      }catch(error){
+        console.warn('[CORSACARS] Reflexos dinâmicos desativados:',error);
+        this.reflectionEnabled=false;
+      }finally{
+        this.vehicle.model.visible=oldCarVisibility;
+        this.vehicle.wheelModels.forEach((w,i)=>{w.visible=oldWheels[i];});
       }
     }
   }
 
-  render() {
-    if (this.composer && this.ssao?.enabled && this.ready) {
-      this.composer.render();
-    } else {
-      this.renderer.render(this.scene, this.camera);
-    }
+  render(){
+    const enabled=this.ssao?.enabled||this.taa?.enabled||
+      this.fxaa?.enabled||this.bloom?.enabled;
+    if(this.composer&&this.ready&&enabled)this.composer.render();
+    else this.renderer.render(this.scene,this.camera);
   }
 }
