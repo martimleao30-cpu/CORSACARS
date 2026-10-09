@@ -153,6 +153,24 @@ O jogo continua a ser feito com **Three.js, cannon-es e HTML/CSS nativos**. Não
 - Há apenas um automóvel jogável. A seleção na garagem é real para esse carro, sem apresentar modelos inexistentes.
 - Os testes do CI usam Chromium com renderização WebGL por software: **não validam FPS numa RTX 4070 Super**. É preciso medir em hardware real.
 
+## Evolução gráfica — estradas, natureza, automóvel e clima
+
+As melhorias seguintes estão **implementadas no código real** do jogo, tanto para a versão WebGL como para a aplicação Windows. Não são imagens geradas, mockups ou um cenário pré-renderizado.
+
+- **Automóvel:** materiais PBR de pintura e vidro com Clear Coat; reflexos dinâmicos existentes preservados. Mais guarnições, escapes, rodas com **36 blocos de piso por pneu** através de InstancedMesh, discos de travão, bancos com encostos, tecido e couro, peças de metal escovado e iluminação do painel. Foi acrescentada uma sombra suave de contacto sob o chassis seguindo a altura das rodas. Faróis, piscas, luzes de travagem, matrícula e instrumentos continuam funcionais. O modelo opcional Khronos mantém as peças originais licenciadas.
+- **Estrada:** asfalto com mapas de cor, rugosidade e relevo calculados localmente em **256 px (baixo), 512 px (normal) ou 1024 px (Ultra)**, para além da fototextura opcional; bordas de gravilha, guardas metálicas instanciadas e sinais direcionais. A chuva aumenta gradualmente o Clear Coat e reduz a rugosidade em vez de mudar instantaneamente.
+- **Vegetação:** relva verdadeira com lâminas triangulares tridimensionais e vento calculado no shader; zonas instanciadas desligadas à distância; arbustos 3D, flores, espécies folhosas e coníferas, escala e rotação variáveis, folhagem com vento por GPU.
+- **Terreno:** maior resolução geométrica nos perfis altos, material procedural texturizado e normal map que varia localmente, vegetação dispersa e rochas 3D. A textura do solo mistura-se com os gradientes de cores aplicados aos vértices nas montanhas.
+- **Atmosfera:** grupos geométricos de nuvens animadas, ciclo dia/noite com duração aproximada de **20 minutos reais**, amanhecer/entardecer, cor da luz e céu variáveis, estrelas noturnas existentes e névoa que se ajusta progressivamente; chuva visual, poças 3D e efeito de molhamento/secagem gradativo.
+- **Desempenho:** geometria partilhada, instancing dos elementos repetidos, regiões de relva por células, frustum culling destas regiões e ativação por distância, LOD de detalhes das rodas e densidade vegetal ligada às definições gráficas.
+- **Velocímetro:** novo estilo **Vidro e cobre**, inspirado no exemplo enviado, com **painel translúcido em vez de fundo preto**, velocidade real e RPM da simulação; continua configurável no editor de HUD.
+
+### Limites reais
+
+Isto é uma atualização importante dos visuais do protótipo, **não fotorrealismo AAA completo**: as árvores, estradas, montanhas e nuvens são geometria/procedimentos simplificados, não levantamentos fotogramétricos nem nuvens volumétricas físicas. A iluminação e os reflexos são aproximações próprias de WebGL (sem ray tracing), e as poças não têm reflexão planar exata. O desempenho ainda requer medição e afinação no hardware do utilizador.
+
+Os testes automáticos incluem compilação/sintaxe, ensaios de vegetação, LOD, vento, molhamento/secagem e condução em Chromium WebGL, além do empacotamento Windows através do GitHub Actions.
+
 ## Limitações e próximas fases
 
 Esta versão é um **protótipo funcional em código**, não um simulador automóvel concluído. Os recursos visuais são geométricos e originais; não contém automóveis licenciados nem ativos de jogos comerciais. Falta testar a experiência em execução, melhorar o modelo de pneus, ABS/controlo de tração reais, superfícies físicas distintas, tráfego AI, som gravado, material PBR avançado, interiores detalhados, garagem, remapeamento de teclas, minimapa, zonas do mundo carregadas dinamicamente e publicação pública em Pages.
