@@ -4,6 +4,7 @@ import { createAsphaltMaterial, createGravelMaterial, createTerrainMaterial } fr
 import { WorldDetails } from './world-details.js';
 import { RoadNetwork } from './road-network.js';
 import { WorldSectors } from './world-sectors.js';
+import { DrivingTestArea } from './driving-test-area.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -67,6 +68,7 @@ export class DrivingWorld {
     this.network = new RoadNetwork(this.scene,this.physics,groundHeight,
       this.roadPoints,this.roadWidth,this.quality);
     this.buildRoadside();
+    this.testArea=new DrivingTestArea(this.scene,this.physics,this.network,groundHeight);
     this.buildScenery();
     this.buildStreetLights();
     this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
