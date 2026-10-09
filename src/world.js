@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { createAsphaltMaterial, createGravelMaterial, createTerrainMaterial } from './materials.js';
 import { WorldDetails } from './world-details.js';
+import { RoadNetwork } from './road-network.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -62,6 +63,8 @@ export class DrivingWorld {
     this.buildSun();
     this.buildTerrain();
     this.buildRoad();
+    this.network = new RoadNetwork(this.scene,this.physics,groundHeight,
+      this.roadPoints,this.roadWidth,this.quality);
     this.buildRoadside();
     this.buildScenery();
     this.buildStreetLights();
@@ -378,7 +381,9 @@ export class DrivingWorld {
     for (let i = 0; i < 48; i++) {
       const x = 65 + (i % 8) * 28 + random() * 9;
       const z = -70 + Math.floor(i / 8) * 42 + random() * 8;
-      if (this.distanceToRoad(x, z) < 23) continue;
+      // Do not place buildings inside any of the connected urban roads.
+      if (this.distanceToRoad(x, z) < 23 ||
+          this.network.query(x,z).distance < 22) continue;
       const height = 9 + Math.floor(random() * 6) * 7;
       const width = 14 + random() * 8, depth = 15 + random() * 9;
       const baseY = groundHeight(x, z) - 0.12;
@@ -442,7 +447,11 @@ export class DrivingWorld {
     this.scene.add(this.rain);
   }
 
-  setWeather(weather) {
+  surfaceAt(x,z) {
+    return this.network.query(x,z,this.weather);
+  }
+
+    setWeather(weather) {
     if (!['clear', 'rain', 'fog'].includes(weather)) return;
     this.weather = weather;
     this.rain.visible = weather === 'rain';
