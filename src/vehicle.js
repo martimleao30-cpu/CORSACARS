@@ -40,6 +40,9 @@ export class PlayerVehicle {
     this.brakeActive = false;
     this.indicatorSide = 0;
     this.detailLevel = true;
+    this.useHighDetail = false;
+    this.importedCar = null;
+    this.importedLights = { brakes: [], indicators: [] };
     this.chassis = new CANNON.Body({
       mass: this.mass,
       material: new CANNON.Material('chassis'),
@@ -161,6 +164,7 @@ export class PlayerVehicle {
     cockpit.add(digitalPanel);
     this.drawInstruments(true);
     root.add(cockpit);
+    this.cockpit = cockpit;
     this.scene.add(root);
 
     this.wheelModels = [];
@@ -206,6 +210,31 @@ export class PlayerVehicle {
     this.updateVisuals();
   }
 
+  setImportedCar(model) {
+    // Physics and cameras remain attached to the original chassis.
+    if (this.importedCar) this.model.remove(this.importedCar);
+    this.importedCar = model;
+    this.importedCar.visible = false;
+    this.model.add(model);
+    this.importedLights = { brakes: [], indicators: [] };
+    model.traverse(node => {
+      if (!node.isMesh) return;
+      const mats = Array.isArray(node.material) ? node.material : [node.material];
+      for (const mat of mats) {
+        if (!mat) continue;
+        const label = (mat.name || node.name || '').toLowerCase();
+        if (label.includes('brakelight') && !this.importedLights.brakes.includes(mat)) {
+          this.importedLights.brakes.push(mat);
+        }
+        if (label.includes('signallight') &&
+            !this.importedLights.indicators.includes(mat)) {
+          this.importedLights.indicators.push(mat);
+        }
+      }
+    });
+    this.setVisualDetail(this.model.position);
+  }
+
   setIndicator(side) {
     this.indicatorSide = this.indicatorSide === side ? 0 : side;
   }
@@ -218,11 +247,20 @@ export class PlayerVehicle {
   }
 
   setVisualDetail(cameraPosition) {
-    const near = this.model.position.distanceToSquared(cameraPosition) < 80 * 80;
-    if (near !== this.detailLevel) {
-      this.detailLevel = near;
-      this.fineDetails.visible = near;
+    const d2 = this.model.position.distanceToSquared(cameraPosition);
+    const highQualityVisible = Boolean(this.importedCar && this.useHighDetail && d2 < 100 * 100);
+    if (this.importedCar) this.importedCar.visible = highQualityVisible;
+    for (const obj of this.model.children) {
+      if (obj === this.importedCar || obj.isLight || obj.isObject3D && obj.type === 'Object3D' && !obj.isMesh &&
+          obj !== this.fineDetails && obj !== this.cockpit) continue;
+      // Fallback model stays as a low-detail LOD and if the asset cannot load.
+      if (obj.isMesh || obj === this.fineDetails || obj === this.cockpit) {
+        obj.visible = !highQualityVisible;
+      }
     }
+    for (const wheel of this.wheelModels) wheel.visible = !highQualityVisible;
+    this.detailLevel = d2 < 80 * 80;
+    if (!highQualityVisible) this.fineDetails.visible = this.detailLevel;
   }
 
   drawInstruments(force = false) {
@@ -371,6 +409,14 @@ export class PlayerVehicle {
         blinking && entry.side === this.indicatorSide ? 2.9 : 0.03;
     }
     this.drawInstruments();
+    for (const material of this.importedLights.brakes) {
+      if (material.emissiveIntensity !== undefined)
+        material.emissiveIntensity = this.brakeActive ? 3 : (night ? 0.6 : 0.15);
+    }
+    for (const material of this.importedLights.indicators) {
+      if (material.emissiveIntensity !== undefined)
+        material.emissiveIntensity = this.indicatorSide && blinking ? 1.7 : 0.07;
+    }
   }
 
   getPosition() {
