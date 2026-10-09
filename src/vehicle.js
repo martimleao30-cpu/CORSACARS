@@ -236,7 +236,7 @@ export class PlayerVehicle {
     for (let i = 0; i < 4; i++) {
       this.vehicle.wheelInfos[i].frictionSlip = 4.6 * grip;
       this.vehicle.applyEngineForce(i >= 2 ? engineForce / 2 : 0, i);
-      this.vehicle.setBrake((braking * 100 + (controls.handbrake && i >= 2 ? 180 : 0)), i);
+      this.vehicle.setBrake((braking * 3000 + (controls.handbrake && i >= 2 ? 4500 : 0)), i);
     }
     // Quadratic air drag plus rolling resistance, independent of driving input.
     if (vehicleSpeed > 0.15) {
