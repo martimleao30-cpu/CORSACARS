@@ -13,9 +13,11 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 await page.addInitScript(() => {
   // CI normally runs WebGL through SwiftShader CPU rendering. Keep driving test deterministic.
   window.__CORSACARS_DISABLE_REMOTE_ASSETS__ = true;
-  localStorage.setItem('corsacars.settings.v1', JSON.stringify({
-    quality: 'low', fps: 30, ao: false, reflections: false, sound: false
-  }));
+  if (!localStorage.getItem('corsacars.settings.v1')) {
+    localStorage.setItem('corsacars.settings.v1', JSON.stringify({
+      quality: 'low', fps: 30, ao: false, reflections: false, sound: false
+    }));
+  }
 });
 const browserErrors = [];
 page.on('pageerror', err => browserErrors.push(err.message));
