@@ -45,6 +45,9 @@ try {
 
   await page.locator('#hudStart').click();
   assert.equal(await page.locator('#hudEditorScreen').isVisible(), true);
+  await page.locator('#hudStyle').selectOption('glass');
+  assert.equal(await page.locator('.speed-dial.style-glass').count(), 1,
+    'Translucent copper HUD must render as an editable live style');
   await page.locator('#hudStyle').selectOption('racing');
   await page.locator('#hudUnit').selectOption('mph');
   await page.locator('#hudColor').fill('#22aaff');
