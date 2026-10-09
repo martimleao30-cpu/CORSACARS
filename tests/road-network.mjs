@@ -8,11 +8,12 @@ globalThis.document={
     if(name!=='canvas')throw new Error('Canvas expected');
     return {width:256,height:256,
       getContext:()=>({createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
-        putImageData(){}})};
+        putImageData(){},fillRect(){},fillText(){}})};
   }
 };
 const {RoadNetwork,REGIONAL_LINKS}=await import('../src/road-network.js');
 const {WorldSectors}=await import('../src/world-sectors.js');
+const {DrivingTestArea}=await import('../src/driving-test-area.js');
 const scene=new THREE.Scene(),physics=new CANNON.World();
 const ring=[];
 for(let i=0;i<=420;i++){
@@ -36,6 +37,14 @@ for(const road of network.roads){
   }
 }
 assert.equal(network.query(4000,4000).surface,'grass');
+const testRoad=network.roads.find(r=>r.id==='provas');
+assert.ok(testRoad,'Physics test area must join the road network');
+const testPosition=testRoad.points[Math.floor(testRoad.points.length*.64)];
+assert.equal(network.query(testPosition.x,testPosition.z).surface,'wet',
+  'Wet grip test must work in clear weather');
+const testTrack=new DrivingTestArea(scene,physics,network,()=>0);
+assert.equal(testTrack.samples.length,7,'Physical driving test markers should exist');
+assert.equal(testTrack.obstacleBodies.length,4,'Speed bump and slalom need solid colliders');
 const sectors=new WorldSectors(scene,physics,network,()=>0);
 assert.equal(sectors.regions.length,5);
 const spot=sectors.regions[0];
