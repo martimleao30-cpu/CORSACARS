@@ -30,6 +30,38 @@ try {
     Boolean(document.querySelector('#game').getContext('webgl2')));
   assert.equal(hasWebGL, true, 'WebGL2 context unavailable');
 
+  // Premium main menu: all new screens must open and close, not inert mockups.
+  await page.locator('#garageStart').click();
+  assert.equal(await page.locator('#garageScreen').isVisible(), true);
+  await page.locator('#garagePaint').fill('#cc5533');
+  await page.locator('#garageSelect').click();
+  assert.equal(await page.locator('#startScreen').isVisible(), true);
+
+  await page.locator('#creditsStart').click();
+  assert.equal(await page.locator('#creditsScreen').isVisible(), true);
+  await page.locator('#creditsScreen [data-ui-back]').click();
+
+  await page.locator('#hudStart').click();
+  assert.equal(await page.locator('#hudEditorScreen').isVisible(), true);
+  await page.locator('#hudStyle').selectOption('racing');
+  await page.locator('#hudUnit').selectOption('mph');
+  await page.locator('#hudColor').fill('#22aaff');
+  await page.locator('#hudApply').click();
+  assert.equal(await page.locator('#startScreen').isVisible(), true);
+  assert.equal(await page.locator('.speed-dial.style-racing').count(), 1);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('corsacars.hud.v2')).unit), 'mph');
+
+  await page.locator('#startScreen [data-open-settings]').click();
+  assert.equal(await page.locator('#settingsScreen').isVisible(), true);
+  await page.locator('[data-tab=controls]').click();
+  await page.locator('#gamepadDeadzone').fill('0.2');
+  await page.locator('[data-tab=graphics]').click();
+  await page.locator('#renderScale').selectOption('0.75');
+  await page.locator('#settingsBack').click();
+  assert.equal(await page.locator('#startScreen').isVisible(), true);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('corsacars.settings.v1')).renderScale), 0.75);
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('corsacars.settings.v1')).gamepadDeadzone), 0.2);
+
   await page.locator('#startButton').click();
   await page.keyboard.down('w');
   await page.waitForFunction(() => Number(document.querySelector('#speedValue')?.textContent) > 0,
@@ -46,6 +78,10 @@ try {
   await page.keyboard.press('k');
   await page.locator('#weatherLabel').getByText('CHUVA').waitFor();
   await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#pauseScreen').isVisible(), true);
+  await page.locator('#mapPause').click();
+  assert.equal(await page.locator('#mapScreen').isVisible(), true);
+  await page.locator('#mapScreen [data-ui-back]').click();
   assert.equal(await page.locator('#pauseScreen').isVisible(), true);
   await page.locator('#resumeButton').click();
   assert.equal(await page.locator('#pauseScreen').isVisible(), false);
