@@ -2,6 +2,16 @@
 
 **CORSACARS** é um projeto de jogo de automóveis 3D independente, feito para **navegador** com [Three.js](https://threejs.org/) e [cannon-es](https://pmndrs.github.io/cannon-es/). **Não utiliza Unity** e não partilha quaisquer ficheiros com o projeto Minecraft.
 
+## Abrir online e colocar um atalho no Windows
+
+O jogo é estático e pode correr diretamente num navegador, **sem descarregar o repositório**. Para ativar a publicação pela primeira vez, o proprietário abre [Definições → Pages](https://github.com/martimleao30-cpu/CORSACARS/settings/pages), seleciona **Deploy from a branch** → **main** → **/(root)** e carrega em **Save**.
+
+Depois de o GitHub Pages estar publicado, o endereço será:
+
+https://martimleao30-cpu.github.io/CORSACARS/
+
+Para criar um atalho no ambiente de trabalho do Windows: botão direito no ambiente de trabalho → **Novo → Atalho** → introduzir o endereço acima → **Seguinte** → nome **CORSACARS** → **Concluir**. O atalho abre a versão online mais recente do jogo e não instala Unity nem descarrega o código-fonte.
+
 ## Executar o jogo
 
 1. Descarrega/clona este repositório.
