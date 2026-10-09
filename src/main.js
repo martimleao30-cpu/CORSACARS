@@ -24,6 +24,7 @@ function restoreSettings() {
       model: saved.model !== false,
       autoQuality: saved.autoQuality === true,
       paint: /^#[0-9a-f]{6}$/i.test(saved.paint) ? saved.paint : '#29445d',
+      bindings: saved.bindings && typeof saved.bindings==='object' ? saved.bindings : undefined,
       ...Object.fromEntries(['renderScale','antiAlias','shadowQuality','drawDistance','vegetation','textureQuality','bloom','engineVolume','steeringSensitivity','gamepadDeadzone','menuAccent'].filter(k => saved[k] !== undefined).map(k => [k,saved[k]]))
     };
   } catch {
@@ -149,7 +150,7 @@ window.addEventListener('keydown', event => {
     else if (active) setPaused(!paused);
   }
   if (!active || paused || !$('settingsScreen').classList.contains('hidden')) return;
-  if (key === 'c') changeCamera();
+  if (key === (settings.bindings?.camera || 'c')) changeCamera();
   if (key === 'r') { car.reset(); toast('CARRO RECOLOCADO NA ESTRADA'); }
   if (key === 'm') {
     car.manual = !car.manual;
@@ -174,12 +175,13 @@ window.addEventListener('gamepaddisconnected', () => { gamepadLast = { camera: f
 
 function sampleControls() {
   const stick = { steer: 0, accelerate: 0, brake: 0, handbrake: false };
-  const keyboardSteer = (keys.has('d') || keys.has('arrowright') ? 1 : 0) -
-    (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
+  const bindings=settings.bindings || {};
+  const keyboardSteer = (keys.has(bindings.right || 'd') || keys.has('arrowright') ? 1 : 0) -
+    (keys.has(bindings.left || 'a') || keys.has('arrowleft') ? 1 : 0);
   stick.steer = keyboardSteer * (settings.steeringSensitivity ?? 1);
-  stick.accelerate = keys.has('w') || keys.has('arrowup') ? 1 : 0;
-  stick.brake = keys.has('s') || keys.has('arrowdown') ? 1 : 0;
-  stick.handbrake = keys.has(' ');
+  stick.accelerate = keys.has(bindings.accelerate || 'w') || keys.has('arrowup') ? 1 : 0;
+  stick.brake = keys.has(bindings.brake || 's') || keys.has('arrowdown') ? 1 : 0;
+  stick.handbrake = keys.has(bindings.handbrake || ' ');
   const gp = navigator.getGamepads?.()?.find(p => p?.connected && p.mapping === 'standard');
   if (gp) {
     const steer = gp.axes[0] || 0;
