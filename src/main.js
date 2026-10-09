@@ -331,7 +331,7 @@ function frame(now) {
   $('rpmValue').textContent = telemetry.rpm + ' RPM';
   $('rpmBar').style.width = clamp(telemetry.rpm / 6850 * 100, 0, 100) + '%';
   $('gearValue').textContent = telemetry.gear;
-  $('hudState').textContent = telemetry.gearbox + ' · RWD · ABS';
+  $('hudState').textContent = telemetry.gearbox + ' · RWD · FÍSICA ALPHA';
   const hours = Math.floor(world.hour), mins = Math.floor(world.hour % 1 * 60);
   $('worldTime').textContent = String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
   $('weatherLabel').textContent = { clear: 'CÉU LIMPO', rain: 'CHUVA', fog: 'NEVOEIRO' }[world.weather];
