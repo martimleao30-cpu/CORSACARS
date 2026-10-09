@@ -348,6 +348,7 @@ export class DrivingWorld {
     leaves.instanceColor.needsUpdate = true;
     trunks.instanceMatrix.needsUpdate = true;
     this.scene.add(leaves, trunks);
+    this.vegetation = { leaves, trunks, leafCount, planted };
 
     const colors = [0xc1b7a1, 0x949fa4, 0xc4bdb0, 0x827b74, 0xa4a99c];
     const glass = material(0x5a7e90, 0.22, 0.26);
@@ -389,7 +390,15 @@ export class DrivingWorld {
     this.scene.add(rocks);
   }
 
-  buildRain() {
+  setVegetationDensity(factor = 1) {
+    if(!this.vegetation)return;
+    const ratio=Math.max(.2,Math.min(1,Number(factor)||1));
+    const v=this.vegetation;
+    v.trunks.count=Math.max(1,Math.floor(v.planted*ratio));
+    v.leaves.count=Math.max(1,Math.floor(v.leafCount*ratio));
+  }
+
+    buildRain() {
     const count = 1050;
     const coords = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
