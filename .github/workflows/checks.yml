@@ -16,3 +16,28 @@ jobs:
           node-version: '22'
       - name: JavaScript syntax and integration smoke tests
         run: npm test
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Start static server
+        run: |
+          python3 -m http.server 8080 >/tmp/corsacars-http.log 2>&1 &
+          sleep 2
+      - name: Browser WebGL driving smoke test
+        run: npm run test:browser
+      - name: Upload browser capture if available
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corsacars-browser-capture
+          path: /tmp/corsacars-browser-check.png
+          if-no-files-found: ignore
