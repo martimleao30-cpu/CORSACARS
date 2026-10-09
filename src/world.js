@@ -51,7 +51,7 @@ export class DrivingWorld {
     this.quality = quality;
     this.hour = 14;
     this.weather = 'clear';
-    this.sunSpeed = 0.18; // simulated hours per real minute
+    this.sunSpeed = 1.2; // simulated hours per real minute: full 24h cycle in ~20 real minutes
     this.roadWidth = 13.5;
     this.terrainMaterial = new CANNON.Material('ground');
     this.asphaltMaterial = new CANNON.Material('asphalt');
