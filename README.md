@@ -1,6 +1,23 @@
-# CORSACARS — Open Road v0.4
+# CORSACARS — Open Road v0.5
 
-**CORSACARS** é um projeto de jogo de automóveis 3D independente, feito para **navegador** com [Three.js](https://threejs.org/) e [cannon-es](https://pmndrs.github.io/cannon-es/). **Não utiliza Unity** e não partilha quaisquer ficheiros com o projeto Minecraft.
+**CORSACARS** é um projeto de jogo de automóveis 3D independente, disponível em **aplicação Windows (.exe) e navegador** com [Three.js](https://threejs.org/) e [cannon-es](https://pmndrs.github.io/cannon-es/). **Não utiliza Unity** e não partilha quaisquer ficheiros com o projeto Minecraft.
+
+## Aplicação Windows (CORSACARS.exe) — jogo instalado no computador
+
+O executável Windows **não abre o GitHub Pages**: inclui os ficheiros do jogo, Three.js e cannon-es compilados localmente com Vite, dentro de uma aplicação Electron com janela própria. Não precisa de Unity.
+
+### Instalar e jogar
+
+1. Abre [CORSACARS — Compilações Windows](https://github.com/martimleao30-cpu/CORSACARS/actions/workflows/windows-desktop.yml).
+2. Escolhe uma execução terminada com sucesso e, em **Artifacts**, descarrega **CORSACARS-Windows-EXE**.
+3. Extrai o ZIP e executa **CORSACARS-Windows-0.5.0-x64.exe**.
+4. Para ter um atalho: botão direito no executável → **Enviar para → Ambiente de trabalho (criar atalho)**.
+
+Uma aplicação tem de ser descarregada **uma vez** para funcionar no computador. A versão básica pode funcionar sem Internet; os recursos opcionais mais detalhados (modelos e HDRI/texturas fotográficas) podem precisar de acesso à Internet.
+
+Para testar a versão desktop localmente: `npm install`, depois `npm run desktop:run`.
+Para criar o executável no Windows: `npm run desktop:build` e `npm run desktop:package`.
+O executável é colocado em `release/`. Não existe atualização automática nem assinatura digital comercial nesta versão.
 
 ## Abrir online e colocar um atalho no Windows
 
