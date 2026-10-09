@@ -52,17 +52,17 @@ export class PremiumInterface {
   buildPages() {
     const start=$('startScreen').querySelector('.button-stack');
     $('startButton').innerHTML='JOGAR <span>↗</span>';
-    start.insertAdjacentHTML('beforeend',\`
+    start.insertAdjacentHTML('beforeend',`
       <button class="outline" id="garageStart">GARAGEM <span>◉</span></button>
       <button class="outline" id="hudStart">PERSONALIZAR HUD <span>◈</span></button>
       <button class="outline" id="creditsStart">CRÉDITOS <span>©</span></button>
-      <button class="outline" id="exitStart">SAIR <span>×</span></button>\`);
+      <button class="outline" id="exitStart">SAIR <span>×</span></button>`);
     const pause=$('pauseScreen').querySelector('.panel');
-    $('resumeButton').insertAdjacentHTML('afterend',\`
+    $('resumeButton').insertAdjacentHTML('afterend',`
       <button class="outline" id="mapPause">MAPA <span>⌖</span></button>
       <button class="outline" id="garagePause">GARAGEM <span>◉</span></button>
-      <button class="outline" id="hudPause">PERSONALIZAR HUD <span>◈</span></button>\`);
-    document.body.insertAdjacentHTML('beforeend',\`
+      <button class="outline" id="hudPause">PERSONALIZAR HUD <span>◈</span></button>`);
+    document.body.insertAdjacentHTML('beforeend',`
       <section id="garageScreen" class="screen hidden" aria-label="Garagem">
         <div class="darken"></div><div class="panel premium-panel">
           <div class="eyebrow">CORSACARS / GARAGEM</div><h2>GARAGEM<span>.</span></h2>
@@ -145,28 +145,28 @@ export class PremiumInterface {
           <p class="secondary-info">Modelo de veículo: <strong>Car Concept</strong>, Khronos glTF Sample Assets, atribuição CC BY 4.0. Asfalto e HDRI: Poly Haven, CC0. Atribuições e ligações completas no ficheiro CREDITS.md do repositório.</p>
           <button class="outline ui-back" data-ui-back>VOLTAR <span>←</span></button>
         </div>
-      </section>\`);
+      </section>`);
     const dial=document.querySelector('.speed-dial');
-    dial.insertAdjacentHTML('afterbegin',\`<div class="analog-needle" id="analogNeedle"></div>
-      <div class="racing-lights" id="racingLights">\${Array.from({length:10},()=>'<i></i>').join('')}</div>
-      <span class="handbrake" id="handbrakeIndicator" hidden>TRAVÃO MÃO</span>\`);
+    dial.insertAdjacentHTML('afterbegin',`<div class="analog-needle" id="analogNeedle"></div>
+      <div class="racing-lights" id="racingLights">${Array.from({length:10},()=>'<i></i>').join('')}</div>
+      <span class="handbrake" id="handbrakeIndicator" hidden>TRAVÃO MÃO</span>`);
     dial.querySelector('.dial-footer #rpmValue')?.classList.add('rpm-reading');
   }
 
   buildSettingsTabs() {
     const panel=$('settingsScreen').querySelector('.settings-panel');
     const header=panel.querySelector('h2');
-    header.insertAdjacentHTML('afterend',\`<nav id="settingsTabs" class="tab-nav" aria-label="Secções">
+    header.insertAdjacentHTML('afterend',`<nav id="settingsTabs" class="tab-nav" aria-label="Secções">
       <button type="button" data-tab="graphics" aria-selected="true">GRÁFICOS</button>
       <button type="button" data-tab="audio" aria-selected="false">ÁUDIO</button>
       <button type="button" data-tab="controls" aria-selected="false">CONTROLOS</button>
       <button type="button" data-tab="interface" aria-selected="false">INTERFACE</button>
-    </nav>\`);
+    </nav>`);
     const area=document.createElement('div');area.id='settingsViews';
-    area.innerHTML=\`<div class="tab-view" data-view="graphics"></div>
+    area.innerHTML=`<div class="tab-view" data-view="graphics"></div>
       <div class="tab-view" data-view="audio" hidden></div>
       <div class="tab-view" data-view="controls" hidden></div>
-      <div class="tab-view" data-view="interface" hidden></div>\`;
+      <div class="tab-view" data-view="interface" hidden></div>`;
     const back=$('settingsBack');
     back.before(area);
     const graphics=area.querySelector('[data-view="graphics"]');
@@ -179,32 +179,32 @@ export class PremiumInterface {
     }
     graphics.append($('fullscreenButton'),panel.querySelector('.settings-tip'));
     audio.append($('soundToggle').closest('label'));
-    const mk=(id,label,html)=>\`<label>\${label} \${html.replace('%%',id)}</label>\`;
-    graphics.insertAdjacentHTML('beforeend',\`
+    const mk=(id,label,html)=>`<label>${label} ${html.replace('%%',id)}</label>`;
+    graphics.insertAdjacentHTML('beforeend',`
       <div class="option-grid">
-        \${mk('renderScale','ESCALA DE RESOLUÇÃO (RENDERIZAÇÃO)', '<select id="%%"><option value="0.6">60%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.15">115%</option></select>')}
-        \${mk('antiAlias','ANTI-ALIASING', '<select id="%%"><option value="native">MSAA nativo</option><option value="fxaa">FXAA</option><option value="taa">TAA experimental</option></select>')}
-        \${mk('shadowQuality','SOMBRAS', '<select id="%%"><option value="off">Desligadas</option><option value="low">Baixo</option><option value="medium">Médio</option><option value="high">Alto</option></select>')}
-        \${mk('drawDistance','DISTÂNCIA DE RENDERIZAÇÃO', '<select id="%%"><option value="500">500 m</option><option value="950">950 m</option><option value="1500">1500 m</option><option value="1900">1900 m</option></select>')}
-        \${mk('vegetation','DENSIDADE DE VEGETAÇÃO', '<select id="%%"><option value="0.3">30%</option><option value="0.6">60%</option><option value="1">100%</option></select>')}
-        \${mk('textureQuality','QUALIDADE DE TEXTURAS NOVAS', '<select id="%%"><option value="low">1K</option><option value="high">2K</option></select>')}
-        \${mk('bloom','BLOOM', '<select id="%%"><option value="off">Desligado</option><option value="low">Discreto</option><option value="medium">Médio</option></select>')}
-        \${mk('displayMode','MODO DE ECRÃ', '<select id="%%"><option value="windowed">Janela</option><option value="fullscreen">Ecrã inteiro (navegador)</option></select>')}
+        ${mk('renderScale','ESCALA DE RESOLUÇÃO (RENDERIZAÇÃO)', '<select id="%%"><option value="0.6">60%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.15">115%</option></select>')}
+        ${mk('antiAlias','ANTI-ALIASING', '<select id="%%"><option value="native">MSAA nativo</option><option value="fxaa">FXAA</option><option value="taa">TAA experimental</option></select>')}
+        ${mk('shadowQuality','SOMBRAS', '<select id="%%"><option value="off">Desligadas</option><option value="low">Baixo</option><option value="medium">Médio</option><option value="high">Alto</option></select>')}
+        ${mk('drawDistance','DISTÂNCIA DE RENDERIZAÇÃO', '<select id="%%"><option value="500">500 m</option><option value="950">950 m</option><option value="1500">1500 m</option><option value="1900">1900 m</option></select>')}
+        ${mk('vegetation','DENSIDADE DE VEGETAÇÃO', '<select id="%%"><option value="0.3">30%</option><option value="0.6">60%</option><option value="1">100%</option></select>')}
+        ${mk('textureQuality','QUALIDADE DE TEXTURAS NOVAS', '<select id="%%"><option value="low">1K</option><option value="high">2K</option></select>')}
+        ${mk('bloom','BLOOM', '<select id="%%"><option value="off">Desligado</option><option value="low">Discreto</option><option value="medium">Médio</option></select>')}
+        ${mk('displayMode','MODO DE ECRÃ', '<select id="%%"><option value="windowed">Janela</option><option value="fullscreen">Ecrã inteiro (navegador)</option></select>')}
       </div>
-      <p class="minor">V-Sync é gerido pelo navegador. Ray tracing e DLSS/FSR não estão disponíveis neste motor WebGL; a escala de resolução é um ajuste real da renderização interna, não DLSS. Motion Blur e DOF ficam desativados nesta versão para preservar legibilidade e FPS.</p>\`);
-    audio.insertAdjacentHTML('beforeend',\`
+      <p class="minor">V-Sync é gerido pelo navegador. Ray tracing e DLSS/FSR não estão disponíveis neste motor WebGL; a escala de resolução é um ajuste real da renderização interna, não DLSS. Motion Blur e DOF ficam desativados nesta versão para preservar legibilidade e FPS.</p>`);
+    audio.insertAdjacentHTML('beforeend',`
       <label>VOLUME GERAL DO MOTOR <input type="range" id="engineVolume" min="0" max="1" step=".05" value=".7"></label>
-      <p class="minor">Áudio implementado: motor sintetizado. Pneus, música e efeitos ainda não possuem fontes sonoras próprias; não são apresentados controlos falsos.</p>\`);
-    controls.insertAdjacentHTML('beforeend',\`
+      <p class="minor">Áudio implementado: motor sintetizado. Pneus, música e efeitos ainda não possuem fontes sonoras próprias; não são apresentados controlos falsos.</p>`);
+    controls.insertAdjacentHTML('beforeend',`
       <label>SENSIBILIDADE DA DIREÇÃO <input type="range" id="steeringSensitivity" min=".5" max="1.6" step=".1" value="1"></label>
       <label>ZONA MORTA DO ANALÓGICO <input type="range" id="gamepadDeadzone" min=".05" max=".4" step=".01" value=".12"></label>
       <p class="secondary-info">W/S: acelerar/travar · A/D: virar · Espaço: travão de mão · C: câmara · ESC: pausa. O remapeamento completo fica reservado para um sistema de Input Actions. Navegação nos menus: TAB, Enter, setas/D-Pad e A/Cruz no comando.</p>
-      <button id="controlsReset" class="outline">REPOR SENSIBILIDADE <span>↻</span></button>\`);
-    visual.insertAdjacentHTML('beforeend',\`
+      <button id="controlsReset" class="outline">REPOR SENSIBILIDADE <span>↻</span></button>`);
+    visual.insertAdjacentHTML('beforeend',`
       <label>COR PRINCIPAL DOS MENUS <input type="color" id="menuAccent" value="#c9f173"></label>
       <label>TAMANHO DO HUD <input type="range" id="hudQuickScale" min=".6" max="1.6" step=".05" value="1"></label>
       <button id="settingsHudEditor" class="outline">ABRIR EDITOR DE VELOCÍMETRO <span>↗</span></button>
-      <p class="minor">O idioma desta versão é português de Portugal.</p>\`);
+      <p class="minor">O idioma desta versão é português de Portugal.</p>`);
     for(const tab of $('settingsTabs').querySelectorAll('button')) {
       tab.addEventListener('click',()=>{
         for(const button of $('settingsTabs').querySelectorAll('button')) {
