@@ -427,6 +427,13 @@ window.addEventListener('resize', resize);
 const diagnostics = createDiagnostics();
 const ui = new PremiumInterface({
   vehicle:car,world,settings,persistSettings,applyQuality,
+  teleportToTests:()=>{
+    if(!world.testSpawn)return toast('PISTA DE TESTES INDISPONÍVEL');
+    car.spawnPoint=world.testSpawn;
+    car.reset();
+    setPaused(false);
+    toast('CENTRO DE TESTES · ACELERAÇÃO, TRAVAGEM E ADERÊNCIA');
+  },
   showPanel,backPanel,closeSettings,
   showHud:(visible)=>$('hud').classList.toggle('hidden',!visible),
   toast,
