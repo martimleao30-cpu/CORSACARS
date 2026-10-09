@@ -20,9 +20,9 @@ for(let i=0;i<=420;i++){
   ring.push({center:new THREE.Vector3(Math.cos(angle)*400,.2,Math.sin(angle)*400)});
 }
 const network=new RoadNetwork(scene,physics,()=>0,ring,13.5,'low');
-assert.equal(REGIONAL_LINKS.length,5);
-assert.equal(network.roads.length,6);
-assert.equal(physics.bodies.length,5,'All new roads need real collision bodies');
+assert.equal(REGIONAL_LINKS.length,6);
+assert.equal(network.roads.length,7);
+assert.equal(physics.bodies.length,6,'All new roads need real collision bodies');
 assert.ok(network.cells.size>30,'Surface lookups should use spatial hashing');
 for(const road of network.roads){
   if(road.id==='circular')continue;
