@@ -483,7 +483,7 @@ export class PlayerVehicle {
       if(hit?.hasHit)contactCount++;
       // Cannon RaycastVehicle updates wheel angular velocity inside its physics
       // callback; this slip is feedback for next tick's ABS/TCS decisions.
-      const rollingMS=(wheel.deltaRotation||0)*spec.wheelRadiusM/dt;
+      const rollingMS=Math.abs(wheel.deltaRotation||0)*spec.wheelRadiusM/dt*Math.sign(forwardSpeed||1);
       const slip=contactSlip(forwardSpeed,rollingMS,lateralVelocity);
       slips.push(slip);
       const requested=4.6*grip.lateral;
@@ -497,7 +497,7 @@ export class PlayerVehicle {
       spec.drivetrain==='AWD'?[0,1,2,3]:[2,3];
     const drivenSlip=driven.reduce((n,i)=>n+Math.max(0,slips[i].longitudinal),0)/driven.length;
     const reduction=tractionAssist(1,drivenSlip,this.assists.tcs&&vehicleSpeed>2);
-    let throttle=this.throttleSmooth*reduction;
+    let throttle=(!this.manual&&direction<0&&brake>.05 ? brake*.6 : this.throttleSmooth)*reduction;
     // Do not transmit drive torque while selecting a gear or clutch is open.
     const clutch=clamp(controls.clutch===undefined?1:1-controls.clutch,0,1);
     this.clutchEngagement=THREE.MathUtils.damp(this.clutchEngagement,
@@ -568,8 +568,8 @@ export class PlayerVehicle {
     const downforce=spec.downforceCoefficient*vehicleSpeed*vehicleSpeed;
     this.chassis.applyForce(new CANNON.Vec3(0,-downforce,0),new CANNON.Vec3(0,0,0));
     this.brakeActive=braking>.08||Boolean(controls.handbrake);
-    const mostCommon=wheelSurface.sort((a,b)=>wheelSurface.filter(v=>v===a).length-
-      wheelSurface.filter(v=>v===b).length).at(-1)||'grass';
+    const mostCommon=wheelSurface.reduce((best,item,_,all)=>
+      all.filter(x=>x===item).length>all.filter(x=>x===best).length?item:best,'grass');
     this.lastDiagnostics={
       surface:mostCommon,grip:Number(averageGrip.toFixed(2)),
       slip:Number(drivenSlip.toFixed(3)),wheelContact:contactCount,
