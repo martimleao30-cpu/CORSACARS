@@ -95,3 +95,7 @@
 #startScreen .screen-content{max-height:95vh;overflow-y:auto;scrollbar-width:thin;padding:12px 4px 12px 0}
 #pauseScreen .panel button{padding:14px 18px;margin-bottom:7px}
 @media(max-width:560px){#startScreen .button-stack{grid-template-columns:1fr 1fr;max-width:calc(100vw - 40px)}#startScreen .button-stack button{padding:12px;font-size:9px}#startScreen .screen-content{max-height:96vh}#startScreen .start-footer{display:none}}
+
+.hud .speed-dial.style-analog .analog-needle{z-index:0;opacity:.32;pointer-events:none}
+.hud .speed-dial.style-analog .speed-caption,.hud .speed-dial.style-analog .speed-row,.hud .speed-dial.style-analog .rpm-track,.hud .speed-dial.style-analog .dial-footer{position:relative;z-index:1}
+.hud.editing .hud-hints,.hud.editing .hud-state,.hud.editing .perf-value{display:none}
