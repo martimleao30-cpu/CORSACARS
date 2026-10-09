@@ -1,18 +1,19 @@
 {
   "name": "corsacars",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "CORSACARS standalone 3D open-world driving game for Windows and web (Three.js, cannon-es).",
   "scripts": {
-    "test": "node --check src/main.js && node --check src/world.js && node --check src/vehicle.js && node --check src/materials.js && node --check src/graphics.js && node --check src/assets.js && node --check src/lighting.js && node --check src/performance.js && node --check src/interface.js && node --check desktop/main.cjs && node --check desktop/prepare.mjs && node --check vite.desktop.config.mjs && node --check tests/desktop-build.mjs && node tests/smoke.mjs",
+    "test": "node --check src/main.js && node --check src/world.js && node --check src/vehicle.js && node --check src/materials.js && node --check src/graphics.js && node --check src/assets.js && node --check src/lighting.js && node --check src/performance.js && node --check src/interface.js && node --check desktop/main.cjs && node --check desktop/prepare.mjs && node --check vite.desktop.config.mjs && node --check tests/desktop-build.mjs && node --check desktop/updates.cjs && node --check desktop/preload.cjs && node --check src/desktop-updates.js && node --check tests/updates.mjs && node tests/updates.mjs && node tests/smoke.mjs",
     "test:browser": "node tests/browser.mjs",
     "test:assets": "node tests/remote-assets.mjs",
     "desktop:prepare": "node desktop/prepare.mjs",
     "desktop:build": "npm run desktop:prepare && vite build --config vite.desktop.config.mjs",
     "desktop:run": "npm run desktop:build && electron .",
-    "desktop:package": "electron-builder --config electron-builder.yml --win portable --x64",
-    "test:desktop": "node tests/desktop-build.mjs"
+    "desktop:package": "electron-builder --config electron-builder.yml --win nsis --x64 --publish never",
+    "test:desktop": "node tests/desktop-build.mjs",
+    "desktop:publish": "electron-builder --config electron-builder.yml --win nsis --x64 --publish always"
   },
   "devDependencies": {
     "playwright": "1.56.1",
@@ -23,7 +24,8 @@
   "main": "desktop/main.cjs",
   "dependencies": {
     "three": "0.168.0",
-    "cannon-es": "0.20.0"
+    "cannon-es": "0.20.0",
+    "electron-updater": "6.6.2"
   },
   "author": "CORSACARS"
 }
