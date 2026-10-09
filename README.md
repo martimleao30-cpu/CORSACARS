@@ -1,4 +1,4 @@
-# CORSACARS — Open Road v0.2
+# CORSACARS — Open Road v0.3
 
 **CORSACARS** é um projeto de jogo de automóveis 3D independente, feito para **navegador** com [Three.js](https://threejs.org/) e [cannon-es](https://pmndrs.github.io/cannon-es/). **Não utiliza Unity** e não partilha quaisquer ficheiros com o projeto Minecraft.
 
@@ -63,6 +63,22 @@ O GitHub Actions corre automaticamente verificações de sintaxe e testes estrut
 - Testes automáticos de sintaxe/estrutura e teste real no Chromium com WebGL, acelerar, trocar de câmara, chuva e pausa.
 
 As melhorias são um avanço visual sobre os materiais básicos, **não equivalem ainda a fotorrealismo AAA**. A luz indireta é aproximada por HemisphereLight (não há iluminação global por ray tracing); os reflexos por cubemap não são ray tracing; SSAO não substitui GI. Os modelos 3D continuam provisórios. O rendimento e compatibilidade gráfica exigem testes em hardware real.
+
+## Evolução gráfica v0.3 — materiais e recursos reais
+
+- **Modelo de veículo detalhado:** carregamento assíncrono do concept car [Car Concept](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CarConcept) com interior e materiais próprios. Geometria escalada ao chassis existente; rodas do veículo simulado mantidas para animação física. Os modos inferiores continuam a recorrer ao modelo simples. O ficheiro tem cerca de 11 MB e requer Internet.
+- **Fototextura de estrada:** asfalto **Asphalt 02** Poly Haven em 1K (ou 2K no modo Ultra); normal map e roughness procedurais preservados caso o pedido externo falhe. Na chuva, o material torna-se mais escuro e ganha verniz/reflexos aproximados.
+- **Luz ambiente baseada em imagem:** HDRI de céu Poly Haven e reflexos PBR por ambiente, com uma **LightProbe** de harmónicas esféricas calculada a partir da cena quando os reflexos dinâmicos estão ativos. Esta técnica fornece iluminação indireta aproximada, **não GI física com ray tracing ou múltiplos ressaltos**.
+- **Vegetação 3D:** copas orgânicas de múltiplos volumes geométricos e cores variadas, rendidas por instancing em vez de árvores em cone.
+- **Otimização:** painel de FPS, ms por frame (mediana), draw calls e triângulos; qualidade adaptativa opcional baixa um escalão se o FPS se mantiver abaixo de 29 durante cerca de 6 segundos, com cooldown. O contador observa a renderização no navegador, **não a GPU do sistema remotamente**.
+- **Fallbacks:** sem ficheiros binários no Git; os recursos externos são opcionais para que a física e os menus continuem executáveis sem Internet.
+- **Licenças:** consultar [CREDITS.md](CREDITS.md) para a atribuição obrigatória CC BY 4.0 do carro e os recursos CC0 da Poly Haven.
+
+Para ver os recursos de alta qualidade, começa a conduzir com qualidade gráfica **Alto** ou **Ultra** e mantém o acesso à Internet. O topo da interface indica quando o carro 3D é carregado. É possível desligar o carregamento visual e a qualidade adaptativa em Definições.
+
+### Metas ainda não garantidas
+
+A versão 0.3 **ainda não equivale à qualidade de Forza Horizon 5**. Faltam modelos artísticos adicionais de produção, GI multirressalto física, geometria de alta densidade do ambiente, cenários fotogramétricos, LODs automáticos de malha, renderização em consola e validação visual/performance real no computador do jogador (por exemplo RTX 4070 Super, 2560 × 1440). Os testes automáticos do GitHub Actions usam WebGL por software, não a tua placa gráfica.
 
 ## Limitações e próximas fases
 
