@@ -1,11 +1,11 @@
 {
   "name": "corsacars",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "A standalone 3D open-road driving prototype, not built with Unity.",
   "scripts": {
-    "test": "node --check src/main.js && node --check src/world.js && node --check src/vehicle.js && node --check src/materials.js && node --check src/graphics.js && node tests/smoke.mjs",
+    "test": "node --check src/main.js && node --check src/world.js && node --check src/vehicle.js && node --check src/materials.js && node --check src/graphics.js && node --check src/assets.js && node --check src/lighting.js && node --check src/performance.js && node tests/smoke.mjs",
     "test:browser": "node tests/browser.mjs"
   },
   "devDependencies": {
