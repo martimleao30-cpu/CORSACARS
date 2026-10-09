@@ -293,35 +293,61 @@ export class DrivingWorld {
 
   buildScenery() {
     const treeCount = this.quality === 'low' ? 230 : this.quality === 'medium' ? 420 : 680;
-    const canopy = new THREE.InstancedMesh(new THREE.ConeGeometry(2.6, 10.5, 7),
-      material(0x2e553b), treeCount);
-    const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.33, 0.44, 3.5, 6),
-      material(0x51412f), treeCount);
+    // Three independent foliage volumes per tree replace the old single cone.
+    // Instancing keeps the number of draw calls low even with hundreds of trees.
+    const clusters = 3;
+    const leaves = new THREE.InstancedMesh(
+      new THREE.IcosahedronGeometry(2.35, this.quality === 'low' ? 0 : 1),
+      new THREE.MeshStandardMaterial({ color: 0x879b77, roughness: 0.96, metalness: 0 }),
+      treeCount * clusters
+    );
+    const trunks = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.3, 0.46, 4.7, 8),
+      material(0x51412f), treeCount
+    );
     const dummy = new THREE.Object3D();
-    let planted = 0;
+    const shades = [0x3c613a, 0x547747, 0x6d854a, 0x324d35, 0x526946]
+      .map(x => new THREE.Color(x));
+    let planted = 0, leafCount = 0;
     for (let i = 0; i < treeCount * 5 && planted < treeCount; i++) {
       const x = (random() - 0.5) * 1650, z = (random() - 0.5) * 1650;
       if (this.distanceToRoad(x, z) < 20) continue;
       if (x > 40 && x < 270 && z > -80 && z < 210) continue;
       const h = groundHeight(x, z);
-      const size = 0.65 + random() * 1.1;
-      dummy.position.set(x, h + 5.5 * size, z);
-      dummy.rotation.y = random() * TAU;
+      const size = 0.7 + random() * 0.95;
+      dummy.position.set(x, h + 2.35 * size, z);
+      dummy.rotation.set(0, random() * TAU, 0);
       dummy.scale.set(size, size, size);
       dummy.updateMatrix();
-      canopy.setMatrixAt(planted, dummy.matrix);
-      dummy.position.y = h + 1.75 * size;
-      dummy.updateMatrix();
       trunks.setMatrixAt(planted, dummy.matrix);
+      const type = Math.floor(random() * shades.length);
+      for (let k = 0; k < clusters; k++) {
+        const theta = k * TAU / clusters + random() * 0.7;
+        const radial = k === 2 ? 0.4 : 1.25;
+        dummy.position.set(
+          x + Math.cos(theta) * radial * size,
+          h + (5.5 + (k === 2 ? 2 : 0.2 * k)) * size,
+          z + Math.sin(theta) * radial * size
+        );
+        dummy.rotation.set(random() * 0.4, random() * TAU, random() * 0.4);
+        dummy.scale.set(size * (0.95 + random() * 0.35),
+          size * (0.85 + random() * 0.3), size * (0.88 + random() * 0.3));
+        dummy.updateMatrix();
+        leaves.setMatrixAt(leafCount, dummy.matrix);
+        leaves.setColorAt(leafCount, shades[(type + k) % shades.length]);
+        leafCount++;
+      }
       planted++;
     }
-    canopy.count = trunks.count = planted;
-    canopy.castShadow = this.quality !== 'low';
-    canopy.receiveShadow = true;
+    trunks.count = planted;
+    leaves.count = leafCount;
+    leaves.castShadow = this.quality !== 'low';
+    leaves.receiveShadow = true;
     trunks.castShadow = this.quality === 'ultra';
-    canopy.instanceMatrix.needsUpdate = true;
+    leaves.instanceMatrix.needsUpdate = true;
+    leaves.instanceColor.needsUpdate = true;
     trunks.instanceMatrix.needsUpdate = true;
-    this.scene.add(canopy, trunks);
+    this.scene.add(leaves, trunks);
 
     const colors = [0xc1b7a1, 0x949fa4, 0xc4bdb0, 0x827b74, 0xa4a99c];
     const glass = material(0x5a7e90, 0.22, 0.26);
