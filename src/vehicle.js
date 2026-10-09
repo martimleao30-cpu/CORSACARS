@@ -242,7 +242,7 @@ export class PlayerVehicle {
     if (vehicleSpeed > 0.15) {
       const totalResist = 0.39 * vehicleSpeed * vehicleSpeed + 145;
       const direction = this.chassis.velocity.scale(-totalResist / vehicleSpeed);
-      this.chassis.applyForce(direction, this.chassis.position);
+      this.chassis.applyForce(direction, new CANNON.Vec3(0, 0, 0));
     }
   }
 
