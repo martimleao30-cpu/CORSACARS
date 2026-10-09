@@ -307,6 +307,13 @@ export class DrivingWorld {
       new THREE.CylinderGeometry(0.3, 0.46, 4.7, 8),
       material(0x51412f), treeCount
     );
+    // Distinct species: approximately 20% conifers, the rest broadleaf trees.
+    const conifers = new THREE.InstancedMesh(
+      new THREE.ConeGeometry(2.65, 8.7, 9, 3),
+      new THREE.MeshStandardMaterial({color:0x345b39,roughness:.99}),
+      treeCount
+    );
+    let pineCount = 0;
     const dummy = new THREE.Object3D();
     const shades = [0x3c613a, 0x547747, 0x6d854a, 0x324d35, 0x526946]
       .map(x => new THREE.Color(x));
@@ -323,7 +330,16 @@ export class DrivingWorld {
       dummy.updateMatrix();
       trunks.setMatrixAt(planted, dummy.matrix);
       const type = Math.floor(random() * shades.length);
-      for (let k = 0; k < clusters; k++) {
+      if(type===0) {
+        dummy.position.set(x, h + 6.25 * size, z);
+        dummy.rotation.set(0, random()*TAU, 0);
+        dummy.scale.set(size*.82,size,size*.82);
+        dummy.updateMatrix();
+        conifers.setMatrixAt(pineCount, dummy.matrix);
+        conifers.setColorAt(pineCount,
+          new THREE.Color(random()>.5?0x476944:0x2e543b));
+        pineCount++;
+      } else for (let k = 0; k < clusters; k++) {
         const theta = k * TAU / clusters + random() * 0.7;
         const radial = k === 2 ? 0.4 : 1.25;
         dummy.position.set(
@@ -343,14 +359,19 @@ export class DrivingWorld {
     }
     trunks.count = planted;
     leaves.count = leafCount;
+    conifers.count = pineCount;
     leaves.castShadow = this.quality !== 'low';
     leaves.receiveShadow = true;
     trunks.castShadow = this.quality === 'ultra';
     leaves.instanceMatrix.needsUpdate = true;
     leaves.instanceColor.needsUpdate = true;
     trunks.instanceMatrix.needsUpdate = true;
-    this.scene.add(leaves, trunks);
-    this.vegetation = { leaves, trunks, leafCount, planted };
+    conifers.instanceMatrix.needsUpdate = true;
+    conifers.instanceColor.needsUpdate = true;
+    conifers.castShadow = this.quality === 'ultra';
+    conifers.receiveShadow = true;
+    this.scene.add(leaves, trunks, conifers);
+    this.vegetation = { leaves, trunks, conifers, leafCount, planted, pineCount };
 
     const colors = [0xc1b7a1, 0x949fa4, 0xc4bdb0, 0x827b74, 0xa4a99c];
     const glass = material(0x5a7e90, 0.22, 0.26);
@@ -398,6 +419,7 @@ export class DrivingWorld {
     const v=this.vegetation;
     v.trunks.count=Math.max(1,Math.floor(v.planted*ratio));
     v.leaves.count=Math.max(1,Math.floor(v.leafCount*ratio));
+    v.conifers.count=Math.max(1,Math.floor(v.pineCount*ratio));
     this.details?.setDensity(ratio);
   }
 
