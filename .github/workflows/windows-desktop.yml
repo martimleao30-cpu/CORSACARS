@@ -34,8 +34,8 @@ jobs:
       - name: Gerar versao unica para cada atualizacao
         shell: pwsh
         run: |
-          npm version "0.6.${{ github.run_number }}" --no-git-tag-version
-          Write-Host "A publicar CORSACARS 0.6.${{ github.run_number }}"
+          npm version "0.7.${{ github.run_number }}" --no-git-tag-version
+          Write-Host "A publicar CORSACARS 0.7.${{ github.run_number }}"
       - name: Instalar dependencias
         run: npm install --no-audit --no-fund
       - name: Testar o updater, fisica e navegacao
