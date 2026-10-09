@@ -55,6 +55,13 @@ try {
   assert.equal(await page.locator('#settingsScreen').isVisible(), true);
   await page.locator('[data-tab=controls]').click();
   await page.locator('#gamepadDeadzone').fill('0.2');
+  await page.locator('[data-bind=accelerate]').click();
+  await page.keyboard.press('t');
+  assert.equal(await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('corsacars.settings.v1')).bindings.accelerate),'t');
+  await page.locator('#bindingsReset').click();
+  assert.equal(await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('corsacars.settings.v1')).bindings.accelerate),'w');
   await page.locator('[data-tab=graphics]').click();
   await page.locator('#renderScale').selectOption('0.75');
   await page.locator('#settingsBack').click();
@@ -88,6 +95,14 @@ try {
 
   await page.screenshot({ path: '/tmp/corsacars-browser-check.png' });
   assert.deepEqual(browserErrors, [], 'Unexpected JavaScript/browser errors');
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.locator('#loading').waitFor({ state:'hidden', timeout:45000 });
+  assert.equal(await page.locator('.speed-dial.style-racing').count(),1,
+    'HUD style did not survive browser reload');
+  assert.equal(await page.locator('#renderScale').inputValue(),'0.75',
+    'Resolution scale did not survive browser reload');
+  assert.equal(await page.locator('#gamepadDeadzone').inputValue(),'0.2',
+    'Gamepad deadzone did not survive browser reload');
   console.log('PASS: WebGL scene loaded, car moved, camera/weather/pause interaction succeeded.');
 } finally {
   await browser.close();
