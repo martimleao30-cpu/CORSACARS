@@ -34,6 +34,9 @@ jobs:
           sleep 2
       - name: Browser WebGL driving smoke test
         run: npm run test:browser
+      - name: Verify licensed external car, texture and HDRI (advisory)
+        continue-on-error: true
+        run: npm run test:assets
       - name: Upload browser capture if available
         if: always()
         uses: actions/upload-artifact@v4
