@@ -26,7 +26,7 @@ function restoreSettings() {
       autoQuality: saved.autoQuality === true,
       paint: /^#[0-9a-f]{6}$/i.test(saved.paint) ? saved.paint : '#29445d',
       bindings: saved.bindings && typeof saved.bindings==='object' ? saved.bindings : undefined,
-      ...Object.fromEntries(['renderScale','antiAlias','shadowQuality','drawDistance','vegetation','textureQuality','bloom','engineVolume','steeringSensitivity','gamepadDeadzone','menuAccent','tyreCompound','absEnabled','tcsEnabled','escEnabled','analogCurve','invertSteering'].filter(k => saved[k] !== undefined).map(k => [k,saved[k]]))
+      ...Object.fromEntries(['renderScale','antiAlias','shadowQuality','drawDistance','vegetation','textureQuality','bloom','engineVolume','steeringSensitivity','gamepadDeadzone','menuAccent','tyreCompound','absEnabled','tcsEnabled','escEnabled','analogCurve','invertSteering','gearboxMode'].filter(k => saved[k] !== undefined).map(k => [k,saved[k]]))
     };
   } catch {
     return { quality: 'high', fps: 60, sound: true, ao: true, reflections: true, model: true, autoQuality: false };
@@ -158,6 +158,9 @@ window.addEventListener('keydown', event => {
   if (key === 'r') { car.reset(); toast('CARRO RECOLOCADO NA ESTRADA'); }
   if (key === 'm') {
     car.manual = !car.manual;
+    settings.gearboxMode=car.manual?'manual':'auto';
+    $('gearboxMode').value=settings.gearboxMode;
+    persistSettings();
     if(!car.manual){car.gear=Math.max(1,car.gear);car.reverse=false;}
     toast(car.manual ? 'CAIXA MANUAL · Q/E: MUDANÇAS' : 'CAIXA AUTOMÁTICA');
   }
@@ -431,6 +434,7 @@ const ui = new PremiumInterface({
 });
 car.setPaintColor(settings.paint);
 car.setTyreCompound(settings.tyreCompound||'road');
+car.manual=settings.gearboxMode==='manual';
 car.setAssists({
   abs:settings.absEnabled!==false,
   tcs:settings.tcsEnabled!==false,
@@ -503,7 +507,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   const cap = settings.fps;
   if (cap && now - lastFrame < 1000 / cap - 1.0) return;
-  const dt = lastFrame ? clamp((now - lastFrame) / 1000, 0.001, 0.05) : 1 / 60;
+  const dt = lastFrame ? clamp((now - lastFrame) / 1000, 0.001, 0.12) : 1 / 60;
   lastFrame = now;
   const play = active && !paused;
   ui.pollGamepad();
@@ -513,7 +517,7 @@ function frame(now) {
     physicsAccumulator=Math.min(.12,physicsAccumulator+dt);
     const physicsStart=performance.now();
     let substeps=0;
-    while(physicsAccumulator>=FIXED_DT && substeps<5){
+    while(physicsAccumulator>=FIXED_DT && substeps<7){
       car.updatePhysics(FIXED_DT,controls,(x,z)=>world.surfaceAt(x,z));
       physics.step(FIXED_DT);
       physicsAccumulator-=FIXED_DT;
