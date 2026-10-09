@@ -109,6 +109,9 @@ export class PlayerVehicle {
     box(root, [1.64, 0.11, 1.95], 0x273f54, [0, 1.02, -0.34], navy);
     const trim = painted(0x161e24, 0.26, 0.48);
     const silver = painted(0xaeb8bf, 0.86, 0.24);
+    const leather = new THREE.MeshPhysicalMaterial({color:0x1b2027,roughness:.74,metalness:0,clearcoat:.04});
+    const cloth = new THREE.MeshStandardMaterial({color:0x333842,roughness:.97});
+    const brushed = new THREE.MeshStandardMaterial({color:0x858f96,roughness:.29,metalness:.89});
     // Added side sills, bonnet ribs, grille, number plates and panel trim.
     for (const side of [-1, 1]) {
       box(fineDetails, [0.075, 0.14, 2.84], 0x141b20,
@@ -139,11 +142,42 @@ export class PlayerVehicle {
       box(fineDetails, [0.18, 0.095, 0.14], 0xf1a236, [side * 0.86, 0.19, 2.16], amber);
       box(fineDetails, [0.19, 0.095, 0.13], 0xf1a236, [side * 0.88, 0.19, -2.15], amber);
     }
+    // Exterior body channels, bumper diffuser and chrome exhaust surrounds.
+    for(const side of [-1,1]){
+      box(fineDetails,[.36,.04,2.23],0x15232e,[side*.74,.34,.02],navy);
+      box(fineDetails,[.19,.06,.48],0xb8c2cc,[side*.75,.61,.43],silver);
+      box(fineDetails,[.30,.035,1.42],0xb6c4cc,[side*.825,.16,-.12],brushed);
+      const exhaust=part(fineDetails,new THREE.TorusGeometry(.087,.024,6,15),brushed,
+        [side*.63,-.15,-2.25]);
+      exhaust.rotation.y=Math.PI/2;
+    }
+    box(fineDetails,[1.62,.085,.38],0x151a22,[0,-.23,-2.09],dark);
+    box(fineDetails,[1.60,.035,.22],0x111923,[0,1.07,-1.32],dark);
     box(root, [1.88, 0.14, 0.17], 0x101820, [0, -0.14, 2.13], dark);
     box(root, [1.88, 0.14, 0.18], 0x101820, [0, -0.14, -2.13], dark);
     box(root, [1.4, 0.1, 0.08], 0x16212b, [0, 0.25, 1.99], dark);
     const cockpit = new THREE.Group();
-    box(cockpit, [1.47, 0.19, 0.65], 0x171d22, [0, 0.37, 0.39], dark);
+    // Actual shaped seat geometry, backrests/headrests, console and dashboard.
+    box(cockpit,[1.45,.18,.74],0x171d22,[0,.38,.39],cloth);
+    box(cockpit,[.20,.15,1.25],0x626c76,[0,.28,-.36],brushed);
+    box(cockpit,[1.35,.10,.72],0x161b23,[0,.39,.40],leather);
+    box(cockpit,[.57,.047,.08],0x76828d,[0,.54,.57],brushed);
+    for (const side of [-1,1]){
+      const px=side*.39;
+      box(cockpit,[.49,.13,.62],0x17191e,[px,.13,-.62],leather);
+      const back=box(cockpit,[.49,.76,.15],0x17191e,[px,.58,-.91],leather);
+      back.rotation.x=-.17;
+      const insert=box(cockpit,[.34,.55,.035],0x42464d,[px,.60,-.811],cloth);
+      insert.rotation.x=-.17;
+      box(cockpit,[.32,.24,.17],0x181a1e,[px,.99,-.99],leather);
+      for(const stripe of [-1,1]){
+        box(cockpit,[.012,.34,.03],0x8c939c,[px+stripe*.16,.57,-.78],brushed);
+      }
+    }
+    const dashLight=new THREE.PointLight(0x83c4ff,0,1.9,2);
+    dashLight.position.set(-.30,.60,.30);
+    cockpit.add(dashLight);
+    this.dashLight=dashLight;
     for (const side of [-1, 1]) {
       box(cockpit, [0.5, 0.28, 0.52], 0x181d22, [side * 0.39, 0.29, -0.61], dark);
     }
@@ -169,6 +203,7 @@ export class PlayerVehicle {
     this.scene.add(root);
 
     this.wheelModels = [];
+    this.tireTreads = [];
     const rubber = painted(0x161819, 0.02, 0.94);
     const rim = painted(0xa6b0bb, 0.82, 0.27);
     for (let i = 0; i < 4; i++) {
@@ -195,6 +230,28 @@ export class PlayerVehicle {
         spoke.rotation.x = k * Math.PI * 2 / 5;
       }
       pivot.add(spokes);
+      // 36 3D tread lugs on each tire, combined into one draw call per wheel.
+      const lugGeometry=new THREE.BoxGeometry(.22,.034,.088);
+      const lugs=new THREE.InstancedMesh(lugGeometry,rubber,36);
+      const lugTransform=new THREE.Object3D();
+      for(let t=0;t<36;t++){
+        const angle=t*2*Math.PI/36;
+        lugTransform.position.set(0,Math.cos(angle)*.381,Math.sin(angle)*.381);
+        lugTransform.rotation.set(angle,0,0);
+        lugTransform.scale.set(1,1,1);
+        lugTransform.updateMatrix();
+        lugs.setMatrixAt(t,lugTransform.matrix);
+      }
+      lugs.instanceMatrix.needsUpdate=true;
+      lugs.receiveShadow=true;
+      pivot.add(lugs);
+      this.tireTreads.push(lugs);
+      const brakeDisc=part(pivot,new THREE.CylinderGeometry(.258,.258,.034,26),
+        brushed,[0,0,0]);
+      brakeDisc.rotation.z=Math.PI/2;
+      const wheelCap=part(pivot,new THREE.CylinderGeometry(.065,.065,.25,18),
+        dark,[0,0,0]);
+      wheelCap.rotation.z=Math.PI/2;
       hub.rotation.z = Math.PI / 2;
       pivot.castShadow = true;
       this.scene.add(pivot);
@@ -265,7 +322,8 @@ export class PlayerVehicle {
       }
     }
     for (const wheel of this.wheelModels) wheel.visible = true;
-    this.detailLevel = d2 < 80 * 80;
+    this.detailLevel = d2 < 65 * 65;
+    for (const tread of this.tireTreads) tread.visible = this.detailLevel;
     if (!highQualityVisible) this.fineDetails.visible = this.detailLevel;
   }
 
@@ -408,6 +466,7 @@ export class PlayerVehicle {
       );
     }
     for (const light of this.headlights) light.intensity = night ? 55 : 0;
+    if(this.dashLight)this.dashLight.intensity=night?.75:.11;
     this.brakeMaterial.emissiveIntensity = this.brakeActive ? 2.6 : (night ? 0.58 : 0.14);
     const blinking = Math.floor(performance.now() / 480) % 2 === 0;
     for (const entry of this.indicatorMaterials) {
