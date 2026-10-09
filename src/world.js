@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { createAsphaltMaterial, createGravelMaterial } from './materials.js';
+import { createAsphaltMaterial, createGravelMaterial, createTerrainMaterial } from './materials.js';
+import { WorldDetails } from './world-details.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -64,6 +65,8 @@ export class DrivingWorld {
     this.buildRoadside();
     this.buildScenery();
     this.buildStreetLights();
+    this.details = new WorldDetails(this.scene, this.roadPoints, this.roadWidth,
+      groundHeight, this.quality);
     this.buildRain();
     this.updateAtmosphere();
   }
@@ -107,7 +110,8 @@ export class DrivingWorld {
   }
 
   buildTerrain() {
-    const geometry = new THREE.PlaneGeometry(2000, 2000, 118, 118);
+    const subdivisions = this.quality === 'ultra' ? 196 : this.quality === 'high' ? 150 : 118;
+    const geometry = new THREE.PlaneGeometry(2000, 2000, subdivisions, subdivisions);
     geometry.rotateX(-Math.PI / 2);
     const positions = geometry.getAttribute('position');
     const colors = [];
@@ -124,9 +128,7 @@ export class DrivingWorld {
     }
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geometry.computeVertexNormals();
-    const surface = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
-      vertexColors: true, roughness: 0.98, flatShading: false
-    }));
+    const surface = new THREE.Mesh(geometry, createTerrainMaterial());
     surface.receiveShadow = true;
     this.scene.add(surface);
     meshCollider(this.physics, geometry, this.terrainMaterial);
@@ -170,7 +172,7 @@ export class DrivingWorld {
     roadGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     roadGeometry.setIndex(indices);
     roadGeometry.computeVertexNormals();
-    this.roadMaterial = createAsphaltMaterial();
+    this.roadMaterial = createAsphaltMaterial(this.quality);
     const roadMesh = new THREE.Mesh(roadGeometry, this.roadMaterial);
     roadMesh.receiveShadow = true;
     this.scene.add(roadMesh);
@@ -396,6 +398,7 @@ export class DrivingWorld {
     const v=this.vegetation;
     v.trunks.count=Math.max(1,Math.floor(v.planted*ratio));
     v.leaves.count=Math.max(1,Math.floor(v.leafCount*ratio));
+    this.details?.setDensity(ratio);
   }
 
     buildRain() {
@@ -421,13 +424,8 @@ export class DrivingWorld {
     if (!['clear', 'rain', 'fog'].includes(weather)) return;
     this.weather = weather;
     this.rain.visible = weather === 'rain';
-    if (this.roadMaterial) {
-      this.roadMaterial.clearcoat = weather === 'rain' ? 0.9 : 0;
-      this.roadMaterial.clearcoatRoughness = weather === 'rain' ? 0.13 : 0.23;
-      this.roadMaterial.roughness = weather === 'rain' ? 0.52 : 0.97;
-      this.roadMaterial.color.set(weather === 'rain' ? 0xb5bfc9 : 0xf2f2f2);
-      this.roadMaterial.needsUpdate = true;
-    }
+    // Wetness now rises and dries gradually in update(), including puddles.
+    // Avoid forcing instantaneous material changes when it starts raining.
     this.updateAtmosphere();
   }
 
@@ -442,10 +440,12 @@ export class DrivingWorld {
       .lerp(daylightColor, THREE.MathUtils.smoothstep(daylight, 0.25, 0.7));
     if (this.weather === 'rain') sky.lerp(new THREE.Color(0x3a5262), 0.68);
     if (this.weather === 'fog') sky.lerp(new THREE.Color(0xa4aba9), 0.34);
-    this.scene.background.copy(sky);
-    this.scene.fog.color.copy(sky);
-    this.scene.fog.density = this.weather === 'fog' ? 0.009 :
+    const atmosphericBlend = this.frameDt ? Math.min(1, this.frameDt * 2.6) : 0.05;
+    this.scene.background.lerp(sky, atmosphericBlend);
+    this.scene.fog.color.lerp(sky, atmosphericBlend);
+    const density = this.weather === 'fog' ? 0.009 :
       this.weather === 'rain' ? 0.0023 : 0.0008;
+    this.scene.fog.density = THREE.MathUtils.lerp(this.scene.fog.density, density, atmosphericBlend);
     this.sun.position.set(Math.cos(angle) * 180, Math.max(5, daylight * 200), Math.sin(angle) * 180);
     this.sun.intensity = 0.045 + daylight * (this.weather === 'rain' ? 1.0 : 2.65);
     this.ambient.intensity = 0.17 + daylight * (this.weather === 'rain' ? 0.55 : 1.1);
@@ -456,6 +456,7 @@ export class DrivingWorld {
   }
 
   update(dt, vehiclePosition, paused = false) {
+    this.frameDt = paused ? 0 : dt;
     if (!paused) {
       this.hour = (this.hour + dt * this.sunSpeed / 60) % 24;
       if (this.rain.visible) {
@@ -467,6 +468,13 @@ export class DrivingWorld {
         }
         pos.needsUpdate = true;
       }
+    }
+    const wetness = this.details?.update(dt, vehiclePosition, this.weather, this.hour, paused) || 0;
+    if (this.roadMaterial) {
+      this.roadMaterial.clearcoat = 0.08 + .82 * wetness;
+      this.roadMaterial.clearcoatRoughness = .23 - .12 * wetness;
+      this.roadMaterial.roughness = .97 - .47 * wetness;
+      this.roadMaterial.color.setRGB(1 - .25 * wetness, 1 - .23 * wetness, 1 - .19 * wetness);
     }
     this.updateAtmosphere();
     if (vehiclePosition) {
