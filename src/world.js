@@ -3,6 +3,7 @@ import * as CANNON from 'cannon-es';
 import { createAsphaltMaterial, createGravelMaterial, createTerrainMaterial } from './materials.js';
 import { WorldDetails } from './world-details.js';
 import { RoadNetwork } from './road-network.js';
+import { WorldSectors } from './world-sectors.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -68,6 +69,7 @@ export class DrivingWorld {
     this.buildRoadside();
     this.buildScenery();
     this.buildStreetLights();
+    this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
     this.details = new WorldDetails(this.scene, this.roadPoints, this.roadWidth,
       groundHeight, this.quality, this.vegetation);
     this.buildRain();
@@ -509,6 +511,7 @@ export class DrivingWorld {
     }
     this.updateAtmosphere();
     if (vehiclePosition) {
+      this.sectors.update(vehiclePosition,performance.now()/1000);
       this.rain.position.set(vehiclePosition.x, vehiclePosition.y - 3, vehiclePosition.z);
       this.stars.position.set(vehiclePosition.x, 0, vehiclePosition.z);
       this.sun.target.position.set(vehiclePosition.x, 0, vehiclePosition.z);
