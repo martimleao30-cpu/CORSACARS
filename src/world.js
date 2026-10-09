@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
+import { createAsphaltMaterial, createGravelMaterial } from './materials.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -56,10 +57,13 @@ export class DrivingWorld {
     this.roadPoints = [];
     this.rain = null;
     this.stars = null;
+    this.streetLights = [];
     this.buildSun();
     this.buildTerrain();
     this.buildRoad();
+    this.buildRoadside();
     this.buildScenery();
+    this.buildStreetLights();
     this.buildRain();
     this.updateAtmosphere();
   }
@@ -67,7 +71,8 @@ export class DrivingWorld {
   buildSun() {
     this.scene.background = new THREE.Color(0xa5cbdc);
     this.scene.fog = new THREE.FogExp2(0xa7c2c5, 0.0009);
-    this.scene.add(new THREE.HemisphereLight(0xd8efff, 0x626e4c, 1.35));
+    this.ambient = new THREE.HemisphereLight(0xd8efff, 0x626e4c, 1.35);
+    this.scene.add(this.ambient);
     this.sun = new THREE.DirectionalLight(0xffedd0, 2.65);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -78,6 +83,8 @@ export class DrivingWorld {
     this.sun.shadow.camera.near = 0.5;
     this.sun.shadow.camera.far = 800;
     this.sun.shadow.bias = -0.00008;
+    this.sun.shadow.normalBias = 0.045;
+    this.sun.shadow.radius = 2.2;
     this.scene.add(this.sun, this.sun.target);
     const rnd = seeded(8999);
     const positions = [];
@@ -163,7 +170,8 @@ export class DrivingWorld {
     roadGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     roadGeometry.setIndex(indices);
     roadGeometry.computeVertexNormals();
-    const roadMesh = new THREE.Mesh(roadGeometry, material(0x262e32, 0.96));
+    this.roadMaterial = createAsphaltMaterial();
+    const roadMesh = new THREE.Mesh(roadGeometry, this.roadMaterial);
     roadMesh.receiveShadow = true;
     this.scene.add(roadMesh);
     meshCollider(this.physics, roadGeometry, this.asphaltMaterial);
@@ -203,6 +211,74 @@ export class DrivingWorld {
     dashed.receiveShadow = solid.receiveShadow = true;
     this.scene.add(dashed, solid);
     this.spawn = this.roadPoints[5];
+  }
+
+  buildRoadside() {
+    // Curved gravel shoulders hug the terrain beside the road.
+    for (const direction of [-1, 1]) {
+      const vertices = [], uv = [], indices = [];
+      for (let i = 0; i < this.roadPoints.length; i++) {
+        const edge = this.roadPoints[i];
+        const inside = edge.center.clone().addScaledVector(edge.side,
+          direction * (this.roadWidth / 2 + 0.03));
+        const outside = edge.center.clone().addScaledVector(edge.side,
+          direction * (this.roadWidth / 2 + 2.2));
+        inside.y = groundHeight(inside.x, inside.z) + 0.13;
+        outside.y = groundHeight(outside.x, outside.z) + 0.045;
+        vertices.push(inside.x, inside.y, inside.z, outside.x, outside.y, outside.z);
+        uv.push(0, i * 0.5, 1, i * 0.5);
+        if (i < this.roadPoints.length - 1) {
+          const j = i * 2;
+          indices.push(j, j + 2, j + 1, j + 1, j + 2, j + 3);
+        }
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+      const shoulder = new THREE.Mesh(geometry, createGravelMaterial());
+      shoulder.material.side = THREE.DoubleSide;
+      shoulder.receiveShadow = true;
+      this.scene.add(shoulder);
+    }
+  }
+
+  buildStreetLights() {
+    const post = new THREE.CylinderGeometry(0.11, 0.16, 7, 8);
+    const arm = new THREE.CylinderGeometry(0.07, 0.07, 2.1, 8);
+    const poleMaterial = material(0x5d6770, 0.49, 0.7);
+    this.bulbMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffeac8, emissive: 0xffd9a4, emissiveIntensity: 0.1
+    });
+    const up = new THREE.Vector3(0, 1, 0);
+    for (let i = 5; i < this.roadPoints.length; i += 18) {
+      const road = this.roadPoints[i];
+      const side = road.side.clone().multiplyScalar(i % 2 === 0 ? 1 : -1);
+      const location = road.center.clone().addScaledVector(side, 10);
+      location.y = groundHeight(location.x, location.z);
+      const upright = new THREE.Mesh(post, poleMaterial);
+      upright.position.copy(location).add(new THREE.Vector3(0, 3.5, 0));
+      upright.castShadow = true;
+      this.scene.add(upright);
+      const lampPos = location.clone().add(new THREE.Vector3(0, 6.86, 0))
+        .addScaledVector(side, -1.92);
+      const crossbar = new THREE.Mesh(arm, poleMaterial);
+      crossbar.position.copy(location).add(new THREE.Vector3(0, 6.86, 0))
+        .addScaledVector(side, -0.96);
+      crossbar.quaternion.setFromUnitVectors(up, side.clone().negate());
+      crossbar.castShadow = true;
+      this.scene.add(crossbar);
+      const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.15, 0.55),
+        this.bulbMaterial);
+      bulb.position.copy(lampPos);
+      this.scene.add(bulb);
+      const light = new THREE.PointLight(0xffddb0, 0, 27, 2);
+      light.position.copy(lampPos);
+      light.castShadow = false;
+      this.scene.add(light);
+      this.streetLights.push(light);
+    }
   }
 
   distanceToRoad(x, z) {
@@ -310,6 +386,13 @@ export class DrivingWorld {
     if (!['clear', 'rain', 'fog'].includes(weather)) return;
     this.weather = weather;
     this.rain.visible = weather === 'rain';
+    if (this.roadMaterial) {
+      this.roadMaterial.clearcoat = weather === 'rain' ? 0.9 : 0;
+      this.roadMaterial.clearcoatRoughness = weather === 'rain' ? 0.13 : 0.23;
+      this.roadMaterial.roughness = weather === 'rain' ? 0.52 : 0.97;
+      this.roadMaterial.color.set(weather === 'rain' ? 0xb5bfc9 : 0xf2f2f2);
+      this.roadMaterial.needsUpdate = true;
+    }
     this.updateAtmosphere();
   }
 
@@ -329,7 +412,10 @@ export class DrivingWorld {
     this.scene.fog.density = this.weather === 'fog' ? 0.009 :
       this.weather === 'rain' ? 0.0023 : 0.0008;
     this.sun.position.set(Math.cos(angle) * 180, Math.max(5, daylight * 200), Math.sin(angle) * 180);
-    this.sun.intensity = 0.05 + daylight * (this.weather === 'rain' ? 1.0 : 2.65);
+    this.sun.intensity = 0.045 + daylight * (this.weather === 'rain' ? 1.0 : 2.65);
+    this.ambient.intensity = 0.17 + daylight * (this.weather === 'rain' ? 0.55 : 1.1);
+    this.ambient.color.set(daylight < 0.18 ? 0x829cbd : 0xd5e8ff);
+    this.bulbMaterial.emissiveIntensity = daylight < 0.12 ? 1.9 : 0.06;
     this.sun.color.set(daylight < 0.4 ? 0xffc184 : 0xffefdd);
     this.stars.visible = daylight < 0.08 && this.weather === 'clear';
   }
@@ -355,6 +441,13 @@ export class DrivingWorld {
       this.sun.position.x = vehiclePosition.x + Math.cos((this.hour - 6) / 24 * TAU) * 180;
       this.sun.position.z = vehiclePosition.z + Math.sin((this.hour - 6) / 24 * TAU) * 180;
       this.sun.target.updateMatrixWorld();
+      // Keep only a small number of nearby streetlights active.
+      const nighttime = this.hour < 6.3 || this.hour > 18.9;
+      for (const lamp of this.streetLights) {
+        const dx = lamp.position.x - vehiclePosition.x;
+        const dz = lamp.position.z - vehiclePosition.z;
+        lamp.intensity = nighttime && dx * dx + dz * dz < 8100 ? 30 : 0;
+      }
     }
   }
 }
