@@ -4,6 +4,7 @@
 const { app, BrowserWindow, protocol } = require('electron');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
+const { setupUpdates } = require('./updates.cjs');
 
 const SCHEME = 'corsacars';
 protocol.registerSchemesAsPrivileged([
@@ -66,6 +67,7 @@ function createWindow() {
     useContentSize: true,
     webPreferences: {
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
@@ -95,6 +97,7 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     protocol.handle(SCHEME, loadLocalAsset);
     createWindow();
+    setupUpdates({ app, ipcMain: require('electron').ipcMain, getWindow: () => gameWindow });
     app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
   });
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
