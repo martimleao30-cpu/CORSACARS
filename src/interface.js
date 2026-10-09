@@ -87,6 +87,7 @@ export class PremiumInterface {
     const pause=$('pauseScreen').querySelector('.panel');
     $('resumeButton').insertAdjacentHTML('afterend',`
       <button class="outline" id="mapPause">MAPA <span>⌖</span></button>
+      <button class="outline" id="testTrackPause">PISTA DE TESTES <span>⚑</span></button>
       <button class="outline" id="garagePause">GARAGEM <span>◉</span></button>
       <button class="outline" id="hudPause">PERSONALIZAR HUD <span>◈</span></button>`);
     document.body.insertAdjacentHTML('beforeend',`
@@ -285,6 +286,7 @@ export class PremiumInterface {
     $('exitStart').addEventListener('click',()=>{
       this.api.toast('Num navegador, fecha o separador para sair. O progresso local mantém-se.');
     });
+    $('testTrackPause').addEventListener('click',()=>this.api.teleportToTests());
     $('garageSelect').addEventListener('click',()=>{
       this.api.toast('CONCEPT COUPÉ SELECIONADO');
       this.back();
