@@ -6,6 +6,7 @@ import { GraphicsPipeline } from './graphics.js';
 import { AssetUpgrade } from './assets.js';
 import { IndirectLighting } from './lighting.js';
 import { PerformanceMonitor } from './performance.js';
+import { PremiumInterface } from './interface.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -21,7 +22,9 @@ function restoreSettings() {
       ao: saved.ao !== false,
       reflections: saved.reflections !== false,
       model: saved.model !== false,
-      autoQuality: saved.autoQuality === true
+      autoQuality: saved.autoQuality === true,
+      paint: /^#[0-9a-f]{6}$/i.test(saved.paint) ? saved.paint : '#29445d',
+      ...Object.fromEntries(['renderScale','antiAlias','shadowQuality','drawDistance','vegetation','textureQuality','bloom','engineVolume','steeringSensitivity','gamepadDeadzone','menuAccent'].filter(k => saved[k] !== undefined).map(k => [k,saved[k]]))
     };
   } catch {
     return { quality: 'high', fps: 60, sound: true, ao: true, reflections: true, model: true, autoQuality: false };
@@ -72,6 +75,9 @@ const performanceMonitor = new PerformanceMonitor(renderer, $('perfValue'), qual
 let active = false;
 let paused = false;
 let settingsFrom = 'startScreen';
+const panelStack = [];
+const SESSION_KEY = 'corsacars.session.v1';
+let lastSessionSave = 0;
 let cameraMode = 0;
 let cameraLook = new THREE.Vector3();
 let lastFrame = 0;
@@ -122,7 +128,7 @@ class EngineTone {
     this.low.frequency.setTargetAtTime(hz, time, 0.05);
     this.high.frequency.setTargetAtTime(hz * 1.98, time, 0.05);
     this.gain.gain.setTargetAtTime(
-      this.enabled && !isPaused ? 0.009 + Math.abs(throttle) * 0.019 : 0.00001,
+      this.enabled && !isPaused ? (0.009 + Math.abs(throttle) * 0.019) * (settings.engineVolume ?? .7) : 0.00001,
       time, 0.09
     );
   }
@@ -138,6 +144,7 @@ window.addEventListener('keydown', event => {
   keys.add(key);
   if (event.repeat) return;
   if (key === 'escape') {
+    if (ui.handleEscape()) return;
     if (!$('settingsScreen').classList.contains('hidden')) closeSettings();
     else if (active) setPaused(!paused);
   }
@@ -169,14 +176,15 @@ function sampleControls() {
   const stick = { steer: 0, accelerate: 0, brake: 0, handbrake: false };
   const keyboardSteer = (keys.has('d') || keys.has('arrowright') ? 1 : 0) -
     (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
-  stick.steer = keyboardSteer;
+  stick.steer = keyboardSteer * (settings.steeringSensitivity ?? 1);
   stick.accelerate = keys.has('w') || keys.has('arrowup') ? 1 : 0;
   stick.brake = keys.has('s') || keys.has('arrowdown') ? 1 : 0;
   stick.handbrake = keys.has(' ');
   const gp = navigator.getGamepads?.()?.find(p => p?.connected && p.mapping === 'standard');
   if (gp) {
     const steer = gp.axes[0] || 0;
-    stick.steer = Math.abs(steer) > 0.12 ? steer : stick.steer;
+    stick.steer = Math.abs(steer) > (settings.gamepadDeadzone ?? .12) ?
+      Math.max(-1,Math.min(1,steer * (settings.steeringSensitivity ?? 1))) : stick.steer;
     stick.accelerate = Math.max(stick.accelerate, gp.buttons[7]?.value || 0);
     stick.brake = Math.max(stick.brake, gp.buttons[6]?.value || 0);
     stick.handbrake ||= gp.buttons[0]?.pressed || false;
@@ -199,6 +207,15 @@ function sampleControls() {
 
 function updateCamera(dt) {
   const point = car.getPosition();
+  if (!active && !$('startScreen').classList.contains('hidden') ||
+      !$('garageScreen').classList.contains('hidden')) {
+    const t=performance.now() * .00011;
+    const radius= $('garageScreen').classList.contains('hidden') ? 12 : 8;
+    cameraPos.set(point.x+Math.sin(t)*radius,point.y+3.8,point.z+Math.cos(t)*radius);
+    camera.position.lerp(cameraPos,Math.min(1,dt*2.6));
+    camera.lookAt(point.x,point.y+0.5,point.z);
+    return;
+  }
   const quat = car.model.quaternion;
   forward.set(0, 0, 1).applyQuaternion(quat);
   const right = new THREE.Vector3(1, 0, 0).applyQuaternion(quat);
@@ -240,17 +257,19 @@ function changeCamera() {
   toast('CÂMARA: ' + viewNames[cameraMode]);
 }
 function showOnly(id) {
-  for (const name of ['startScreen', 'pauseScreen', 'settingsScreen']) {
+  for (const name of ['startScreen', 'pauseScreen', 'settingsScreen', 'garageScreen', 'hudEditorScreen', 'mapScreen', 'creditsScreen']) {
     $(name).classList.toggle('hidden', name !== id);
   }
 }
 function startGame() {
+  if (!active) restoreSession();
   active = true;
   paused = false;
   showOnly(null);
   $('topbar').classList.remove('hidden');
   $('hud').classList.remove('hidden');
   engine.activate();
+  $('hud').classList.remove('editing');
   void assets.start(settings.quality);
   if (!window.__CORSACARS_DISABLE_REMOTE_ASSETS__) void indirect.load();
 }
@@ -258,6 +277,21 @@ function setPaused(value) {
   if (!active) return;
   paused = value;
   showOnly(paused ? 'pauseScreen' : null);
+  keys.clear();
+}
+function showPanel(id) {
+  const previous=['startScreen','pauseScreen','settingsScreen','garageScreen','hudEditorScreen','mapScreen','creditsScreen']
+    .find(name=>!$(name).classList.contains('hidden')) || (active?'pauseScreen':'startScreen');
+  panelStack.push(previous);
+  if(active)paused=true;
+  showOnly(id);
+  keys.clear();
+}
+function backPanel() {
+  const previous=panelStack.pop() || (active?'pauseScreen':'startScreen');
+  showOnly(previous);
+  $('hud').classList.toggle('hidden', !active && previous!=='hudEditorScreen');
+  if(previous==='pauseScreen')paused=true;
   keys.clear();
 }
 function showSettings() {
@@ -271,10 +305,12 @@ function closeSettings() {
   else paused = true;
 }
 function goHome() {
+  if(active) saveSession();
   active = false;
   paused = false;
   keys.clear();
   car.reset();
+  panelStack.length=0;
   showOnly('startScreen');
   $('topbar').classList.add('hidden');
   $('hud').classList.add('hidden');
@@ -282,12 +318,43 @@ function goHome() {
 
 function applyQuality() {
   const scales = { low: 0.67, medium: 0.83, high: 1, ultra: 1.3 };
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8) * scales[settings.quality]);
-  renderer.shadowMap.enabled = settings.quality !== 'low';
+  const requestedScale=Math.max(.6,Math.min(1.15,Number(settings.renderScale)||1));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8) * scales[settings.quality] * requestedScale);
+  const shadowSetting=settings.shadowQuality || 'high';
+  renderer.shadowMap.enabled = settings.quality !== 'low' && shadowSetting !== 'off';
+  const sizes={off:512,low:512,medium:1024,high:2048};
+  const size=sizes[shadowSetting]||1024;
+  if(world.sun.shadow.mapSize.x!==size){
+    world.sun.shadow.map?.dispose();
+    world.sun.shadow.map=null;
+    world.sun.shadow.mapSize.set(size,size);
+  }
+  camera.far=Math.max(500,Math.min(1900,Number(settings.drawDistance)||1500));
+  camera.updateProjectionMatrix();
+  world.setVegetationDensity?.(Number(settings.vegetation)||1);
   renderer.shadowMap.needsUpdate = true;
   graphics.setQuality(settings.quality, settings);
+  graphics.configureEffects?.(settings);
   assets.setQuality(settings.quality);
   resize();
+}
+function saveSession() {
+  const p=car.chassis.position,q=car.chassis.quaternion;
+  try {localStorage.setItem(SESSION_KEY,JSON.stringify({v:1,position:[p.x,p.y,p.z],quaternion:[q.x,q.y,q.z,q.w],saved:Date.now()}));}
+  catch{}
+}
+function restoreSession() {
+  try {
+    const state=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
+    const a=state?.position,b=state?.quaternion;
+    if(state?.v!==1||!Array.isArray(a)||a.length!==3||!Array.isArray(b)||b.length!==4||
+       ![...a,...b].every(Number.isFinite)||Math.max(Math.abs(a[0]),Math.abs(a[2]))>950||
+       a[1]<-10||a[1]>300)return;
+    car.chassis.position.set(...a);
+    car.chassis.quaternion.set(...b);
+    car.chassis.velocity.set(0,0,0);
+    car.chassis.angularVelocity.set(0,0,0);
+  } catch {}
 }
 function resize() {
   const width = window.innerWidth, height = window.innerHeight;
@@ -297,6 +364,17 @@ function resize() {
   graphics.resize();
 }
 window.addEventListener('resize', resize);
+const ui = new PremiumInterface({
+  vehicle:car,world,settings,persistSettings,applyQuality,
+  showPanel,backPanel,closeSettings,
+  showHud:(visible)=>$('hud').classList.toggle('hidden',!visible),
+  toast,
+  reloadTextures:(quality)=>assets.loadPhotographicAsphalt(quality==='high'?'ultra':'high')
+});
+car.setPaintColor(settings.paint);
+if(localStorage.getItem(SESSION_KEY)) {
+  $('startButton').innerHTML='CONTINUAR A CONDUZIR <span>↗</span>';
+}
 
 $('startButton').addEventListener('click', startGame);
 $('resumeButton').addEventListener('click', () => setPaused(false));
@@ -364,6 +442,7 @@ function frame(now) {
   const dt = lastFrame ? clamp((now - lastFrame) / 1000, 0.001, 0.05) : 1 / 60;
   lastFrame = now;
   const play = active && !paused;
+  ui.pollGamepad();
   let controls = { steer: 0, accelerate: 0, brake: 0, handbrake: false };
   if (play) {
     controls = sampleControls();
@@ -384,10 +463,7 @@ function frame(now) {
   car.setVisualDetail(camera.position);
   graphics.update(dt, play);
   const telemetry = car.getTelemetry();
-  $('speedValue').textContent = String(telemetry.speed);
-  $('rpmValue').textContent = telemetry.rpm + ' RPM';
-  $('rpmBar').style.width = clamp(telemetry.rpm / 6850 * 100, 0, 100) + '%';
-  $('gearValue').textContent = telemetry.gear;
+  ui.updateTelemetry(telemetry,controls.handbrake);
   $('hudState').textContent = telemetry.gearbox + ' · RWD · FÍSICA ALPHA';
   const hours = Math.floor(world.hour), mins = Math.floor(world.hour % 1 * 60);
   $('worldTime').textContent = String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
@@ -398,6 +474,7 @@ function frame(now) {
     notifyUntil = 0;
   }
   graphics.render();
+  if(play && now-lastSessionSave>10000){saveSession();lastSessionSave=now;}
   performanceMonitor.update(dt, settings.quality, settings.autoQuality, play);
 }
 
