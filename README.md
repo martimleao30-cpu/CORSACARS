@@ -1,4 +1,4 @@
-# CORSACARS — Open Road
+# CORSACARS — Open Road v0.2
 
 **CORSACARS** é um projeto de jogo de automóveis 3D independente, feito para **navegador** com [Three.js](https://threejs.org/) e [cannon-es](https://pmndrs.github.io/cannon-es/). **Não utiliza Unity** e não partilha quaisquer ficheiros com o projeto Minecraft.
 
@@ -49,6 +49,20 @@ Com Node.js 22+:
 npm test
 ```
 O GitHub Actions corre automaticamente verificações de sintaxe e testes estruturais após alterações ao repositório. **Estes testes não substituem os testes reais da física, rendimento e apresentação no navegador.** A primeira versão ainda não foi validada no editor de um motor de jogo (não utiliza um).
+
+## Evolução gráfica v0.2
+
+- Materiais PBR de asfalto e gravilha gerados proceduralmente sem recursos protegidos: mapa de cor, **normal map** para relevo visual e roughness map. Não são texturas fotográficas 4K.
+- Asfalto com verniz superficial, rugosidade e cor alteradas no modo chuva; bermas acompanhando as curvas da estrada.
+- Carro com **MeshPhysicalMaterial**, pintura metalizada de duas camadas (Clear Coat), vidro transparente e reflexivo, embelezadores laterais, grelha, matrículas provisórias e mais detalhes nas jantes.
+- Painel de instrumentos com CanvasTexture atualizado em tempo real; luzes de travagem que acendem durante a travagem; piscas da esquerda/direita alternáveis por Z/X.
+- Iluminação ambiente e temperatura de cor do sol dependentes da hora, sombras suaves com correção de normal bias, candeeiros de rua emissivos e pontos de luz ativados à noite perto do veículo.
+- Reflexos dinâmicos na pintura/vidros por **CubeCamera**, atualizados com frequência limitada; oclusão ambiente **SSAO** opcional por Three.js addons nos perfis Alto/Ultra (com fallback para renderização direta em navegadores sem suporte).
+- Exposição adaptada gradualmente à hora e clima; tone mapping ACES já existente preservado.
+- Definições novas para desligar SSAO e reflexos em tempo real, guardadas em localStorage.
+- Testes automáticos de sintaxe/estrutura e teste real no Chromium com WebGL, acelerar, trocar de câmara, chuva e pausa.
+
+As melhorias são um avanço visual sobre os materiais básicos, **não equivalem ainda a fotorrealismo AAA**. A luz indireta é aproximada por HemisphereLight (não há iluminação global por ray tracing); os reflexos por cubemap não são ray tracing; SSAO não substitui GI. Os modelos 3D continuam provisórios. O rendimento e compatibilidade gráfica exigem testes em hardware real.
 
 ## Limitações e próximas fases
 
