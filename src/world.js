@@ -69,6 +69,12 @@ export class DrivingWorld {
       this.roadPoints,this.roadWidth,this.quality);
     this.buildRoadside();
     this.testArea=new DrivingTestArea(this.scene,this.physics,this.network,groundHeight);
+    const testRoad=this.network.roads.find(r=>r.id==='provas');
+    if(testRoad) {
+      const i=Math.floor(testRoad.points.length*.095);
+      this.testSpawn={center:testRoad.points[i],
+        tangent:testRoad.points[i+1].clone().sub(testRoad.points[i]).normalize()};
+    }
     this.buildScenery();
     this.buildStreetLights();
     this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
@@ -327,7 +333,7 @@ export class DrivingWorld {
     let planted = 0, leafCount = 0;
     for (let i = 0; i < treeCount * 5 && planted < treeCount; i++) {
       const x = (random() - 0.5) * 1650, z = (random() - 0.5) * 1650;
-      if (this.distanceToRoad(x, z) < 20) continue;
+      if (this.distanceToRoad(x, z) < 20 || this.network.query(x,z).distance < 17) continue;
       if (x > 40 && x < 270 && z > -80 && z < 210) continue;
       const h = groundHeight(x, z);
       const size = 0.7 + random() * 0.95;
@@ -408,7 +414,7 @@ export class DrivingWorld {
     let count = 0;
     for (let i = 0; i < 500 && count < 140; i++) {
       const x = (random() - 0.5) * 1800, z = (random() - 0.5) * 1800;
-      if (this.distanceToRoad(x, z) < 16) continue;
+      if (this.distanceToRoad(x, z) < 16 || this.network.query(x,z).distance < 12) continue;
       const size = 0.4 + random() * 2.4;
       dummy.position.set(x, groundHeight(x, z) + size * 0.15, z);
       dummy.rotation.set(random(), random() * TAU, random());
