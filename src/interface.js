@@ -3,9 +3,9 @@ const HUD_KEY = 'corsacars.hud.v2';
 const PROFILES_KEY = 'corsacars.hud.profiles.v1';
 const pages = ['startScreen','pauseScreen','settingsScreen','garageScreen',
   'hudEditorScreen','mapScreen','creditsScreen'];
-const validStyle = ['digital','analog','racing','minimal','custom'];
+const validStyle = ['glass','digital','analog','racing','minimal','custom'];
 const defaultHud = {
-  style:'digital',unit:'kmh',color:'#c9f173',scale:1,opacity:0.82,
+  style:'glass',unit:'kmh',color:'#eab56e',scale:1,opacity:0.34,
   showRpm:true,showGear:true,background:true,animations:true,
   posX:null,posY:null
 };
@@ -19,7 +19,7 @@ function save(key, value) {
 function safeColor(hex) { return /^#[\da-f]{6}$/i.test(hex) ? hex : defaultHud.color; }
 function cleanHud(src) {
   const a={...defaultHud,...(src||{})};
-  a.style=validStyle.includes(a.style)?a.style:'digital';
+  a.style=validStyle.includes(a.style)?a.style:'glass';
   a.unit=a.unit==='mph'?'mph':'kmh';
   a.scale=Math.min(1.6,Math.max(0.6,Number(a.scale)||1));
   a.opacity=Math.min(1,Math.max(0,Number(a.opacity)??0.82));
@@ -115,6 +115,7 @@ export class PremiumInterface {
           <div class="option-grid">
             <label>Estilo
               <select id="hudStyle">
+                <option value="glass">Vidro e cobre (transparente)</option>
                 <option value="digital">Digital moderno</option>
                 <option value="analog">Analógico desportivo</option>
                 <option value="racing">Racing</option>
@@ -470,7 +471,7 @@ export class PremiumInterface {
   setHud(p) {
     p=cleanHud(p);
     const dial=this.dial;
-    dial.classList.remove('style-digital','style-analog','style-racing','style-minimal',
+    dial.classList.remove('style-glass','style-digital','style-analog','style-racing','style-minimal',
       'style-custom','hide-rpm','hide-gear','no-background','no-motion');
     dial.classList.add('style-'+p.style);
     if(!p.showRpm)dial.classList.add('hide-rpm');
