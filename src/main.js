@@ -7,6 +7,7 @@ import { AssetUpgrade } from './assets.js';
 import { IndirectLighting } from './lighting.js';
 import { PerformanceMonitor } from './performance.js';
 import { PremiumInterface } from './interface.js';
+import './desktop-updates.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -340,6 +341,10 @@ function applyQuality() {
   assets.setQuality(settings.quality);
   resize();
 }
+window.addEventListener('corsacars:before-update', () => {
+  saveSession();
+  persistSettings();
+});
 function saveSession() {
   const p=car.chassis.position,q=car.chassis.quaternion;
   try {localStorage.setItem(SESSION_KEY,JSON.stringify({v:1,position:[p.x,p.y,p.z],quaternion:[q.x,q.y,q.z,q.w],saved:Date.now()}));}
