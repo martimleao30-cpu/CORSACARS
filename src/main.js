@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { DrivingWorld } from './world.js';
 import { PlayerVehicle } from './vehicle.js';
+import { GraphicsPipeline } from './graphics.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -43,6 +44,9 @@ physics.solver.iterations = 12;
 physics.broadphase = new CANNON.SAPBroadphase(physics);
 const world = new DrivingWorld(scene, physics, settings.quality);
 const car = new PlayerVehicle(physics, scene, world.spawn);
+const graphics = new GraphicsPipeline(renderer, scene, camera, car, world);
+graphics.setQuality(settings.quality);
+void graphics.initialize();
 
 let active = false;
 let paused = false;
@@ -123,6 +127,8 @@ window.addEventListener('keydown', event => {
     car.manual = !car.manual;
     toast(car.manual ? 'CAIXA MANUAL' : 'CAIXA AUTOMÁTICA');
   }
+  if (key === 'z') { car.setIndicator(-1); toast('PISCA ESQUERDO'); }
+  if (key === 'x') { car.setIndicator(1); toast('PISCA DIREITO'); }
   if (key === 'q') car.shift(-1);
   if (key === 'e') car.shift(1);
   if (key === 'n') { world.hour = world.hour > 7 && world.hour < 19 ? 23 : 14; toast('HORA ALTERADA'); }
@@ -256,7 +262,7 @@ function applyQuality() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8) * scales[settings.quality]);
   renderer.shadowMap.enabled = settings.quality !== 'low';
   renderer.shadowMap.needsUpdate = true;
-  renderer.toneMappingExposure = settings.quality === 'low' ? 1.08 : 1.2;
+  graphics.setQuality(settings.quality);
   resize();
 }
 function resize() {
@@ -264,6 +270,7 @@ function resize() {
   camera.aspect = width / Math.max(height, 1);
   camera.updateProjectionMatrix();
   renderer.setSize(width, height, false);
+  graphics.resize();
 }
 window.addEventListener('resize', resize);
 
@@ -326,6 +333,8 @@ function frame(now) {
   car.updateVisuals(world.hour >= 19 || world.hour <= 6 || world.weather !== 'clear');
   world.update(dt, car.getPosition(), !play);
   updateCamera(dt);
+  car.setVisualDetail(camera.position);
+  graphics.update(dt, play);
   const telemetry = car.getTelemetry();
   $('speedValue').textContent = String(telemetry.speed);
   $('rpmValue').textContent = telemetry.rpm + ' RPM';
@@ -340,7 +349,7 @@ function frame(now) {
     $('toast').classList.add('hidden');
     notifyUntil = 0;
   }
-  renderer.render(scene, camera);
+  graphics.render();
 }
 
 applyQuality();
