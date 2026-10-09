@@ -166,6 +166,7 @@ window.addEventListener('keydown', event => {
   }
   if (key === 'z') { car.setIndicator(-1); toast('PISCA ESQUERDO'); }
   if (key === 'x') { car.setIndicator(1); toast('PISCA DIREITO'); }
+  if (key === 'f') interactNearby();
   if (key === 'q') car.shift(-1);
   if (key === 'e') car.shift(1);
   if (key === 'n') { world.hour = world.hour > 7 && world.hour < 19 ? 23 : 14; toast('HORA ALTERADA'); }
@@ -266,6 +267,30 @@ function toast(message) {
   node.textContent = message;
   node.classList.remove('hidden');
   notifyUntil = performance.now() + 2100;
+}
+function interactNearby(){
+  const poi=world.sectors?.nearby(car.getPosition(),43);
+  if(!poi)return toast('APROXIMA-TE DE UM PONTO DE INTERESSE');
+  if(poi.kind==='service'){
+    const options=['road','sport','track'];
+    const next=options[(options.indexOf(car.tyreCompound)+1)%options.length];
+    car.setTyreCompound(next);settings.tyreCompound=next;
+    if($('tyreCompound'))$('tyreCompound').value=next;
+    persistSettings();
+    toast('ÁREA DE SERVIÇO · PNEUS: '+next.toUpperCase());
+  }else if(poi.kind==='town'){
+    showPanel('garageScreen');
+  }else if(poi.kind==='lookout'){
+    cameraMode=4;
+    toast('MIRADOURO · CÂMARA CINEMATOGRÁFICA');
+  }else if(poi.kind==='industrial'){
+    diagnostics.node.hidden=!diagnostics.node.hidden;
+    toast('PEDREIRA · DIAGNÓSTICO DE ADERÊNCIA');
+  }else if(poi.kind==='farm'){
+    car.setTyreCompound('road');settings.tyreCompound='road';
+    if($('tyreCompound'))$('tyreCompound').value='road';
+    persistSettings();toast('QUINTA · PNEUS DE ESTRADA INSTALADOS');
+  }
 }
 function changeCamera() {
   cameraMode = (cameraMode + 1) % viewNames.length;
@@ -425,6 +450,12 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 const diagnostics = createDiagnostics();
+const poiHint=document.createElement('div');
+poiHint.id='poiHint';poiHint.hidden=true;
+poiHint.style.cssText='position:fixed;top:115px;left:20px;z-index:11;'+
+  'color:#f7f6df;background:rgba(8,22,30,.83);border-left:3px solid #eac387;'+
+  'padding:10px 14px;font:bold 11px sans-serif;pointer-events:none';
+document.body.appendChild(poiHint);
 const ui = new PremiumInterface({
   vehicle:car,world,settings,persistSettings,applyQuality,
   teleportToTests:()=>{
@@ -550,6 +581,9 @@ function frame(now) {
   ui.updateTelemetry(telemetry,controls.handbrake);
   $('hudState').textContent = telemetry.gearbox + ' · '+car.spec.drivetrain+' · '+(telemetry.surface||'ASFALTO').toUpperCase();
   diagnostics.update(telemetry,physicsStepMs,world.network?.roads.length||1);
+  const nearby=active&&world.sectors?.nearby(car.getPosition(),43);
+  poiHint.hidden=!nearby;
+  if(nearby)poiHint.textContent='F · '+nearby.name.toUpperCase()+' · INTERAGIR';
   const hours = Math.floor(world.hour), mins = Math.floor(world.hour % 1 * 60);
   $('worldTime').textContent = String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
   $('weatherLabel').textContent = { clear: 'CÉU LIMPO', rain: 'CHUVA', fog: 'NEVOEIRO' }[world.weather];
