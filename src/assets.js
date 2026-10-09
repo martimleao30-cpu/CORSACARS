@@ -4,7 +4,6 @@ import * as THREE from 'three';
 // See CREDITS.md. The simple procedural car remains playable offline.
 const CAR_GLB = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/CarConcept/glTF-Binary/CarConcept.glb';
 const ASPHALT_BASE = 'https://dl.polyhaven.org/file/ph-assets/Textures/jpg/';
-const DISTANCE_BEFORE_LOD = 95;
 
 function fetchTexture(url, color = false) {
   return new Promise((resolve, reject) => {
@@ -17,12 +16,6 @@ function fetchTexture(url, color = false) {
       resolve(texture);
     }, undefined, reject);
   });
-}
-
-function addNormalMap(texture, material) {
-  material.normalMap = texture;
-  material.normalScale.set(0.42, 0.42);
-  material.needsUpdate = true;
 }
 
 export class AssetUpgrade {
@@ -107,6 +100,12 @@ export class AssetUpgrade {
       correction.position.z -= center.z;
       root.traverse(obj => {
         if (obj.isMesh) {
+          const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+          const wheelMesh = materials.some(mat =>
+            /tire(side|tread)?|rim\d|wheel/i.test(mat?.name || '')) ||
+            /^wheel[_-]/i.test(obj.name);
+          // Use the original raycast-physics wheels for real steering and rotation.
+          if (wheelMesh) obj.visible = false;
           obj.castShadow = true;
           obj.receiveShadow = true;
           if (obj.material?.envMapIntensity !== undefined) {
