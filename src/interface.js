@@ -41,15 +41,42 @@ export class PremiumInterface {
     this.shiftTimer=null;
     this.gamepadNavigation=0;
     this.previousPad={accept:false,back:false};
+    this.menuAudio=null;
     this.buildPages();
     this.buildSettingsTabs();
     this.createHud();
     this.bindPages();
     this.setHud(this.prefs);
     this.bindDragging();
+    document.addEventListener('click',e=>{
+      if(e.target.closest('.screen button')) this.playMenuSound();
+    });
   }
 
-  buildPages() {
+  playMenuSound() {
+    if(!this.api.settings.sound)return;
+    try {
+      if(!this.menuAudio){
+        const AudioContext=window.AudioContext||window.webkitAudioContext;
+        if(!AudioContext)return;
+        this.menuAudio=new AudioContext();
+      }
+      const ctx=this.menuAudio;
+      if(ctx.state==='suspended')void ctx.resume();
+      const oscillator=ctx.createOscillator();
+      const gain=ctx.createGain();
+      oscillator.type='sine';oscillator.frequency.setValueAtTime(540,ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(410,ctx.currentTime+.095);
+      const volume=(this.api.settings.engineVolume??.7)*.016;
+      gain.gain.setValueAtTime(volume,ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.105);
+      oscillator.connect(gain);gain.connect(ctx.destination);
+      oscillator.start();oscillator.stop(ctx.currentTime+.11);
+      oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
+    }catch{}
+  }
+
+    buildPages() {
     const start=$('startScreen').querySelector('.button-stack');
     $('startButton').innerHTML='JOGAR <span>↗</span>';
     start.insertAdjacentHTML('beforeend',`
