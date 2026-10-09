@@ -334,7 +334,7 @@ function frame(now) {
   if (play) {
     controls = sampleControls();
     car.updatePhysics(dt, controls, world.weather);
-    physics.fixedStep(1 / 60, dt, 4);
+    physics.step(1 / 60, dt, 4);
   } else {
     // Detect gamepad Start even when paused.
     const gp = navigator.getGamepads?.()?.find(p => p?.connected && p.mapping === 'standard');
