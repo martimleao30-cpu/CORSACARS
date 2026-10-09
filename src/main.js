@@ -3,6 +3,9 @@ import * as CANNON from 'cannon-es';
 import { DrivingWorld } from './world.js';
 import { PlayerVehicle } from './vehicle.js';
 import { GraphicsPipeline } from './graphics.js';
+import { AssetUpgrade } from './assets.js';
+import { IndirectLighting } from './lighting.js';
+import { PerformanceMonitor } from './performance.js';
 
 const $ = (id) => document.getElementById(id);
 const clamp = THREE.MathUtils.clamp;
@@ -16,10 +19,12 @@ function restoreSettings() {
       fps: [0, 30, 60, 120].includes(saved.fps) ? saved.fps : 60,
       sound: saved.sound !== false,
       ao: saved.ao !== false,
-      reflections: saved.reflections !== false
+      reflections: saved.reflections !== false,
+      model: saved.model !== false,
+      autoQuality: saved.autoQuality === true
     };
   } catch {
-    return { quality: 'high', fps: 60, sound: true, ao: true, reflections: true };
+    return { quality: 'high', fps: 60, sound: true, ao: true, reflections: true, model: true, autoQuality: false };
   }
 }
 const settings = restoreSettings();
@@ -49,6 +54,18 @@ const car = new PlayerVehicle(physics, scene, world.spawn);
 const graphics = new GraphicsPipeline(renderer, scene, camera, car, world);
 graphics.setQuality(settings.quality, settings);
 void graphics.initialize();
+const indirect = new IndirectLighting(scene, renderer);
+graphics.indirect = indirect;
+const assets = new AssetUpgrade(car, world, scene, renderer);
+assets.modelEnabled = settings.model;
+assets.setQuality(settings.quality);
+const performanceMonitor = new PerformanceMonitor(renderer, $('perfValue'), quality => {
+  settings.quality = quality;
+  $('qualitySelect').value = quality;
+  applyQuality();
+  persistSettings();
+  toast('QUALIDADE AUTOMÁTICA: ' + quality.toUpperCase());
+});
 
 let active = false;
 let paused = false;
@@ -232,6 +249,8 @@ function startGame() {
   $('topbar').classList.remove('hidden');
   $('hud').classList.remove('hidden');
   engine.activate();
+  void assets.start(settings.quality);
+  if (!window.__CORSACARS_DISABLE_REMOTE_ASSETS__) void indirect.load();
 }
 function setPaused(value) {
   if (!active) return;
@@ -265,6 +284,7 @@ function applyQuality() {
   renderer.shadowMap.enabled = settings.quality !== 'low';
   renderer.shadowMap.needsUpdate = true;
   graphics.setQuality(settings.quality, settings);
+  assets.setQuality(settings.quality);
   resize();
 }
 function resize() {
@@ -305,6 +325,18 @@ $('aoToggle').addEventListener('change', event => {
 $('reflectionToggle').addEventListener('change', event => {
   settings.reflections = Boolean(event.target.checked);
   graphics.setQuality(settings.quality, settings);
+  persistSettings();
+});
+$('modelToggle').checked = settings.model;
+$('modelToggle').addEventListener('change', event => {
+  settings.model = Boolean(event.target.checked);
+  assets.modelEnabled = settings.model;
+  assets.setVisibility();
+  persistSettings();
+});
+$('autoQualityToggle').checked = settings.autoQuality;
+$('autoQualityToggle').addEventListener('change', event => {
+  settings.autoQuality = Boolean(event.target.checked);
   persistSettings();
 });
 $('soundToggle').checked = settings.sound;
@@ -364,6 +396,7 @@ function frame(now) {
     notifyUntil = 0;
   }
   graphics.render();
+  performanceMonitor.update(dt, settings.quality, settings.autoQuality, play);
 }
 
 applyQuality();
