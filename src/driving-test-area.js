@@ -47,7 +47,18 @@ export class DrivingTestArea {
       const p=sample.position;p.y=groundHeight(p.x,p.z);
       const pole=new THREE.Mesh(new THREE.CylinderGeometry(.05,.065,3.1,8),steel);
       pole.position.set(p.x,p.y+1.55,p.z);
-      const sign=new THREE.Mesh(new THREE.BoxGeometry(2.2,.74,.075),white);
+      const labelCanvas=document.createElement('canvas');
+      labelCanvas.width=512;labelCanvas.height=140;
+      const ctx=labelCanvas.getContext('2d');
+      ctx.fillStyle='#f1d9a4';ctx.fillRect(0,0,512,140);
+      ctx.fillStyle='#273544';ctx.fillRect(8,8,496,124);
+      ctx.fillStyle='#ffffff';ctx.font='bold 33px sans-serif';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(label,256,70,480);
+      const texture=new THREE.CanvasTexture(labelCanvas);
+      texture.colorSpace=THREE.SRGBColorSpace;
+      const sign=new THREE.Mesh(new THREE.BoxGeometry(2.8,.8,.08),
+        new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide}));
       sign.position.set(p.x,p.y+3,p.z);
       sign.rotation.y=sample.yaw;
       this.scene.add(pole,sign);
