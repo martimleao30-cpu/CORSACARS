@@ -237,7 +237,22 @@ export class PremiumInterface {
       </div>
       <p class="minor">Clica num botão para escolher outra tecla. ESC cancela. Atalhos de menus e caixa de velocidades ficam reservados.</p>
       <button id="bindingsReset" class="outline">REPOR TECLAS <span>↻</span></button>
-      <button id="controlsReset" class="outline">REPOR SENSIBILIDADE <span>↻</span></button>`);
+      <button id="controlsReset" class="outline">REPOR SENSIBILIDADE <span>↻</span></button>
+      <label>TIPO DE PNEUS
+        <select id="tyreCompound"><option value="road">Estrada</option>
+        <option value="sport">Desportivos</option><option value="track">Pista</option></select>
+      </label>
+      <label>LINEARIDADE DO ANALÓGICO
+        <input id="analogCurve" type="range" min=".6" max="2.2" step=".1" value="1">
+      </label>
+      <label class="check"><input id="invertSteering" type="checkbox"> INVERTER EIXO DA DIREÇÃO</label>
+      <label class="check"><input id="absEnabled" type="checkbox" checked> ABS (travagem antibloqueio)</label>
+      <label class="check"><input id="tcsEnabled" type="checkbox" checked> TCS (controlo de tração)</label>
+      <label class="check"><input id="escEnabled" type="checkbox" checked> ESC (controlo de estabilidade)</label>
+      <label>CAIXA DE VELOCIDADES
+        <select id="gearboxMode"><option value="auto">Automática</option><option value="manual">Manual / sequencial</option></select>
+      </label>
+      <p class="minor">F3: diagnóstico físico. M: alternar caixa. Q/E: reduzir/subir mudanças. No modo manual, N e R são relações reais. As assistências modificam os travões, a força motriz e o contacto dos pneus.</p>`);
     visual.insertAdjacentHTML('beforeend',`
       <label>COR PRINCIPAL DOS MENUS <input type="color" id="menuAccent" value="#c9f173"></label>
       <label>TAMANHO DO HUD <input type="range" id="hudQuickScale" min=".6" max="1.6" step=".05" value="1"></label>
@@ -302,7 +317,33 @@ export class PremiumInterface {
       this.draft=cleanHud(profile);this.writeEditor();this.setHud(this.draft);
     });
     this.bindGraphicsSettings();
+    this.bindPhysicsSettings();
     this.bindKeyBindings();
+  }
+
+  bindPhysicsSettings() {
+    const cfg=this.api.settings,vehicle=this.api.vehicle;
+    const defaults={tyreCompound:'road',analogCurve:1,invertSteering:false,
+      absEnabled:true,tcsEnabled:true,escEnabled:true,gearboxMode:'auto'};
+    for(const [key,value] of Object.entries(defaults)){
+      if(cfg[key]===undefined)cfg[key]=value;
+      const element=$(key);
+      if(!element)continue;
+      if(element.type==='checkbox')element.checked=cfg[key]!==false;
+      else element.value=String(cfg[key]);
+      element.addEventListener('change',()=>{
+        cfg[key]=element.type==='checkbox'?element.checked :
+          element.type==='range'?Number(element.value):element.value;
+        vehicle.setTyreCompound(cfg.tyreCompound);
+        vehicle.setAssists({
+          abs:cfg.absEnabled,tcs:cfg.tcsEnabled,esc:cfg.escEnabled
+        });
+        vehicle.manual=cfg.gearboxMode==='manual';
+        if(!vehicle.manual){vehicle.gear=Math.max(1,vehicle.gear);vehicle.reverse=false;}
+        this.api.persistSettings();
+        this.api.toast('CONFIGURAÇÃO DE FÍSICA GUARDADA');
+      });
+    }
   }
 
   bindGraphicsSettings() {
@@ -536,10 +577,26 @@ export class PremiumInterface {
     ctx.fillStyle='#10202c';ctx.fillRect(0,0,w,h);
     for(let i=0;i<w;i+=24){ctx.strokeStyle='rgba(255,255,255,.045)';ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,h);ctx.stroke();}
     for(let j=0;j<h;j+=24){ctx.strokeStyle='rgba(255,255,255,.045)';ctx.beginPath();ctx.moveTo(0,j);ctx.lineTo(w,j);ctx.stroke();}
-    const project=(p)=>[w/2+p.x*.38,h/2+p.z*.34];
-    const points=this.api.world.roadPoints;
-    ctx.beginPath();points.forEach((pt,i)=>{const [x,y]=project(pt.center);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});ctx.closePath();
-    ctx.strokeStyle='#b7c6c9';ctx.lineWidth=12;ctx.stroke();ctx.strokeStyle='#3c5558';ctx.lineWidth=8;ctx.stroke();
+    const project=(p)=>[w/2+p.x*.285,h/2+p.z*.25];
+    const roads=this.api.world.network?.roads||[];
+    for(const road of roads) {
+      ctx.beginPath();
+      road.points.forEach((p,i)=>{
+        const [x,y]=project(p);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      });
+      ctx.strokeStyle=road.surface==='dirt'?'#b18b60':
+        road.surface==='gravel'?'#929189':'#94a7ae';
+      ctx.lineWidth=road.width*.285+1.2;ctx.stroke();
+      ctx.strokeStyle=road.surface==='dry'?'#d8d6bc':'#776a53';
+      ctx.lineWidth=1;ctx.stroke();
+    }
+    const sites=this.api.world.sectors?.regions||[];
+    for(const site of sites) {
+      const [x,y]=project(site.point);
+      ctx.fillStyle='#f7d28b';ctx.beginPath();ctx.arc(x,y,3.8,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#eeeae0';ctx.font='9px sans-serif';
+      ctx.fillText(site.name.slice(0,22),Math.min(w-100,x+6),y-4);
+    }
     const [x,y]=project(this.api.vehicle.getPosition());
     ctx.fillStyle='#d8ff7c';ctx.beginPath();ctx.arc(x,y,7,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='#ffffff';ctx.lineWidth=2;ctx.stroke();
