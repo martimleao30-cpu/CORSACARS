@@ -258,7 +258,7 @@ export class PlayerVehicle {
         obj.visible = !highQualityVisible;
       }
     }
-    for (const wheel of this.wheelModels) wheel.visible = !highQualityVisible;
+    for (const wheel of this.wheelModels) wheel.visible = true;
     this.detailLevel = d2 < 80 * 80;
     if (!highQualityVisible) this.fineDetails.visible = this.detailLevel;
   }
