@@ -1,4 +1,4 @@
-name: CORSACARS - Aplicacao Windows EXE
+name: CORSACARS - Windows com atualizacoes automaticas
 on:
   push:
     branches: [main]
@@ -10,35 +10,49 @@ on:
       - "electron-builder.yml"
       - "package.json"
       - "tests/desktop-build.mjs"
+      - "tests/updates.mjs"
       - ".github/workflows/windows-desktop.yml"
   workflow_dispatch:
+
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: corsacars-desktop-release
+  cancel-in-progress: false
+
 jobs:
-  windows-exe:
-    name: Compilar jogo Windows (.exe)
+  windows-installer:
+    name: Gerar instalador e publicar atualizacao
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
-      - name: Instalar Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Gerar versao unica para cada atualizacao
+        shell: pwsh
+        run: |
+          npm version "0.6.${{ github.run_number }}" --no-git-tag-version
+          Write-Host "A publicar CORSACARS 0.6.${{ github.run_number }}"
       - name: Instalar dependencias
         run: npm install --no-audit --no-fund
-      - name: Compilar e testar jogo desktop
+      - name: Testar o updater, fisica e navegacao
+        run: npm test
+      - name: Compilar o jogo Windows, verificando ficheiros locais
         run: |
           npm run desktop:build
           npm run test:desktop
-      - name: Criar executavel portatil Windows
-        run: npm run desktop:package
+      - name: Criar instalador e publicar GitHub Release com latest.yml
+        run: npm run desktop:publish
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      - name: Disponibilizar .exe
+      - name: Guardar copia do instalador nos artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: CORSACARS-Windows-EXE
-          path: release/*.exe
+          name: CORSACARS-Windows-Installer
+          path: release/*Setup*.exe
           if-no-files-found: error
           retention-days: 30
