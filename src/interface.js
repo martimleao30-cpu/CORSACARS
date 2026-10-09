@@ -290,7 +290,7 @@ export class PremiumInterface {
       const element=$(key);
       element.value=String(cfg[key]);
       element.addEventListener('input',async()=>{
-        cfg[key]=element.type==='range'||['drawDistance','vegetation'].includes(key)
+        cfg[key]=element.type==='range'||['renderScale','drawDistance','vegetation'].includes(key)
           ? Number(element.value) : element.value;
         this.api.persistSettings();
         if(key==='displayMode'){
