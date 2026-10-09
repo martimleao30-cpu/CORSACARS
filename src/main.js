@@ -56,7 +56,9 @@ graphics.setQuality(settings.quality, settings);
 void graphics.initialize();
 const indirect = new IndirectLighting(scene, renderer);
 graphics.indirect = indirect;
-const assets = new AssetUpgrade(car, world, scene, renderer);
+const assets = new AssetUpgrade(car, world, scene, renderer, status => {
+  $('assetStatus').textContent = status;
+});
 assets.modelEnabled = settings.model;
 assets.setQuality(settings.quality);
 const performanceMonitor = new PerformanceMonitor(renderer, $('perfValue'), quality => {
