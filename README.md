@@ -1,12 +1,38 @@
-# CORSACARS — Open Road v0.6
+# CORSACARS — Open Road v0.7
 
 **CORSACARS** é um projeto de jogo de automóveis 3D independente, disponível em **aplicação Windows (.exe) e navegador** com [Three.js](https://threejs.org/) e [cannon-es](https://pmndrs.github.io/cannon-es/). **Não utiliza Unity** e não partilha quaisquer ficheiros com o projeto Minecraft.
 
+## Mundo aberto e dinâmica automóvel — primeira região 0.7
+
+A atualização do pedido **Física Realista e Mundo Aberto 2.0** foi iniciada com uma região explorável e uma base de física mais sofisticada. Não significa que todos os requisitos do documento estejam terminados.
+
+### Sistemas efetivamente integrados
+
+- **Dinâmica em passos fixos de 1/60 s**, com vários subpassos quando os FPS diminuem; forças no chassis Cannon em vez de deslocações de posição inventadas.
+- **Parâmetros mecânicos independentes** no perfil `CAR_SPECS.coupe`: massa, distribuição de peso, centro de gravidade nominal, entre-eixos, via, raio de roda, binário, relações, diferencial, transmissão, coeficiente aerodinâmico e resistência ao rolamento. A distribuição de forças admite FWD/RWD/AWD no módulo de física, mas só o cupé RWD está configurado como veículo jogável.
+- **Motor e caixa:** curva de binário dependente das RPM, potência calculada em kW, resposta progressiva do acelerador, limitador, relações automáticas e manual/sequencial com ponto morto e marcha-atrás, tempo de mudança e embraiagem simplificada.
+- **Pneus e controlos:** quatro pontos de contacto, física dos amortecedores do RaycastVehicle, curva suave de força de pneu para diagnóstico, Ackermann no eixo dianteiro, barra estabilizadora física, intervenções de ABS/TCS/ESC sobre binário/travões. Tipos de pneu: estrada, desportivo e pista. Grip variável em **asfalto seco, molhado, terra, gravilha e relva**, amostrado por roda.
+- **Controlo personalizável:** caixas de seleção ABS/TCS/ESC, tipo de pneu, caixa de velocidades, curva do analógico, deadzone, sensibilidade, inversão de direção e remapeamento do teclado.
+- **Rede de estradas fisicamente percorríveis:** estrada circular original ligada a nacional, autoestrada, estrada de serra, caminho rural, acesso de gravilha e **centro de testes**, todos com geometria e colisores. A procura do material do piso usa um índice espacial de estradas.
+- **Setores regionais progressivos:** área de serviço, vila, miradouro, quinta e pedreira carregam/descarregam geometria e colisores de edifícios em função da distância do carro. A tecla **F** permite interagir com os locais próximos (pneus, garagem, câmara e diagnóstico).
+- **Centro de testes:** acesso pelo menu de pausa; sinalização das áreas de aceleração, travagem, curva, terra, piso molhado, gravilha e obstáculos. Há uma lomba e obstáculos com colisores Cannon.
+- **Mapa e diagnóstico:** mapa de todas as vias e pontos de interesse; **F3** mostra grip, RPM, slip dos pneus, força motriz, suspensão, contacto das rodas, tempo de física, FPS, draw calls e uso aproximado de recursos do renderer.
+
+### Como executar os testes
+
+`npm test` verifica as fórmulas mecânicas, o mapa, os setores e uma simulação real com rodas RaycastVehicle em cannon-es. `npm run test:browser` valida a condução e os menus num Chromium WebGL. As compilações Windows usam Vite e Electron com atualizações via GitHub Releases.
+
+### Funcionalidades ainda em desenvolvimento
+
+- Pneus de alta fidelidade tipo Pacejka completos, dinâmica de chassis validada em telemetria real, calibração rigorosa da inércia e da transferência de carga, motorizações e embraiagens individualizadas por automóvel.
+- Sistema completo de danos, colisões com veículos de trânsito autónomos, IA de tráfego e pedestres, semáforos com gestão de tráfego, pontes/túneis complexos, cruzamentos e rotundas com navegação segura.
+- Expansão por centenas de quilómetros, streaming de todo o terreno e das ruas, carregamento assíncrono de texturas em blocos, construção de estradas urbanas complexas e testes de travagem homologáveis.
+- Ensaios de estabilidade e de desempenho na RTX 4070 Super do utilizador. Os testes CI correm com hardware de servidor e Chromium por software e não demonstram **60 FPS garantidos em 1440p**.
 ## Aplicação Windows com atualizações automáticas — v0.6
 
 O CORSACARS dispõe agora de um instalador Windows **NSIS** gerado no GitHub Actions. Instala o jogo localmente, cria um atalho no ambiente de trabalho e passa a procurar atualizações automaticamente ao arrancar (e, durante sessões longas, de hora a hora).
 
-1. **Uma única instalação inicial:** abre [GitHub Releases](https://github.com/martimleao30-cpu/CORSACARS/releases/latest) e descarrega o ficheiro **CORSACARS-Setup-0.6.x-x64.exe** da última versão publicada (quando a primeira publicação terminar). Os executáveis NSIS ainda não têm uma assinatura digital comercial, pelo que o Windows poderá apresentar um aviso.
+1. **Uma única instalação inicial:** abre [GitHub Releases](https://github.com/martimleao30-cpu/CORSACARS/releases/latest) e descarrega o ficheiro **CORSACARS-Setup-0.7.x-x64.exe** da última versão publicada (quando a primeira publicação terminar). Os executáveis NSIS ainda não têm uma assinatura digital comercial, pelo que o Windows poderá apresentar um aviso.
 2. Executa o instalador, escolhe a pasta e abre o atalho **CORSACARS** que é criado no ambiente de trabalho.
 3. Quando houver uma versão nova, surge um aviso **ATUALIZAÇÃO DISPONÍVEL** dentro do jogo. Carrega em **ATUALIZAR AGORA** para descarregar, ou **Mais tarde** para continuares a conduzir.
 4. Quando terminar, carrega em **REINICIAR E INSTALAR**. O jogo guarda a sessão antes de reiniciar. Também há um botão **PROCURAR ATUALIZAÇÕES** nas Definições.
@@ -16,7 +42,7 @@ O CORSACARS dispõe agora de um instalador Windows **NSIS** gerado no GitHub Act
 
 ### Funcionamento e segurança
 
-- As atualizações são publicadas automaticamente como **GitHub Releases** na rama `main` quando se altera o código desktop; cada build recebe uma versão única `0.6.N`.
+- As atualizações são publicadas automaticamente como **GitHub Releases** na rama `main` quando se altera o código desktop; cada build recebe uma versão única `0.7.N`.
 - A aplicação usa o serviço `electron-updater` do Electron Builder, metadata `latest.yml` e verificação SHA-512 dos ficheiros descarregados.
 - A aplicação pergunta antes de descarregar e pergunta antes de reiniciar. Se não houver Internet, continua jogável.
 - Não está configurada assinatura de código paga. Para uma distribuição de produção, deve ser adicionada assinatura Authenticode.
