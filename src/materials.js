@@ -19,8 +19,8 @@ function canvasTexture(canvas, color = false) {
   return wrap(texture, 1, 1, color);
 }
 
-export function createAsphaltMaterial() {
-  const size = 256;
+export function createAsphaltMaterial(quality = 'high') {
+  const size = quality === 'ultra' ? 1024 : quality === 'low' ? 256 : 512;
   const diffuse = document.createElement('canvas');
   const normal = document.createElement('canvas');
   const roughness = document.createElement('canvas');
@@ -122,4 +122,52 @@ export function makeAutomotiveGlass() {
     side: THREE.DoubleSide, envMapIntensity: 1.4,
     depthWrite: false
   });
+}
+
+
+// Tiled ground detail near the player. The vertex colors still control the
+// large-scale transition from green lowlands to stony mountain slopes.
+export function createTerrainMaterial() {
+  const size = 256;
+  const noise = document.createElement('canvas');
+  const bump = document.createElement('canvas');
+  noise.width = noise.height = bump.width = bump.height = size;
+  const colorCtx = noise.getContext('2d');
+  const bumpCtx = bump.getContext('2d');
+  const rgb = colorCtx.createImageData(size, size);
+  const normals = bumpCtx.createImageData(size, size);
+  const rng = randomGenerator(80126);
+  const elevations = new Float32Array(size * size);
+  for (let i = 0; i < elevations.length; i++) {
+    const px = i % size, py = (i / size) | 0;
+    elevations[i] = rng() * .68 +
+      .16 * Math.sin(px*.31 + Math.cos(py*.18)) *
+      Math.cos(py*.29) + .13;
+  }
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const i = y*size+x, p=i*4, n=elevations[i];
+    const value = Math.min(255, Math.max(105, Math.round(178+n*52)));
+    rgb.data[p]=value+2;rgb.data[p+1]=value+1;rgb.data[p+2]=value-3;rgb.data[p+3]=255;
+    const right=elevations[y*size+(x+1)%size];
+    const left=elevations[y*size+(x+size-1)%size];
+    const down=elevations[((y+1)%size)*size+x];
+    const up=elevations[((y+size-1)%size)*size+x];
+    const dx=(right-left)*.48, dy=(down-up)*.48;
+    const z=1/Math.hypot(dx,dy,1);
+    normals.data[p]=Math.round((1-dx*z)*127.5);
+    normals.data[p+1]=Math.round((1-dy*z)*127.5);
+    normals.data[p+2]=Math.round((1+z)*127.5);
+    normals.data[p+3]=255;
+  }
+  colorCtx.putImageData(rgb,0,0);
+  bumpCtx.putImageData(normals,0,0);
+  const map=canvasTexture(noise,true);
+  const normalMap=canvasTexture(bump);
+  map.repeat.set(100,100);
+  normalMap.repeat.set(100,100);
+  const m=new THREE.MeshStandardMaterial({
+    vertexColors:true,map,normalMap,roughness:.96,metalness:0
+  });
+  m.normalScale.set(.17,.17);
+  return m;
 }
