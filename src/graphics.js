@@ -13,6 +13,7 @@ export class GraphicsPipeline {
     this.ssao = null;
     this.frameCount = 0;
     this.reflectionEnabled = true;
+    this.options = { ao: true, reflections: true };
     this.reflectionTarget = new THREE.WebGLCubeRenderTarget(128, {
       generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter
     });
@@ -42,6 +43,7 @@ export class GraphicsPipeline {
       this.composer.addPass(this.ssao);
       this.composer.addPass(new OutputPass());
       this.ready = true;
+      this.setQuality(this.quality, this.options);
       this.resize();
     } catch (error) {
       // Optional effect: unsupported hardware/CDN errors should not crash gameplay.
@@ -50,10 +52,12 @@ export class GraphicsPipeline {
     }
   }
 
-  setQuality(quality) {
+  setQuality(quality, options = this.options) {
     this.quality = quality;
-    this.reflectionEnabled = quality === 'high' || quality === 'ultra';
-    if (this.ssao) this.ssao.enabled = this.reflectionEnabled;
+    this.options = { ...options };
+    const advanced = quality === 'high' || quality === 'ultra';
+    this.reflectionEnabled = advanced && this.options.reflections !== false;
+    if (this.ssao) this.ssao.enabled = advanced && this.options.ao !== false;
     if (this.composer) this.resize();
   }
 
