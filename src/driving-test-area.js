@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
+import {roadDeckHeight} from './road-upgrades.js';
 
 const steel=new THREE.MeshStandardMaterial({color:0x6d777e,metalness:.78,roughness:.36});
 const white=new THREE.MeshStandardMaterial({color:0xe5e9e6,roughness:.68});
@@ -113,7 +114,7 @@ export class DrivingTestArea {
         const s=new THREE.Vector3(-d.z,0,d.x);
         for(const sign of [-1,1]){
           const v=p.clone().addScaledVector(s,sign*this.route.width*.475);
-          v.y=groundHeight(v.x,v.z)+.254;
+          v.y=roadDeckHeight(groundHeight,v.x,v.z,sign*this.route.width*.475,this.route.width)+.016;
           vertices.push(v.x,v.y,v.z);
         }
         if(i<to){

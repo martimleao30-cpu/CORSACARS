@@ -28,7 +28,10 @@ assert.equal(positions.count,points.length*ROAD_SECTION.length);
 assert.equal(uv.count,positions.count);
 assert.equal(bed.top.index.count,(points.length-1)*(ROAD_SECTION.length-1)*6);
 assert.equal(bed.sides.getAttribute('position').count,points.length*4);
-assert.ok(positions.getY(3)>positions.getY(0),'Camber must rise at centre');
+assert.ok(
+  positions.getY(3)-ground(positions.getX(3),positions.getZ(3)) >
+  positions.getY(0)-ground(positions.getX(0),positions.getZ(0)),
+  'Camber must rise relative to terrain, even on sloping ground');
 assert.ok(uv.getY(ROAD_SECTION.length)>uv.getY(0),'Texture V must use real distance');
 assert.ok(uv.getX(ROAD_SECTION.length-1)>1,'Texture must tile in metres across width');
 assert.ok(Math.abs(positions.getY(3)-roadDeckHeight(ground,0,0,0,width))<1e-5);

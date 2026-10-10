@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {roadDeckHeight} from './road-upgrades.js';
 
 // Entirely native Three.js geometry: no external meshes or image placeholders.
 // Reused geometries, materials and per-region InstancedMesh keep draw calls low.
@@ -314,7 +315,7 @@ export class WorldDetails {
       const point=this.points[Math.floor(rand()*(this.points.length-1))];
       const lateral=(rand()-.5)*(this.width-3);
       const p=point.center.clone().addScaledVector(point.side,lateral);
-      const height=this.terrainY(p.x,p.z)+.242;
+      const height=roadDeckHeight(this.terrainY,p.x,p.z,lateral,this.width)+.024;
       t.position.set(p.x,height,p.z);
       t.rotation.set(0,rand()*TAU,0);
       t.scale.set(.45+rand()*1.1,1,1.25+rand()*2.4);
