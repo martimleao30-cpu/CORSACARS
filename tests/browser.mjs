@@ -19,6 +19,23 @@ await page.addInitScript(() => {
     }));
   }
 });
+// The title screen checks GitHub Releases. Public CI runners may hit API
+// rate limits (HTTP 403) unrelated to our game. Mock ONLY that release API
+// endpoint; keep game scripts, controls, WebGL and all local assets real.
+await page.route(
+  'https://api.github.com/repos/martimleao30-cpu/CORSACARS/releases/latest',
+  route=>route.fulfill({
+    status:200,
+    contentType:'application/json',
+    headers:{'access-control-allow-origin':'*'},
+    body:JSON.stringify({tag_name:'v0.7.0'})
+  })
+);
+const failedHttpResponses=[];
+page.on('response', response=>{
+  if(response.status()>=400)
+    failedHttpResponses.push(response.status()+' '+response.url());
+});
 const browserErrors = [];
 page.on('pageerror', err => browserErrors.push(err.message));
 page.on('console', message => {
@@ -37,6 +54,8 @@ try {
         '\nErros JavaScript: '+JSON.stringify(browserErrors)+
         '\nEstado da página: '+JSON.stringify(diagnostic));
     });
+  await page.locator('#entryUpdateStatus').getByText('ÚLTIMO LANÇAMENTO · v0.7.0')
+    .waitFor({timeout:15000});
   assert.equal(await page.locator('#entryScreen').isVisible(),true,
     'PC game must start on a dedicated title gate');
   assert.ok(await page.locator('#entryCheckUpdate').isVisible());
@@ -138,7 +157,8 @@ try {
   assert.equal(await page.locator('#pauseScreen').isVisible(), false);
 
   await page.screenshot({ path: '/tmp/corsacars-browser-check.png' });
-  assert.deepEqual(browserErrors, [], 'Unexpected JavaScript/browser errors');
+  assert.deepEqual(browserErrors, [],
+    'Unexpected JavaScript/browser errors. HTTP failures: '+JSON.stringify(failedHttpResponses));
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('#loading').waitFor({ state:'hidden', timeout:45000 });
   await page.locator('#entryScreen').waitFor({state:'visible'});
