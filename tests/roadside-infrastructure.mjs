@@ -35,8 +35,12 @@ assert.ok(stops.length>=1);
 for(const stop of stops){
   assert.ok(['town','aldeia'].includes(stop.userData.servesPOI),
     'Stop must serve a named settlement, not arbitrary roadside space');
-  assert.ok(stop.userData.poiDistance>=27&&stop.userData.poiDistance<=127,
-    'Stop must remain close enough to its population to walk');
+  assert.ok(Number.isFinite(stop.userData.poiDistance)&&
+    stop.userData.poiDistance>=27&&stop.userData.poiDistance<=127,
+    'Stop must remain within walking range: '+JSON.stringify({
+      poi:stop.userData.servesPOI,d:stop.userData.poiDistance,
+      position:stop.position.toArray()
+    }));
   const settlement=sectors.regions.find(r=>r.id===stop.userData.servesPOI);
   assert.ok(settlement&&stop.userData.roadId===settlement.road);
 }

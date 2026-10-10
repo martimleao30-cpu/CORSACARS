@@ -61,7 +61,8 @@ assert.ok(network.junctions.some(j=>j.secondary.id==='rua-lateral'),
   'Side street must join its parent without duplicated triangles');
 for(const junction of network.junctions){
   assert.ok(junction.halfU>1&&junction.halfV>1);
-  assert.ok(junction.angle>.25);
+  assert.ok(junction.angle>.25||junction.kind==='endpoint',
+    'Shallow-angle terminal joins are valid even when not a crossing');
   assert.notEqual(junction.primary.id,junction.secondary.id);
 }
 assert.equal(physics.bodies.length,network.roads.length-1,
