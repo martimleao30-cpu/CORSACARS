@@ -65,7 +65,7 @@ export class HighwayDrainage{
   nearConflict(p){
     for(const j of this.network.junctions||[]){
       if(Math.hypot(p.x-j.x,p.z-j.z)<
-        Math.max(j.halfU,j.halfV)+16)return true;
+        Math.max(j.halfU,j.halfV)+24)return true;
     }
     const river=this.river?.lookup(p.x,p.z);
     return !!river&&river.distance<river.width+24;
