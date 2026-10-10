@@ -412,6 +412,25 @@ export class ForestSystem {
     return group;
   }
 
+  // Allocate every chunk/LOD while the loading screen is visible rather
+  // than allocating its meshes and GPU instance matrices mid-drive. Visibility
+  // remains frustum/LOD culled for performance; only creation moves to boot.
+  async preloadAllLods(onProgress=()=>{},yieldFrame=async()=>{}){
+    const chunks=[...this.chunks.values()];
+    let completed=0;
+    for(const chunk of chunks){
+      for(let lod=0;lod<FOREST_LOD.length;lod++)
+        this.makeChunkLod(chunk,lod);
+      for(const group of chunk.cache.values())
+        for(const mesh of group.children)
+          mesh.count=Math.floor(mesh.instanceMatrix.count*this.density);
+      completed++;
+      onProgress(completed,chunks.length);
+      if(completed%4===0)await yieldFrame();
+    }
+    return completed;
+  }
+
   setQuality(quality){
     if(!['low','medium','high','ultra'].includes(quality))return;
     this.quality=quality;
