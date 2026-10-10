@@ -45,6 +45,9 @@ assert.ok(aged.isMeshPhysicalMaterial);
 assert.ok(aged.map&&aged.normalMap&&aged.roughnessMap);
 assert.equal(aged.vertexColors,true);
 assert.equal(aged.userData.variant,'aged');
+assert.equal(aged.map.image.width,384,'Offline low detail should be upgraded to 384px');
+for(const map of [aged.map,aged.normalMap,aged.roughnessMap])
+  assert.equal(map.repeat.y,2,'All asphalt PBR maps should use the same UV tiling');
 assert.notEqual(fresh.map,worn.map);
 assert.equal(createAsphaltMaterial('low','aged').map,aged.map,
   'PBR textures must be shared between routes');
