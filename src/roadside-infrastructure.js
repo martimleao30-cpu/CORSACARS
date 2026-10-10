@@ -173,7 +173,8 @@ export class RoadsideInfrastructure{
       for(let k=0;k<3;k++){
         const a=row+k,b=a+4;
         // Correct triangle winding for the mesh collider/raycast wheel hits.
-        indices.push(a,a+1,b,a+1,b+1,b);
+        if(p.side===1)indices.push(a,a+1,b,a+1,b+1,b);
+        else indices.push(a,b,a+1,a+1,b,b+1);
       }
     }
     const geometry=new THREE.BufferGeometry();
@@ -216,17 +217,22 @@ export class RoadsideInfrastructure{
       depthWrite:false,side:THREE.DoubleSide,
       polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
     this.busBayMaterials.push(material);
-    const paintGeo=new THREE.PlaneGeometry(2.5,6.2);
+    const paintGeo=new THREE.PlaneGeometry(2.5,6.2,2,12);
     paintGeo.rotateX(-Math.PI/2);
     this.busBayGeometries.push(paintGeo);
     const paint=new THREE.Mesh(paintGeo,material);
     paint.name='BUS · inscrição branca no pavimento';
     const markOffset=offset+1.67;
     const localX=p.side*(site.offset-markOffset);
-    const tangent=p.tangent;
-    const wx=road.points[p.index].x-tangent.z*p.side*markOffset;
-    const wz=road.points[p.index].z+tangent.x*p.side*markOffset;
-    paint.position.set(localX,this.terrainY(wx,wz)+.190-p.y,0);
+    // Drape the marking over the actual sloping lay-by, not a flat plane.
+    const paintVertices=paintGeo.getAttribute('position');
+    for(let i=0;i<paintVertices.count;i++){
+      const world=root.localToWorld(new THREE.Vector3(
+        localX+paintVertices.getX(i),0,paintVertices.getZ(i)));
+      paintVertices.setY(i,this.terrainY(world.x,world.z)+.193-p.y);
+    }
+    paintGeo.computeVertexNormals();
+    paint.position.set(localX,0,0);
     paint.renderOrder=2;
     root.add(paint);
     root.userData.busBay=true;
