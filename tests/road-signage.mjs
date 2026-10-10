@@ -92,6 +92,20 @@ assert.equal(roadCenterMarking(network.roads[4],
   createRoadSampler(network.roads[4])).solid.length,0,
   'Rural roads must not paint continuous centre lines everywhere');
 clippedLine.dispose();
+const crossingScene=new THREE.Scene();
+const atCrossing=new RoadSignage(crossingScene,network,'low');
+const protectedLines=atCrossing.meshes.filter(mesh=>
+  mesh.name.startsWith(curve.name)&&
+  ['continuous','dashed','double'].includes(mesh.geometry.userData.kind));
+assert.ok(protectedLines.length>=2);
+for(const mesh of protectedLines){
+  const uv=mesh.geometry.getAttribute('uv');
+  for(let i=0;i<uv.count;i++)
+    assert.ok(uv.getY(i)<=gaps[0][0]+.001||
+      uv.getY(i)>=gaps[0][1]-.001,
+      'Main-road markings cannot run across the intersection');
+}
+atCrossing.dispose();
 assert.equal(signage.statistics.roadCount,network.roads.length);
 assert.equal(signage.meshes.length,signage.statistics.geometries);
 assert.ok(signage.meshes.every(mesh=>mesh.material.polygonOffset &&
