@@ -114,6 +114,21 @@ export function shortestRoute(graph,start,goal){
   return {points:path,length:dist[goal]};
 }
 
+// World north is -Z. Keep the circular minimap north-up: screen right
+// always means world +X, so a clockwise/right turn can never be mirrored by
+// the scrolling road map. The car arrow rotates, not the entire geography.
+export function gpsBearing(quaternion){
+  const forward=new THREE.Vector3(0,0,1).applyQuaternion(quaternion).setY(0);
+  if(forward.lengthSq()<.0001)return 0;
+  forward.normalize();
+  return Math.atan2(forward.x,-forward.z);
+}
+export function gpsProjection(position,canvasWidth,canvasHeight,scale=.70){
+  const x0=canvasWidth*.5,y0=canvasHeight*.5;
+  return p=>({x:x0+(p.x-position.x)*scale,
+    y:y0+(p.z-position.z)*scale});
+}
+
 export class NavigationHUD{
   constructor(canvas,network,regions=[],status=null){
     this.canvas=canvas;this.ctx=canvas?.getContext('2d');
@@ -160,19 +175,17 @@ export class NavigationHUD{
   draw(position,quaternion){
     const ctx=this.ctx,w=this.canvas.width,h=this.canvas.height;
     ctx.clearRect(0,0,w,h);
-    const forward=new THREE.Vector3(0,0,1).applyQuaternion(quaternion).setY(0).normalize();
-    if(forward.lengthSq()<.5)forward.set(0,0,1);
-    const right=new THREE.Vector3(forward.z,0,-forward.x);
-    const scale=.70,x0=w*.5,y0=h*.75;
-    const project=p=>{
-      const dx=p.x-position.x,dz=p.z-position.z;
-      return {x:x0+(dx*right.x+dz*right.z)*scale,
-        y:y0-(dx*forward.x+dz*forward.z)*scale};
-    };
-    // Roads are projected on-the-fly; the rest of the scene stays fully
-    // transparent so the game remains visible under the HUD.
+    const x0=w*.5,y0=h*.5;
+    const project=gpsProjection(position,w,h,.75);
+    // A round, north-up minimap. Road coordinates retain their real
+    // orientation; the vehicle itself shows every left/right turn.
     ctx.save();
-    ctx.beginPath();ctx.rect(2,2,w-4,h-4);ctx.clip();
+    ctx.beginPath();ctx.arc(x0,y0,Math.min(w,h)*.5-8,0,Math.PI*2);ctx.clip();
+    ctx.fillStyle='rgba(9,22,30,.84)';ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='rgba(133,168,178,.16)';ctx.lineWidth=1;
+    for(let r=45;r<=95;r+=50){
+      ctx.beginPath();ctx.arc(x0,y0,r,0,Math.PI*2);ctx.stroke();
+    }
     ctx.lineCap='round';ctx.lineJoin='round';
     const drawLine=(points,width,color,glow=0)=>{
       if(points.length<2)return;
@@ -220,18 +233,18 @@ export class NavigationHUD{
     }
     // Distinctive white/navy vehicle chevron from the supplied GPS design.
     ctx.save();ctx.translate(x0,y0);
+    ctx.rotate(gpsBearing(quaternion));
     ctx.shadowColor='rgba(4,20,40,.9)';ctx.shadowBlur=9;
     ctx.beginPath();
     ctx.moveTo(0,-14);ctx.lineTo(9,10);ctx.lineTo(0,6);ctx.lineTo(-9,10);
     ctx.closePath();ctx.fillStyle='#f9fcff';ctx.strokeStyle='#1a2342';
     ctx.lineWidth=3.5;ctx.fill();ctx.stroke();ctx.restore();
     ctx.restore();
-    // N rotates against the heading so it is geographically meaningful.
-    const n=project({x:position.x,z:position.z-38});
-    ctx.font='bold 13px system-ui,sans-serif';
-    ctx.textAlign='center';ctx.fillStyle='rgba(251,255,255,.96)';
-    ctx.shadowColor='rgba(7,20,28,.95)';ctx.shadowBlur=5;
-    ctx.fillText('N',Math.min(w-14,Math.max(14,n.x)),Math.min(h-18,Math.max(16,n.y)));
+    // Geographical north is fixed at the top of the display.
+    ctx.font='bold 12px system-ui,sans-serif';
+    ctx.textAlign='center';ctx.fillStyle='#d7edef';
+    ctx.shadowColor='rgba(7,20,28,.9)';ctx.shadowBlur=4;
+    ctx.fillText('N',x0,19);
     ctx.shadowBlur=0;
     if(this.status&&this.destination){
       const remain=Math.round((this.route?.length||0)+
