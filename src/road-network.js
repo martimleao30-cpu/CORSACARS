@@ -3,27 +3,28 @@ import * as CANNON from 'cannon-es';
 import {createAsphaltMaterial,createGravelMaterial,createDirtRoadMaterial} from './materials.js';
 import {createRoadBed,addRoadSides,addRoadWear,addRoadShoulders,addRoadDrainage} from './road-upgrades.js';
 import {resolveRoadJunctions} from './road-junctions.js';
+import {roadProfile,officialRoadWidth} from './road-standards.js';
 
 // First expandable playable region: each link begins and ends on the legacy
 // ring. Keeping the old road preserves saved spawn positions and old sessions.
 // All geometry is collision-enabled, not simply drawn over the terrain.
 export const REGIONAL_LINKS = Object.freeze([
-  {id:'nacional',name:'EN 201 · Vale Central',category:'urban',surface:'dry',width:10,
+  {id:'nacional',name:'EN 201 · Vale Central',category:'urban',surface:'dry',width:7,
     from:35,to:260,
     via:[[-290,-125],[-115,-70],[35,-115],[200,-105],[335,-60]]},
-  {id:'autoestrada',name:'A1 · Corredor Central',category:'highway',surface:'dry',width:16,
+  {id:'autoestrada',name:'A1 · Corredor Central',category:'highway',surface:'dry',width:19,
     from:116,to:240,
     via:[[-160,205],[-45,115],[55,85],[180,90],[310,125]]},
-  {id:'montanha',name:'Serra Alta · Miradouro',category:'mountain',surface:'dry',width:8,
+  {id:'montanha',name:'Serra Alta · Miradouro',category:'mountain',surface:'dry',width:6,
     from:165,to:215,
     via:[[-70,505],[-95,595],[80,680],[215,600],[360,385]]},
-  {id:'rural',name:'Caminho do Pinhal',category:'rural',surface:'dry',width:7,
+  {id:'rural',name:'Caminho do Pinhal',category:'rural',surface:'dry',width:6.5,
     from:337,to:30,
     via:[[35,-480],[-165,-525],[-385,-465],[-455,-320]]},
-  {id:'gravilha',name:'Acesso à Pedreira',category:'dirt',surface:'gravel',width:8,
+  {id:'gravilha',name:'Acesso à Pedreira',category:'dirt',surface:'gravel',width:6,
     from:65,to:115,
     via:[[-470,-130],[-580,-25],[-525,150],[-375,235]]},
-  {id:'terra',name:'Trilho de Terra do Vale',category:'dirt',surface:'dirt',width:6,
+  {id:'terra',name:'Trilho de Terra do Vale',category:'dirt',surface:'dirt',width:4,
     from:290,to:270,
     via:[[295,-415],[440,-505],[570,-445],[510,-310]]},
   {id:'provas',name:'Centro de Testes Físicos',category:'test',surface:'dry',width:13,
@@ -32,20 +33,20 @@ export const REGIONAL_LINKS = Object.freeze([
   // Road expansion: three connected excursions beyond the former 2 km map.
   // Old ring indices and spawn positions are stable for existing saves.
   {id:'serra-norte',name:'Estrada da Serra Norte',category:'mountain',surface:'dry',
-    width:8,from:165,to:215,
+    width:6,from:165,to:215,
     via:[[-220,720],[-540,990],[-790,1260],[-1090,1120],
       [-1040,820],[-750,600],[-360,480]]},
   {id:'planicie-sul',name:'Estrada das Herdades',category:'rural',surface:'dry',
-    width:8,from:337,to:30,
+    width:6.5,from:337,to:30,
     via:[[-550,-620],[-850,-920],[-1190,-1210],[-1390,-1000],
       [-1280,-680],[-920,-550],[-650,-410]]},
   {id:'vale-leste',name:'Estrada da Ribeira Leste',category:'rural',surface:'dry',
-    width:8,from:245,to:295,
+    width:6.5,from:245,to:295,
     via:[[440,-400],[700,-700],[1070,-1040],[1390,-920],
       [1410,-540],[1050,-260],[690,-280]]},
   // Outer western agricultural loop stays within the 4.1 km terrain.
   {id:'campos-oeste',name:'Estrada dos Campos do Oeste',
-    category:'rural',surface:'dry',width:7.8,from:67,to:143,
+    category:'rural',surface:'dry',width:6.5,from:67,to:143,
     via:[[-650,80],[-1080,200],[-1520,320],[-1800,430],
       [-1710,780],[-1270,830],[-720,620]]}
 ]);
@@ -83,10 +84,14 @@ export class RoadNetwork {
     this.scene=scene;this.physics=physics;this.terrainY=terrainY;
     this.quality=quality;
     this.wetness=0;
-    this.roads=[{id:'circular',name:'Estrada Circular',surface:'dry',
-      width:ringWidth,points:ringPoints.map(p=>p.center)}];
+    this.roads=[{id:'circular',name:'Estrada Circular',category:'ring',surface:'dry',
+      width:ringWidth,profile:roadProfile({id:'circular'}),points:ringPoints.map(p=>p.center)}];
     this.cells=new Map();
     this.materials=new Map();
+    for(const route of REGIONAL_LINKS){
+      if(Math.abs(route.width-officialRoadWidth(route))>1e-6)
+        throw new Error('Largura de via fora do perfil português: '+route.id);
+    }
     this.buildLinks(ringPoints);
     this.buildConnectors(ringPoints);
     this.resolveJunctions();
@@ -165,7 +170,7 @@ export class RoadNetwork {
       const collider=new CANNON.Body({mass:0,material:new CANNON.Material(route.surface)});
       collider.addShape(new CANNON.Trimesh(vertices,indices));
       this.physics.addBody(collider);
-      this.roads.push({...route,points,mesh:road,body:collider,sides,shoulders,drainage,wear});
+      this.roads.push({...route,profile:roadProfile(route),points,mesh:road,body:collider,sides,shoulders,drainage,wear});
       this.materials.set(route.id,mat);
       // Curved line and arrow geometry is generated by RoadSignage.
 
@@ -178,11 +183,11 @@ export class RoadNetwork {
   buildConnectors(ringPoints) {
     const definitions=[
       {id:'rua-lateral',name:'Rua da Praça · Cruzamento',category:'urban',
-        parent:'nacional',sample:71,side:1,width:6.2,seed:142},
+        parent:'nacional',sample:71,side:1,width:6.5,seed:142},
       {id:'rampa-entrada',name:'A1 · Entrada',category:'highway-ramp',
-        parent:'autoestrada',sample:29,side:1,width:5.2,seed:203},
+        parent:'autoestrada',sample:29,side:1,width:3.75,seed:203},
       {id:'rampa-saida',name:'A1 · Saída',category:'highway-ramp',
-        parent:'autoestrada',sample:100,side:-1,width:5.2,seed:204}
+        parent:'autoestrada',sample:100,side:-1,width:3.75,seed:204}
     ];
     this.connectors=[];
     for(const def of definitions){
@@ -228,7 +233,7 @@ export class RoadNetwork {
       const body=new CANNON.Body({mass:0,material:new CANNON.Material('dry')});
       body.addShape(new CANNON.Trimesh(vertices,faces));
       this.physics.addBody(body);
-      const item={...def,surface:'dry',points,mesh,body,sides,shoulders};
+      const item={...def,profile:roadProfile(def),surface:'dry',points,mesh,body,sides,shoulders};
       this.roads.push(item);this.connectors.push(item);
       this.materials.set(def.id,mat);
     }
