@@ -101,9 +101,20 @@ export class RoadNetwork {
       const distanceStep=route.category==='mountain'?5.2:6;
       const count=Math.max(140,Math.min(700,
         Math.ceil(curve.getLength()/distanceStep)));
-      const points=[];
-      for(let i=0;i<=count;i++){
-        points.push(terrainRoadCurve(curve.getPoint(i/count),this.terrainY));
+      const sample=u=>terrainRoadCurve(curve.getPointAt(u),this.terrainY);
+      const points=[sample(0)];
+      // Adaptive subdivision based on true 3D edge length. Uniform map
+      // distance alone still produces 15-metre triangles on steep hills.
+      // Split until road and Cannon collider share short, continuous quads.
+      function append(a,pa,b,pb,depth=0){
+        if(pa.distanceTo(pb)<=8.5||depth>=7){points.push(pb);return;}
+        const mid=(a+b)*.5,pm=sample(mid);
+        append(a,pa,mid,pm,depth+1);
+        append(mid,pm,b,pb,depth+1);
+      }
+      for(let i=1;i<=count;i++){
+        const a=(i-1)/count,b=i/count;
+        append(a,points[points.length-1],b,sample(b));
       }
       const bed=createRoadBed(points,route.width,this.terrainY,route.from,route.surface);
       const mat=materialFor(route.surface,this.quality,route.id);
