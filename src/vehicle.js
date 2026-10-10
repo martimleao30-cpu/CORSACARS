@@ -3,7 +3,8 @@ import * as CANNON from 'cannon-es';
 import { makeCarPaint, makeAutomotiveGlass } from './materials.js';
 import {createBMWM4Visual} from './bmw-m4-visual.js';
 import {CAR_SPECS,tyreGrip,contactSlip,ackermannAngles,torqueAtRpm,
-  aerodynamicDrag,brakingAssist,tractionAssist,normalizedTyreForce} from './vehicle-dynamics.js';
+  aerodynamicDrag,brakingAssist,tractionAssist,normalizedTyreForce,
+  axleLoadTransfers,combinedSlipFactor} from './vehicle-dynamics.js';
 
 const WHEEL_RADIUS = 0.38;
 const GEAR_RATIOS = [3.48, 2.15, 1.52, 1.17, 0.94, 0.78];
@@ -39,6 +40,9 @@ export class PlayerVehicle {
     this.speedKmh = 0;
     this.steering = 0;
     this.throttleSmooth = 0;
+    this.longAcceleration=0;this.lateralAcceleration=0;
+    this.prevForwardSpeed=0;this.prevLateralSpeed=0;
+    this.contactLoads=[1,1,1,1];
     this.specId='coupe';
     this.spec = CAR_SPECS.coupe;
     this.mass = this.spec.massKg;
@@ -442,7 +446,10 @@ export class PlayerVehicle {
     this.gear = 1;
     this.reverse = false;
     this.steering = 0;
-    this.rpm = 850;
+    this.rpm=this.spec.idleRpm;
+    this.longAcceleration=0;this.lateralAcceleration=0;
+    this.prevForwardSpeed=0;this.prevLateralSpeed=0;
+    this.contactLoads=[1,1,1,1];
     this.brakeActive = false;
     this.shiftTimer = 0;
     this.updateVisuals();
@@ -505,6 +512,12 @@ export class PlayerVehicle {
     // Surface is sampled independently below the four suspension contact points.
     const rightVec=this.chassis.quaternion.vmult(new CANNON.Vec3(1,0,0));
     const lateralVelocity=this.chassis.velocity.dot(rightVec);
+    const longAccel=clamp((forwardSpeed-this.prevForwardSpeed)/Math.max(dt,.001),-18,18);
+    const lateralAccel=clamp((lateralVelocity-this.prevLateralSpeed)/Math.max(dt,.001),-16,16);
+    this.prevForwardSpeed=forwardSpeed;this.prevLateralSpeed=lateralVelocity;
+    this.longAcceleration=THREE.MathUtils.damp(this.longAcceleration,longAccel,6,dt);
+    this.lateralAcceleration=THREE.MathUtils.damp(this.lateralAcceleration,lateralAccel,6,dt);
+    this.contactLoads=axleLoadTransfers(spec,this.longAcceleration,this.lateralAcceleration);
     const wheelSurface=[],gripFactors=[],slips=[];
     let averageGrip=0,contactCount=0,rolling=0;
     for(let i=0;i<4;i++) {
@@ -523,10 +536,20 @@ export class PlayerVehicle {
       // Cannon RaycastVehicle updates wheel angular velocity inside its physics
       // callback; this slip is feedback for next tick's ABS/TCS decisions.
       const rollingMS=Math.abs(wheel.deltaRotation||0)*spec.wheelRadiusM/dt*Math.sign(forwardSpeed||1);
-      const slip=contactSlip(forwardSpeed,rollingMS,lateralVelocity);
+      // Slip angle is measured at the actual wheel contact, including yaw
+      // velocity; using chassis-centre velocity made front/rear tyres behave
+      // unrealistically alike during fast turns.
+      const angular=this.chassis.angularVelocity;
+      const yawX=angular.y*rotated.z-angular.z*rotated.y;
+      const yawY=angular.z*rotated.x-angular.x*rotated.z;
+      const yawZ=angular.x*rotated.y-angular.y*rotated.x;
+      const contactLateral=lateralVelocity+
+        yawX*rightVec.x+yawY*rightVec.y+yawZ*rightVec.z;
+      const slip=contactSlip(forwardSpeed,rollingMS,contactLateral);
       slips.push(slip);
-      const requested=4.6*grip.lateral;
-      wheel.frictionSlip=THREE.MathUtils.damp(wheel.frictionSlip,requested,7,dt);
+      const combined=combinedSlipFactor(slip.longitudinal,slip.lateral);
+      const requested=4.6*grip.lateral*this.contactLoads[i]*combined;
+      wheel.frictionSlip=THREE.MathUtils.damp(wheel.frictionSlip,requested,8,dt);
     }
     averageGrip/=4;
     rolling/=4;
@@ -623,7 +646,10 @@ export class PlayerVehicle {
       tractionIntervention:Number((1-reduction).toFixed(2)),
       suspension:this.vehicle.wheelInfos.map(w=>Number(w.suspensionLength.toFixed(3))),
       wheelSlip:slips.map(w=>Number(w.longitudinal.toFixed(3))),
-      lateralSlip:slips.map(w=>Number(normalizedTyreForce(w.lateral).toFixed(3)))
+      lateralSlip:slips.map(w=>Number(normalizedTyreForce(w.lateral).toFixed(3))),
+      longitudinalAcceleration:Number(this.longAcceleration.toFixed(2)),
+      lateralAcceleration:Number(this.lateralAcceleration.toFixed(2)),
+      wheelLoads:this.contactLoads.map(w=>Number(w.toFixed(2)))
     };
   }
 
