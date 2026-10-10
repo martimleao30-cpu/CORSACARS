@@ -82,7 +82,9 @@ for(const junction of network.junctions){
 }
 assert.equal(physics.bodies.length,network.roads.length-1,
   'Trimming intersections must preserve one collision body per road');
-assert.ok(network.roads.find(r=>r.id==='rural').mesh.material.userData.variant==='worn');
+assert.ok(network.roads.filter(r=>r.surface==='dry'&&r.mesh).every(r=>
+  r.mesh.material.userData.variant==='aged'),
+  'All connected asphalt roads must share the same visual ageing');
 assert.ok(network.roads.some(r=>r.surface==='dirt'),
   'Driveable physical dirt route must be present');
 network.setWetness(1);
@@ -95,7 +97,8 @@ assert.equal(network.query(testPosition.x,testPosition.z).surface,'wet',
   'Wet grip test must work in clear weather');
 const testTrack=new DrivingTestArea(scene,physics,network,()=>0);
 assert.equal(testTrack.samples.length,7,'Physical driving test markers should exist');
-assert.equal(testTrack.obstacleBodies.length,4,'Speed bump and slalom need solid colliders');
+assert.equal(testTrack.obstacleBodies.length,0,
+  'Yellow test-track boxes and raised speed bump must not block the lanes');
 const sectors=new WorldSectors(scene,physics,network,()=>0);
 assert.equal(sectors.regions.length,11);
 const spot=sectors.regions[0];
