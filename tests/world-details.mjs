@@ -33,6 +33,13 @@ const trees={
 const details=new WorldDetails(scene,points,13.5,()=>0,'medium',trees);
 assert.ok(scene.children.length>15,'Roadside objects are real scene meshes');
 assert.ok(details.grassPatches.length>0,'3D grass LOD regions must exist');
+assert.equal(details.grassGeometry.userData.corsaGrass,'multi-blade-curved-meadow');
+assert.ok(details.grassGeometry.userData.blades>=5,'New tufts have many independent blades');
+assert.equal(details.grassMaterial.vertexColors,true);
+assert.ok(details.grassStatistics.planted>2000,'The medium meadow should be denser');
+assert.ok(details.grassStatistics.clusters>100);
+assert.ok(details.grassPatches.every(p=>p.mesh.isInstancedMesh&&p.mesh.frustumCulled),
+  'Meadow must remain batched by frustum-cullable tiles');
 assert.ok(details.winds.length>=3,'Grass and both tree species must use GPU wind');
 assert.ok(details.puddles.isInstancedMesh,'Reflective puddles must be instanced geometry');
 assert.ok(details.shrubs.count>0,'Instanced bushes must exist');

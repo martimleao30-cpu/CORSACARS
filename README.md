@@ -382,3 +382,22 @@ A estrada circular usa estas guardas no lugar das velhas vigas decorativas.
 Os controlos de densidade e LOD existentes foram preservados.
 
 Teste: `node tests/roadside-clearance.mjs` e `npm run test:roads`.
+
+
+## Prado natural 2.0 — relva em 3D
+
+- Relva modelada com 4 a 8 lâminas curvas e afuniladas por tufo, perfil
+  irregular, alturas e espessuras independentes e tons distintos até às pontas.
+- Semente fixa para aglomerados naturais, falhas e zonas abertas; variação de
+  humidade e secura em várias escalas, sem faixas repetidas ao longo da estrada.
+- Junto das bermas o tufo fica mais curto, menos denso e parcialmente seco;
+  mais longe cresce livre, com gradientes de verde e tons castanhos.
+- Exclusão de plantas no asfalto, caminhos, cruzamentos e entradas através de
+  `RoadsideClearance`, com raio adicional para toda a geometria da planta.
+- Vento GPU modesto e variável por tufo, com flexão quadrática e onda secundária,
+  aplicado sobretudo às pontas; a relva baixa abana menos.
+- `InstancedMesh` organizado em quadrículas de 145 m, distância de corte por
+  qualidade e opção de densidade mantida para controlar FPS. Cada qualidade
+  partilha uma única geometria e um único material de relva.
+- Testes de geometria, paleta, distribuição, máscaras de circulação e vento em
+  `tests/meadow-grass.mjs` e `tests/world-details.mjs`.

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {roadDeckHeight} from './road-upgrades.js';
 import {AtmosphericClouds} from './atmosphere-effects.js';
 import {createNaturalShrubGeometry,createNaturalFlowerGeometry} from './natural-assets.js';
+import {createMeadowTuftGeometry,createMeadowWindMaterial,meadowProfile} from './meadow-grass.js';
 
 // Entirely native Three.js geometry: no external meshes or image placeholders.
 // Reused geometries, materials and per-region InstancedMesh keep draw calls low.
@@ -156,67 +157,100 @@ export class WorldDetails {
   }
 
   buildGrass() {
-    // Three crossed, tapered blades, each with a bend at the middle. Extra
-    // facets create silhouette depth while keeping one shared instanced mesh.
-    const blades=new THREE.BufferGeometry();
-    const bladePositions=[],bladeIndices=[];
-    for(let blade=0;blade<3;blade++){
-      const angle=blade*Math.PI/3;
-      const sin=Math.sin(angle),cos=Math.cos(angle);
-      const bend=.06*(blade%2===0?1:-1);
-      const profile=[
-        [-.102,0,0],[.102,0,0],
-        [-.070,.49,bend*.52],[.067,.49,bend*.52],
-        [-.004,1,bend*1.65]
-      ];
-      const base=bladePositions.length/3;
-      for(const [x,y,z] of profile)
-        bladePositions.push(x*cos-z*sin,y,x*sin+z*cos);
-      bladeIndices.push(base,base+1,base+2,base+1,base+3,base+2,
-        base+2,base+3,base+4);
+    // Meadow 2.0: curved ribbons instead of cross cards, with fine leaf tips,
+    // correlated clumps, fallow patches and a visibly shorter/drier verge.
+    // Instancing + tiled frustum culling keep the denser scene affordable.
+    const blades=createMeadowTuftGeometry(this.quality);
+    const {mat,wind}=createMeadowWindMaterial();
+    this.winds.push(wind);
+    this.grassGeometry=blades;
+    this.grassMaterial=mat;
+    const r=seeded(982104);
+    const count={low:1300,medium:3800,high:8700,ultra:13100}[this.quality]||8700;
+    const tileSize=145;
+    const clusters=[];
+    const sampleCount=this.points.length-1;
+    const clusterCount={low:85,medium:130,high:205,ultra:270}[this.quality]||205;
+    for(let c=0;c<clusterCount;c++){
+      const p=this.points[Math.floor(r()*sampleCount)];
+      const side=r()<.5?-1:1;
+      const offset=side*(this.width*.5+5+r()*105);
+      clusters.push({
+        x:p.center.x+p.side.x*offset,
+        z:p.center.z+p.side.z*offset,
+        radius:4.5+r()*17
+      });
     }
-    blades.setAttribute('position',new THREE.Float32BufferAttribute(bladePositions,3));
-    blades.setIndex(bladeIndices);
-    blades.computeVertexNormals();
-    const {mat, shaderUniform} = windMaterial(0x91a85b,.14);
-    this.winds.push(shaderUniform);
-    const colors = [C(0x607b38), C(0x819b4c), C(0x9ba65c), C(0x476a31)];
-    const tileSize = 190;
-    const count = this.quality === 'ultra' ? 7600 :
-      this.quality === 'high' ? 5200 : this.quality === 'medium' ? 2400 : 850;
-    const buckets = new Map();
-    for (let i=0; i<count; i++){
-      const point = this.points[Math.floor(rand() * (this.points.length - 1))];
-      const distance = (rand() < .5 ? -1 : 1) * (this.width/2 + 6 + rand()*47);
-      const x = point.center.x + point.side.x*distance + (rand()-.5)*9;
-      const z = point.center.z + point.side.z*distance + (rand()-.5)*9;
-      if(this.clearance&&!this.clearance.plantAllowed(x,z,'grass',.9))continue;
-      const tileX = Math.floor(x/tileSize), tileZ = Math.floor(z/tileSize);
-      const key = tileX+','+tileZ;
-      if (!buckets.has(key)) buckets.set(key,[]);
-      buckets.get(key).push({x,z,y:this.terrainY(x,z),size:.34+rand()*.87,yaw:rand()*TAU,
-        color:colors[Math.floor(rand()*colors.length)]});
+    const buckets=new Map();
+    const palette=[];
+    let planted=0,rejected=0,near=0,far=0,attempts=0;
+    const maxAttempts=count*3.7;
+    while(planted<count && attempts<maxAttempts){
+      attempts++;
+      let x,z;
+      if(r()<.78){
+        const c=clusters[Math.floor(r()*clusters.length)];
+        const theta=r()*TAU,spread=Math.sqrt(r())*c.radius;
+        x=c.x+Math.cos(theta)*spread;
+        z=c.z+Math.sin(theta)*spread;
+      }else{
+        const p=this.points[Math.floor(r()*sampleCount)];
+        const side=r()<.5?-1:1;
+        const offset=side*(this.width*.5+4+r()*112);
+        // Tangential scatter suppresses perfectly uniform roadside bands.
+        const tangent=p.tangent;
+        const drift=(r()-.5)*24;
+        x=p.center.x+p.side.x*offset+tangent.x*drift;
+        z=p.center.z+p.side.z*offset+tangent.z*drift;
+      }
+      // Plant clearance is tested against every road, interchange and access;
+      // it also includes the whole blade footprint so no grass clips tarmac.
+      if(this.clearance&&!this.clearance.plantAllowed(x,z,'grass',.95)){
+        rejected++;continue;
+      }
+      const nearest=this.clearance?.roadProximity(x,z);
+      const edge=Number.isFinite(nearest?.edge)?nearest.edge:
+        Math.max(4,Math.abs(Math.hypot(x,z)-180)-this.width*.5);
+      const p=meadowProfile(x,z,edge);
+      if(r()>p.density){rejected++;continue;}
+      const height=(.58+r()*.8)*p.height;
+      const breadth=.76+r()*.60;
+      const colour=p.color.clone().multiplyScalar(.87+r()*.25);
+      const tileX=Math.floor(x/tileSize),tileZ=Math.floor(z/tileSize);
+      const key=tileX+','+tileZ;
+      if(!buckets.has(key))buckets.set(key,[]);
+      buckets.get(key).push({x,y:this.terrainY(x,z),z,yaw:r()*TAU,
+        height,breadth,color:colour,edge});
+      if(edge<15)near++;else far++;
+      planted++;
     }
     const dummy=new THREE.Object3D();
     for(const [key,entries] of buckets){
       const mesh=new THREE.InstancedMesh(blades,mat,entries.length);
-      entries.forEach((entry,i)=>{
-        dummy.position.set(entry.x,entry.y+.035,entry.z);
+      mesh.name='Prado natural · tufos curvos';
+      for(let i=0;i<entries.length;i++){
+        const entry=entries[i];
+        dummy.position.set(entry.x,entry.y-.014,entry.z);
         dummy.rotation.set(0,entry.yaw,0);
-        dummy.scale.set(.8+entry.size*.4,entry.size, .8+entry.size*.4);
+        dummy.scale.set(entry.breadth,entry.height,entry.breadth);
         dummy.updateMatrix();
         mesh.setMatrixAt(i,dummy.matrix);
         mesh.setColorAt(i,entry.color);
-      });
+      }
       mesh.instanceMatrix.needsUpdate=true;
-      mesh.instanceColor.needsUpdate=true;
-      mesh.castShadow=false;mesh.receiveShadow=true;
+      if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+      mesh.castShadow=false;
+      mesh.receiveShadow=true;
       mesh.computeBoundingSphere();
       mesh.frustumCulled=true;
       this.scene.add(mesh);
-      const [tx,tz] = key.split(',').map(Number);
+      const [tx,tz]=key.split(',').map(Number);
       this.grassPatches.push({mesh,x:(tx+.5)*tileSize,z:(tz+.5)*tileSize});
     }
+    this.grassStatistics={
+      planted,rejected,near,far,clusters:clusters.length,tiles:buckets.size,
+      bladeCount:blades.userData.blades
+    };
   }
 
   animateTreeLeaves(trees) {
