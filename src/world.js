@@ -14,6 +14,7 @@ import {RoadSignage} from './road-signage.js';
 import {CinematicSky,evaluateAtmosphere,configureCinematicShadows} from './cinematic-lighting.js';
 import {ModernRoadLighting} from './modern-road-lighting.js';
 import {RegionalRailway} from './regional-railway.js';
+import {RiverSystem} from './river-system.js';
 import {WildGroundcover} from './wild-groundcover.js';
 import {RainStreaks} from './atmosphere-effects.js';
 import {createWeatheredRockGeometry,UrbanFacadeBatch,createWeatheredWallMaterial} from './natural-assets.js';
@@ -137,9 +138,21 @@ export class DrivingWorld {
       this.roadPoints,this.roadWidth,this.quality);
     this.network.roads[0].mesh=this.roadMesh;
     this.fitTerrainToRoads();
+    // A continuous geographical river carves the SAME visual/physical
+    // heightfield. Roads remain intact and receive supported bridge spans
+    // wherever their true centreline crosses the river.
+    this.river=new RiverSystem(this.scene,this.physics,
+      this.network,groundHeight,this.quality);
+    const cutVertices=this.river.carveTerrain(this.terrainMesh.geometry);
+    if(cutVertices){
+      this.physics.removeBody(this.terrainBody);
+      this.terrainBody=createTerrainCollider(this.physics,
+        this.terrainMesh.geometry,this.terrainMaterial);
+    }
     // Roads, junctions and POI entrances share ONE clearance mask.
     this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
     this.roadside=new RoadsideClearance(this.network,this.sectors.regions);
+    this.roadside.river=this.river;
     this.sectors.clearance=this.roadside;
     this.railway=new RegionalRailway(this.scene,this.physics,groundHeight,
       this.roadside,this.quality);
@@ -386,7 +399,8 @@ export class DrivingWorld {
       seed:20261010,
       terrainY:groundHeight,
       distanceToRoad:(x,z)=>this.distanceToRoad(x,z),
-      isNearRoad:(x,z)=>!this.roadside.plantAllowed(x,z,'tree',2)||
+      isNearRoad:(x,z)=>this.river.contains(x,z,15)||
+        !this.roadside.plantAllowed(x,z,'tree',2)||
         this.railway.nearestTrack(x,z)<11
     });
     // Rock transforms remain independent of the new forest batches.
@@ -400,7 +414,8 @@ export class DrivingWorld {
       const z = -70 + Math.floor(i / 8) * 42 + random() * 8;
       // Do not place buildings inside any of the connected urban roads.
       if (this.distanceToRoad(x, z) < 23 ||
-          this.network.query(x,z).distance < 22) continue;
+          this.network.query(x,z).distance < 22 ||
+          this.river.contains(x,z,22)) continue;
       const height = 9 + Math.floor(random() * 6) * 7;
       const width = 14 + random() * 8, depth = 15 + random() * 9;
       const baseY = groundHeight(x, z) - 0.12;
@@ -420,7 +435,8 @@ export class DrivingWorld {
     for (let i = 0; i < 500 && count < 140; i++) {
       const x = (random() - 0.5) * (WORLD_SIZE-220), z = (random() - 0.5) * (WORLD_SIZE-220);
       const size = 0.4 + random() * 2.4;
-      if (this.railway.nearestTrack(x,z)<5||
+      if (this.river.contains(x,z,size+4)||
+          this.railway.nearestTrack(x,z)<5||
           !this.roadside.plantAllowed(x,z,'rock',size*.75)||
           this.distanceToRoad(x,z)<16) continue;
       dummy.position.set(x, groundHeight(x, z) + size * 0.15, z);
@@ -512,6 +528,7 @@ export class DrivingWorld {
     this.network?.setWetness(wetness);
     this.roadEnvironment?.update(dt,paused);
     this.railway?.update(dt,paused);
+    this.river?.update(dt,paused,this.weather==='rain',this.atmosphere?.sunDirection);
     this.updateAtmosphere();
     if (vehiclePosition) {
       this.sectors.update(vehiclePosition,performance.now()/1000,this.hour,paused);
