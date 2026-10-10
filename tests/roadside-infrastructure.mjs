@@ -60,6 +60,8 @@ for(const stop of stops){
   assert.ok(stop.userData.bayWidthM>=3.5);
   assert.ok(stop.children.some(mesh=>mesh.name==='BUS · inscrição branca no pavimento'),
     'The word BUS must be painted on each stop bay');
+  assert.ok(stop.children.some(mesh=>mesh.name==='Baía BUS · linha branca lateral'),
+    'Bus recess needs visible lane-side boundary markings');
   const bay=stop.children.find(mesh=>
     mesh.name==='Baía de autocarro · asfalto transitável');
   assert.ok(bay?.geometry.userData.corsaBusBay,
