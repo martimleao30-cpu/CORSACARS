@@ -13,6 +13,7 @@ import {ForestSystem} from './forest-system.js';
 import {RoadSignage} from './road-signage.js';
 import {CinematicSky,evaluateAtmosphere,configureCinematicShadows} from './cinematic-lighting.js';
 import {ModernRoadLighting} from './modern-road-lighting.js';
+import {buildRoadProfileGeometry} from './road-profile-geometry.js';
 import {RegionalRailway} from './regional-railway.js';
 import {RiverSystem} from './river-system.js';
 import {WildGroundcover} from './wild-groundcover.js';
@@ -137,6 +138,9 @@ export class DrivingWorld {
     this.network = new RoadNetwork(this.scene,this.physics,groundHeight,
       this.roadPoints,this.roadWidth,this.quality);
     this.network.roads[0].mesh=this.roadMesh;
+    this.network.roads[0].body=this.roadBody;
+    this.ringProfileGeometry=buildRoadProfileGeometry(this.scene,
+      this.network.roads[0],groundHeight,this.network.junctions);
     this.fitTerrainToRoads();
     // A continuous geographical river carves the SAME visual/physical
     // heightfield. Roads remain intact and receive supported bridge spans
@@ -325,7 +329,7 @@ export class DrivingWorld {
     this.roadSides=addRoadSides(this.scene,bed.sides,'Estrada Circular');
     this.roadWear=addRoadWear(this.scene,this.roadPoints,this.roadWidth,
       groundHeight,this.quality,29);
-    meshCollider(this.physics,bed.top,this.asphaltMaterial);
+    this.roadBody=meshCollider(this.physics,bed.top,this.asphaltMaterial);
 
     // Surface-conforming road lines are built by RoadSignage after the network.
     this.roadMesh=roadMesh;
@@ -336,7 +340,7 @@ export class DrivingWorld {
     // The ring uses precisely the same natural, layered shoulder geometry
     // as every regional road. Junction cutters operate on these meshes too.
     this.ringShoulders=addRoadShoulders(this.scene,this.roadPoints,
-      this.roadWidth,groundHeight,createGravelMaterial());
+      this.roadWidth,groundHeight,createGravelMaterial(),2);
   }
 
   // Asphalt at a T junction is continuous, but its outer kerb and gravel
