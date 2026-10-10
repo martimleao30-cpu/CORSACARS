@@ -2,12 +2,16 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {RegionalRailway,generateRailwayAlignment,sampleAlignment,
-  createBallastBedGeometry,createSteelRailGeometry}
+  createBallastBedGeometry,createSteelRailGeometry,createRailwayBallastSurface}
   from '../src/regional-railway.js';
 const terrain=(x,z)=>2*Math.sin(x*.018)+2*Math.cos(z*.013);
 const clearance={roadProximity(x,z){
   return {edge:Math.abs(x-110)};
 }};
+const fallback=createRailwayBallastSurface('low');
+assert.equal(fallback.material.vertexColors,true);
+assert.equal(fallback.textures.length,0);
+fallback.material.dispose();
 const map=generateRailwayAlignment(terrain,clearance,650);
 assert.ok(map.total>3600,'Regional line must travel the entire playable map');
 assert.ok(map.points.length===651);
