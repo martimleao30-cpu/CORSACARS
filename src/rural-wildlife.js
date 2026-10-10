@@ -36,7 +36,7 @@ export function createSwallowModel(resources){
   root.userData.wings={left,right};
   return root;
 }
-export function buildRuralWildlife(root,region,terrain,quality='high',physics=null,bodies=null){
+export function buildRuralWildlife(root,region,terrain,quality='high',physics=null,bodies=null,plotAllowed=null){
   const geometries={
     sphere:new THREE.SphereGeometry(1,10,8),
     cylinder:new THREE.CylinderGeometry(1,1,1,7),
@@ -126,10 +126,10 @@ export function buildRuralWildlife(root,region,terrain,quality='high',physics=nu
   }
   if(farm){
     for(const [i,out,along] of [[0,104,-45],[1,116,-22],[2,99,4]])
-      createCow(out,along,i);
+      if(!plotAllowed||plotAllowed(out,along,2.8))createCow(out,along,i);
     for(const [i,out,along] of [
       [0,92,18],[1,104,30],[2,115,23],[3,110,-6],[4,123,0]])
-      createSheep(out,along,i);
+      if(!plotAllowed||plotAllowed(out,along,1.8))createSheep(out,along,i);
   }
   const count=quality==='low'?5:quality==='medium'?8:
     quality==='ultra'?14:11;
