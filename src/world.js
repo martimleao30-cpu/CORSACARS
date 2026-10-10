@@ -3,6 +3,7 @@ import * as CANNON from 'cannon-es';
 import { createAsphaltMaterial, createGravelMaterial, createTerrainMaterial } from './materials.js';
 import { WorldDetails } from './world-details.js';
 import { RoadNetwork } from './road-network.js';
+import {clipGeometryAtJunctions,trimRoadWearAtJunctions} from './road-junctions.js';
 import { WorldSectors } from './world-sectors.js';
 import {RoadsideClearance} from './roadside-clearance.js';
 import { DrivingTestArea } from './driving-test-area.js';
@@ -92,6 +93,7 @@ export class DrivingWorld {
     this.railway=new RegionalRailway(this.scene,this.physics,groundHeight,
       this.roadside,this.quality);
     this.buildRoadside();
+    this.trimRingRoadsideAtJunctions();
     this.roadEnvironment=new RoadEnvironment(this.scene,this.physics,this.network,
       groundHeight,this.quality,this.roadside);
     this.roadSignage=new RoadSignage(this.scene,this.network,this.quality);
@@ -250,7 +252,37 @@ export class DrivingWorld {
       shoulder.material.side = THREE.DoubleSide;
       shoulder.receiveShadow = true;
       this.scene.add(shoulder);
+      (this.ringShoulders||=[]).push(shoulder);
     }
+  }
+
+  // Asphalt at a T junction is continuous, but its outer kerb and gravel
+  // shoulder must open into the joined road rather than form a visible wall.
+  trimRingRoadsideAtJunctions(){
+    const ring=this.network.roads.find(road=>road.id==='circular');
+    const joins=this.network.junctions.filter(j=>j.primary===ring);
+    const cuts=[];
+    for(const join of joins){
+      const road=join.secondary,pts=road.points;
+      let nearest=0,dist=Infinity;
+      for(let i=0;i<pts.length;i++){
+        const dx=pts[i].x-join.x,dz=pts[i].z-join.z,d=dx*dx+dz*dz;
+        if(d<dist){dist=d;nearest=i;}
+      }
+      const a=pts[Math.max(0,nearest-1)],b=pts[Math.min(pts.length-1,nearest+1)];
+      const tangent=b.clone().sub(a).setY(0);
+      if(tangent.lengthSq()<.01)continue;
+      tangent.normalize();
+      cuts.push({...join,ux:tangent.x,uz:tangent.z,
+        halfU:this.roadWidth*.5+5.1,halfV:road.width*.5+2.65});
+    }
+    this.ringAccessCuts=cuts;
+    for(const mesh of [...(this.ringShoulders||[]),this.roadSides]){
+      if(!mesh)continue;
+      const trimmed=clipGeometryAtJunctions(mesh.geometry,cuts);
+      if(trimmed){mesh.geometry.dispose();mesh.geometry=trimmed;}
+    }
+    trimRoadWearAtJunctions(this.roadWear,cuts);
   }
 
   buildStreetLights() {
