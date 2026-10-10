@@ -11,7 +11,7 @@ globalThis.document={
     }};
   }
 };
-const {createRoadBed,ROAD_SECTION,roadDeckHeight,addRoadWear,addRoadShoulders,addRoadSides,addRoadDrainage}=
+const {createRoadBed,ROAD_SECTION,roadDeckHeight,addRoadWear,addRoadShoulders,addRoadSides,addRoadDrainage,roadsideTerrainDelta}=
   await import('../src/road-upgrades.js');
 const {createAsphaltMaterial,createGravelMaterial}=await import('../src/materials.js');
 const points=[
@@ -90,4 +90,15 @@ for(const ditch of drainage){
   }
 }
 assert.equal(scene.children.length,8);
+assert.ok(roadsideTerrainDelta(width*.5,width)>.05,
+  'Ground should rise slightly towards the road');
+assert.ok(roadsideTerrainDelta(width*.5+4.5,width)<-.12,
+  'Ground should form a natural drainage depression');
+assert.equal(roadsideTerrainDelta(width*.5+11,width),0,
+  'Original terrain should be preserved outside the embankment');
+for(const edge of [1.4,4.5,9.5]){
+  const left=roadsideTerrainDelta(width*.5+edge-.0001,width);
+  const right=roadsideTerrainDelta(width*.5+edge+.0001,width);
+  assert.ok(Math.abs(left-right)<.00005,'Cut-and-fill must be continuous');
+}
 console.log('PASS: 3D road deck and sides, real-distance UVs, PBR aging, reuse, tire marks, patches and shoulders.');
