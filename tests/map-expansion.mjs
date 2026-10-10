@@ -16,7 +16,5 @@ for(const road of outer){
     assert.ok(Number.isFinite(groundHeight(x,z)));
   }
 }
-const model=await import('../src/main.js').catch(()=>null);
-// main.js needs browser DOM, so export-based world contracts are checked above.
 assert.ok(groundHeight(1950,1600)>groundHeight(350,320));
 console.log('PASS: continuous 4.1 km world, connected outer roads and safe terrain extents.');
