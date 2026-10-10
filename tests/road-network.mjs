@@ -44,6 +44,16 @@ for(const road of network.roads){
   }
   assert.ok(road.sides.geometry.index.count>0,'Visible roadbed side walls required');
   assert.equal(road.shoulders.length,2,'Both road shoulders must exist');
+  if(road.category==='mountain'){
+    assert.equal(road.mesh.material.userData.mountainDetail,true,
+      'Mountain roads must have their own improved texture detail');
+    const uv=(road.sourceGeometry||road.mesh.geometry).getAttribute('uv');
+    const stride=7;
+    const metres=Math.hypot(road.points[1].x-road.points[0].x,
+      road.points[1].z-road.points[0].z);
+    assert.ok(Math.abs(uv.getY(stride)/metres-.30)<.002,
+      'Mountain asphalt should have 50% more texels per metre');
+  }
   if(road.surface==='dry'&&road.wear)assert.ok(road.wear.skids.count>0);
   const middle=road.points[Math.floor(road.points.length*.57)];
   const queried=network.query(middle.x,middle.z,'clear');
