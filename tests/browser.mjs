@@ -43,7 +43,8 @@ page.on('console', message => {
 });
 try {
   await page.goto('http://127.0.0.1:8080', { waitUntil: 'domcontentloaded' });
-  await page.locator('#loading').waitFor({ state: 'hidden', timeout: 45000 })
+  // Full-world preload deliberately takes longer than the old incremental boot.
+  await page.locator('#loading').waitFor({ state: 'hidden', timeout: 120000 })
     .catch(async error=>{
       const diagnostic=await page.evaluate(()=>({
         ready:document.readyState,
@@ -57,6 +58,12 @@ try {
   await page.waitForFunction(()=>
     document.querySelector('#entryUpdateStatus')?.textContent?.includes('ÚLTIMO LANÇAMENTO · v0.7.0'),
     null,{timeout:15000});
+  assert.equal(await page.locator('#loadingProgress').evaluate(el=>el.style.width),'100%',
+    'Loading screen must finish all preparation stages before the menu');
+  assert.ok(Number(await page.locator('#loading').getAttribute('data-regions'))>=10,
+    'Every village, farm and POI must be preloaded before the title screen');
+  assert.ok(Number(await page.locator('#loading').getAttribute('data-forest-chunks'))>9,
+    'All forest chunks must have been prepared before the title screen');
   assert.equal(await page.locator('#entryScreen').isVisible(),true,
     'PC game must start on a dedicated title gate');
   assert.ok(await page.locator('#entryCheckUpdate').isVisible());
@@ -161,7 +168,7 @@ try {
   assert.deepEqual(browserErrors, [],
     'Unexpected JavaScript/browser errors. HTTP failures: '+JSON.stringify(failedHttpResponses));
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.locator('#loading').waitFor({ state:'hidden', timeout:45000 });
+  await page.locator('#loading').waitFor({ state:'hidden', timeout:120000 });
   await page.locator('#entryScreen').waitFor({state:'visible'});
   await page.keyboard.press('Enter');
   assert.equal(await page.locator('#entryScreen').isVisible(),false,
