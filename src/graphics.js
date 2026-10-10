@@ -113,6 +113,33 @@ export class GraphicsPipeline {
     }
   }
 
+  captureReflectionFace(face){
+    const renderer=this.renderer;
+    const previousTarget=renderer.getRenderTarget?.()||null;
+    const previousAutoUpdate=renderer.shadowMap?.autoUpdate;
+    const carVisible=this.vehicle.model.visible;
+    const wheelVisible=this.vehicle.wheelModels.map(w=>w.visible);
+    this.vehicle.model.visible=false;
+    for(const wheel of this.vehicle.wheelModels)wheel.visible=false;
+    try{
+      this.reflectionCamera.position.copy(this.reflectionCapturePosition);
+      this.reflectionCamera.updateMatrixWorld(true);
+      if(renderer.shadowMap)renderer.shadowMap.autoUpdate=face===0;
+      renderer.setRenderTarget(this.reflectionTarget,face);
+      renderer.render(this.scene,this.reflectionCamera.children[face]);
+      if(face===5){
+        this.reflectionTarget.texture.needsPMREMUpdate=true;
+        if(this.indirect&&!this.indirect.probeAttempted)
+          void this.indirect.captureProbe(this.reflectionTarget);
+      }
+    }finally{
+      renderer.setRenderTarget(previousTarget);
+      if(renderer.shadowMap)renderer.shadowMap.autoUpdate=previousAutoUpdate;
+      this.vehicle.model.visible=carVisible;
+      this.vehicle.wheelModels.forEach((w,i)=>{w.visible=wheelVisible[i];});
+    }
+  }
+
   update(dt,active=true){
     // ACES handles bright sun highlights, while exposure gently follows
     // sunrise, midday and overcast rather than blowing out the road texture.
