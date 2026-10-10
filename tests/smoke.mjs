@@ -20,6 +20,17 @@ for (const id of ids) {
 }
 assert.match(html, /three@0\.168\.0/);
 assert.match(html, /cannon-es@0\.20\.0/);
+assert.ok(!html.includes('class="gps-heading"'),
+  'Circular GPS must not contain the old GPS/OPEN ROAD text header');
+assert.ok(!html.includes('<div class="brand">'),
+  'Top-left in-game OPEN ROAD / ALPHA branding must be removed');
+assert.match(html,/id="hudState"[^>]*hidden/,
+  'Vehicle surface state must remain accessible internally, but not overlay the speedometer');
+const desktopHudCss=readFileSync(new URL('../src/pc-menu.css',import.meta.url),'utf8');
+assert.match(desktopHudCss,/\.gps-hud\{[^}]*border-radius:50%/,
+  'Minimap must have a round container');
+assert.match(desktopHudCss,/\.hud \.perf-value\{[^}]*top:71px/,
+  'FPS/MS must move away from the speedometer');
 assert.match(main, /physics\.step/);
 assert.match(main, /navigator\.getGamepads/);
 assert.match(main, /requestFullscreen/);
