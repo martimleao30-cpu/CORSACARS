@@ -4,6 +4,31 @@ import {roadProfile} from './road-standards.js';
 
 const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
 const center=p=>p.center||p;
+// One detailed reusable 3D grate with real open gaps rather than an opaque
+// painted rectangle. All installed drains share this single geometry.
+function collectorGrateGeometry(){
+  const positions=[],normals=[],uv=[],indices=[];
+  const box=(width,height,depth,x,z)=>{
+    const part=new THREE.BoxGeometry(width,height,depth);
+    part.translate(x,0,z);
+    const p=part.getAttribute('position').array;
+    const n=part.getAttribute('normal').array;
+    const t=part.getAttribute('uv').array;
+    const offset=positions.length/3;
+    positions.push(...p);normals.push(...n);uv.push(...t);
+    indices.push(...Array.from(part.index.array,i=>i+offset));
+    part.dispose();
+  };
+  for(let i=0;i<9;i++)box(.047,.07,.38,(i-4)*.108,0);
+  for(const z of [-.22,.22])box(1.02,.092,.075,0,z);
+  for(const x of [-.515,.515])box(.07,.092,.45,x,0);
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+  geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  geometry.setIndex(indices);geometry.computeBoundingSphere();
+  return geometry;
+}
 const sideAt=(points,i)=>{
   const a=center(points[Math.max(0,i-1)]);
   const b=center(points[Math.min(points.length-1,i+1)]);
@@ -74,7 +99,7 @@ export class HighwayDrainage{
     const section=[-1.36,-1.03,-.57,-.27,.27,.57,1.03,1.36];
     const heights=[.37,.31,.12,.06,.06,.12,.31,.37];
     const shades=[.89,.93,.77,.66,.66,.77,.93,.89];
-    const inletGeometry=new THREE.BoxGeometry(1.02,.065,.38);
+    const inletGeometry=collectorGrateGeometry();
     this.geometry.push(inletGeometry);
     for(const road of this.network.roads){
       if(road.id!=='autoestrada'||road.points?.length<2)continue;
