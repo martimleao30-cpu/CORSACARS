@@ -41,6 +41,11 @@ assert.equal(profile.median.mesh.geometry.userData.medianWidth,4);
 assert.equal(motorway.body.shapes.length,3,
   'Physical motorway needs both paved shoulders and centre barrier');
 assert.ok(profile.paved.every(m=>m.geometry.userData.roadShoulderWidth===3.5));
+for(const shoulder of profile.paved){
+  const n=shoulder.geometry.getAttribute('normal');
+  assert.ok(n.getY(0)>.3,
+    'Both paved shoulder meshes must face upward for visual and tyre contact');
+}
 const national=mockRoad('nacional',7);
 const profileEN=buildRoadProfileGeometry(scene,national,()=>0,[]);
 assert.equal(profileEN.paved.length,2);
