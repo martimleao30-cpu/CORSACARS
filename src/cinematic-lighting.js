@@ -24,8 +24,13 @@ export function evaluateAtmosphere(hour=14,weather='clear'){
   const twilight=smooth(sunHeight,-.14,.12);
   const daytime=smooth(sunHeight,.08,.53);
   const golden=smooth(sunHeight,-.18,-.025)*(1-smooth(sunHeight,.20,.49));
-  const isRain=weather==='rain',isFog=weather==='fog';
-  const cloudy=isFog ? .87 : isRain ? .76 : 0;
+  const mix=weather&&typeof weather==='object'?weather:null;
+  const rain=clamp(mix?.rain??(weather==='rain'?.78:weather==='storm'?1:0),0,1);
+  const mist=clamp(mix?.fog??(weather==='fog'?1:0),0,1);
+  const cloudy=clamp(mix?.clouds??(weather==='fog'?.87:
+    weather==='rain'?.76:weather==='storm'?1:
+    weather==='cloudy'?.72:0),0,1);
+  const isRain=rain>.15,isFog=mist>.35;
   const sunDirection=new THREE.Vector3(Math.cos(angle)*185,
     sunHeight*220,Math.sin(angle)*185).normalize();
 
@@ -39,6 +44,8 @@ export function evaluateAtmosphere(hour=14,weather='clear'){
   const overcastHorizon=isFog?PALETTE.fogHorizon:PALETTE.rainHorizon;
   zenith.lerp(overcastZenith,cloudy*twilight);
   horizon.lerp(overcastHorizon,cloudy*twilight);
+  // Humidity cools the dawn palette, but does not abruptly change time of day.
+  horizon.lerp(PALETTE.fogHorizon,mist*.18*twilight);
   const groundHaze=horizon.clone().multiplyScalar(.77);
   const sunColor=PALETTE.highSun.clone()
     .lerp(PALETTE.warmSun,golden)
@@ -46,17 +53,17 @@ export function evaluateAtmosphere(hour=14,weather='clear'){
   const ambientColor=PALETTE.blueAmbient.clone()
     .lerp(PALETTE.warmAmbient,golden*.62)
     .lerp(PALETTE.rainSun,cloudy*.62);
-  const fogDensity=isFog ? .008 : isRain ? .00205 : .00078;
+  const fogDensity=.00078+mist*.00722+rain*.00115+cloudy*.00012;
   const sunVisibility=smooth(sunHeight,-.06,.06)*(1-cloudy*.85);
   const sunIntensity=(.018+2.95*Math.pow(daylight,.72))*(1-cloudy*.63);
   const ambientIntensity=(.16+.98*Math.pow(daylight,.5))*(1-cloudy*.24);
   return {
-    angle,sunHeight,daylight,golden,cloudy,sunDirection,
+    angle,sunHeight,daylight,golden,cloudy,rain,mist,sunDirection,
     zenith,horizon,groundHaze,sunColor,ambientColor,
     fogColor:horizon.clone().lerp(zenith,.18),
     fogDensity,sunVisibility,sunIntensity,ambientIntensity,
     exposure:clamp(.98+golden*.10+(1-daytime)*.055-cloudy*.055,.85,1.16),
-    shadowRadius:isRain||isFog?3.0:golden>.25?2.35:1.7
+    shadowRadius:1.7+Math.max(rain,mist)*1.3+golden*.45
   };
 }
 
