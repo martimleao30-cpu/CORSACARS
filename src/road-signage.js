@@ -305,6 +305,9 @@ export class RoadSignage {
     const sampler=createRoadSampler(road),w=road.width,n=road.points.length-1;
     this.samplers.set(road.id,sampler);
     this.statistics.roadCount++;
+    // Real gravel/earth tracks do not carry motorway-style white centre
+    // and edge lines. This removes floating paint from unpaved valleys.
+    if(road.category==='dirt')return;
     const highway=road.category==='highway';
     const connector=road.category==='highway-ramp';
     const length=sampler.total;
