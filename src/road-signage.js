@@ -105,23 +105,105 @@ const paintMaterials=Object.freeze({
   })
 });
 
+// Intersections reserve a paint-free envelope on BOTH the primary and
+// secondary road. Clipping the secondary deck alone leaves stray centre lines
+// crossing an otherwise valid junction on the main carriageway.
+export function junctionPaintGaps(sampler,junctions=[],padding=3.8){
+  const road=sampler.road;
+  const gaps=[];
+  for(const join of junctions){
+    if(join.primary!==road&&join.secondary!==road)continue;
+    let closest=0,best=Infinity;
+    for(let i=0;i<road.points.length;i++){
+      const p=road.points[i].center||road.points[i];
+      const dist=(p.x-join.x)**2+(p.z-join.z)**2;
+      if(dist<best){best=dist;closest=i;}
+    }
+    const center=sampler.chain[closest];
+    const local=road===join.primary
+      ?join.halfU:join.halfV/Math.max(.32,join.angle);
+    const radius=Math.min(21,Math.max(4.5,local+padding));
+    gaps.push([Math.max(0,center-radius),
+      Math.min(sampler.total,center+radius)]);
+  }
+  gaps.sort((a,b)=>a[0]-b[0]);
+  const merged=[];
+  for(const [a,b]of gaps){
+    if(merged.length&&a<=merged[merged.length-1][1])
+      merged[merged.length-1][1]=Math.max(b,merged[merged.length-1][1]);
+    else merged.push([a,b]);
+  }
+  return merged;
+}
+
+export function paintIntervals(total,start,end,excluded=[]){
+  let intervals=[[clamp(start,0,total),clamp(end,0,total)]];
+  for(const [lo,hi]of excluded){
+    intervals=intervals.flatMap(([a,b])=>{
+      if(hi<=a||lo>=b)return [[a,b]];
+      const out=[];
+      if(lo>a+.10)out.push([a,Math.min(b,lo)]);
+      if(hi<b-.10)out.push([Math.max(a,hi),b]);
+      return out;
+    });
+  }
+  return intervals.filter(([a,b])=>b-a>.25);
+}
+
+// Solid no-overtaking areas are localized to genuinely sharp mountain bends.
+// Rural roads default to dashed centre lines; highways use lane separators.
+export function roadCenterMarking(road,sampler,gaps=[]){
+  if(road.category==='highway')return {style:'dashed',solid:[]};
+  if(road.category!=='mountain')return {style:'dashed',solid:[]};
+  const solid=[];
+  for(let i=5;i<road.points.length-5;i+=3){
+    const a=road.points[i-4],p=road.points[i],b=road.points[i+4];
+    const v1=new THREE.Vector2(p.x-a.x,p.z-a.z).normalize();
+    const v2=new THREE.Vector2(b.x-p.x,b.z-p.z).normalize();
+    const angle=Math.acos(clamp(v1.dot(v2),-1,1));
+    if(angle>.29){
+      const center=sampler.chain[i];
+      solid.push([Math.max(0,center-14),Math.min(sampler.total,center+14)]);
+    }
+  }
+  // Never put prohibition lines across the conflict area.
+  const intervals=[];
+  for(const [a,b]of solid)intervals.push(...paintIntervals(sampler.total,a,b,gaps));
+  intervals.sort((a,b)=>a[0]-b[0]);
+  const merged=[];
+  for(const range of intervals){
+    if(merged.length&&range[0]<=merged[merged.length-1][1]+4)
+      merged[merged.length-1][1]=Math.max(range[1],merged[merged.length-1][1]);
+    else merged.push([...range]);
+  }
+  return {style:'dashed',solid:merged};
+}
+
 export function createLineGeometry(sampler,{style='continuous',lateral=0,width=.13,
-    start=0,end=sampler.total,dash=3.6,gap=5.4,spacing=.27}={}){
+    start=0,end=sampler.total,dash=3.6,gap=5.4,spacing=.27,
+    excluded=[]}={}){
   if(!LINE_STYLES.includes(style))throw new Error('Unknown line type: '+style);
   const out=canvasBuffer();
   const a=clamp(start,0,sampler.total),b=clamp(end,0,sampler.total);
   if(b<=a)return null;
-  const paint=(offset)=>{
+  const intervals=paintIntervals(sampler.total,a,b,excluded);
+  const paint=offset=>{
     if(style==='dashed'){
-      for(let d=a;d<b;d+=dash+gap)out.strip(sampler,d,Math.min(d+dash,b),offset,width);
-    }else out.strip(sampler,a,b,offset,width);
+      for(let d=a;d<b;d+=dash+gap){
+        const last=Math.min(d+dash,b);
+        for(const [lo,hi]of intervals){
+          if(hi<=d||lo>=last)continue;
+          out.strip(sampler,Math.max(lo,d),Math.min(hi,last),offset,width);
+        }
+      }
+    }else for(const [lo,hi]of intervals)out.strip(sampler,lo,hi,offset,width);
   };
   if(style==='double'){
     paint(lateral-spacing*.5);
     paint(lateral+spacing*.5);
   }else paint(lateral);
   const mesh=out.build();
-  if(mesh)mesh.userData={kind:style,first:a,last:b,lateral,width};
+  if(mesh)mesh.userData={kind:style,first:a,last:b,lateral,width,excluded};
   return mesh;
 }
 
