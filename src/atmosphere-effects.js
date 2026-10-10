@@ -101,15 +101,26 @@ export class AtmosphericClouds{
     this.clouds=this.groups[0];
     this.time=0;
     this.opacity=material.opacity;
+    this.tint=new THREE.Color(0xffffff);
   }
-  update(dt,weather='clear',hour=14,paused=false){
-    if(!paused)this.time+=Math.max(0,Math.min(.1,dt));
+  update(dt,weather='clear',hour=14,paused=false,climate=null){
+    const wind=climate?.wind??(weather==='rain'?.45:.12);
+    if(!paused)this.time+=Math.max(0,Math.min(.1,dt))*(.6+wind*1.8);
     const day=Math.max(0,Math.sin((hour-6)/24*Math.PI*2));
-    const targetOpacity=weather==='rain'?.93:weather==='fog'?.50:.77;
-    this.material.opacity=targetOpacity;
-    const tint=weather==='rain'?0x89939f:
+    const cloudy=climate?.clouds??(weather==='storm'?1:
+      weather==='cloudy'?.72:weather==='rain'?.93:
+      weather==='fog'?.50:.77);
+    const targetOpacity=climate?.clouds!=null
+      ?THREE.MathUtils.lerp(.35,.95,cloudy)
+      :weather==='rain'?.93:weather==='fog'?.50:.77;
+    this.material.opacity=climate&&!paused
+      ?THREE.MathUtils.damp(this.material.opacity,targetOpacity,1.15,dt)
+      :targetOpacity;
+    const base=weather==='storm'||weather==='rain'?0x89939f:
       day<.14?0x56637b:weather==='fog'?0xaebbc3:0xffffff;
-    this.material.color.set(tint);
+    this.tint.set(base);
+    if(climate)this.tint.lerp(new THREE.Color(0x73818e),cloudy*.45);
+    this.material.color.copy(this.tint);
     for(let i=0;i<this.groups.length;i++){
       this.groups[i].position.x=Math.sin(this.time*.006+i*.4)*35;
       this.groups[i].position.z=Math.cos(this.time*.004+i*.63)*19;
