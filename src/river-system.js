@@ -216,6 +216,9 @@ export class RiverSystem {
         speeds.push(flow);
       }
       if(i>=this.points.length-1)continue;
+      // The falling sheet takes over this section: overlapping the ordinary
+      // river ribbon here used to cause shimmering/z-fighting on the lip.
+      if(i>=this.waterfall.start&&i<this.waterfall.end)continue;
       for(let j=0;j<8;j++){
         const a=i*9+j,b=a+9;
         indices.push(a,b,a+1,a+1,b,b+1);
@@ -258,28 +261,49 @@ export class RiverSystem {
         varying float vSpeed;
         varying vec3 vWorld;
         void main(){
-          vec2 uv=vec2(vUV.x*4.0,vUV.y);
-          float ripple1=sin(uv.y*4.1-uTime*3.5*vSpeed+sin(uv.x*9.0)*1.2);
-          float ripple2=sin(uv.y*7.2-uTime*5.0*vSpeed+uv.x*20.0);
-          float ripples=ripple1*.48+ripple2*.24;
+          // Two wind-independent moving current layers, rather than a flat
+          // colour or scrolling photographic texture. Depth colour, ripples
+          // and foam react to the actual width and speed of this section.
+          vec2 current=vec2(vUV.x*6.0,vUV.y*.92);
+          float phase=current.y*5.7-uTime*3.6*vSpeed;
+          float broad=sin(phase+sin(current.x*2.4)*.65);
+          float fine=sin(current.x*21.0+phase*1.9+
+            sin(current.y*3.7+uTime*.8)*1.6);
+          float capillary=sin(current.x*48.0-phase*3.2);
+          float waves=broad*.13+fine*.052+capillary*.018;
           vec3 normal=normalize(vec3(
-            .09*cos(uv.x*12.0+uTime*.8),
+            -.17*cos(current.x*2.4+phase*.72)
+            -.055*cos(current.x*21.0+phase*1.9),
             1.0,
-            .16*cos(uv.y*5.0-uTime*3.5)));
+            -.22*cos(phase)-.06*cos(current.x*48.0-phase*3.2)));
           vec3 viewDir=normalize(cameraPosition-vWorld);
-          float fresnel=pow(1.0-max(0.0,dot(normal,viewDir)),3.0);
-          vec3 water=mix(vec3(.044,.21,.225),vec3(.13,.365,.38),
-            .53+.15*ripples);
-          vec3 sky=mix(vec3(.35,.53,.62),vec3(.66,.78,.82),fresnel);
-          water=mix(water,sky,clamp(.16+fresnel*.57,0.0,.78));
+          float fresnel=pow(1.0-clamp(dot(normal,viewDir),0.0,1.0),4.0);
+          float bank=smoothstep(.55,1.0,vBank);
+          float depth=1.0-bank;
+          vec3 deep=vec3(.025,.135,.17);
+          vec3 shallow=vec3(.14,.32,.31);
+          vec3 water=mix(deep,shallow,.25+bank*.53+waves*.30);
+          // Deep water stays darker; banks become shallow emerald-green.
+          vec3 sky=vec3(.38,.56,.64)+vec3(.19,.18,.12)*max(0.0,uSun.y);
+          water=mix(water,sky,.09+fresnel*.55);
           float sparkle=pow(max(0.0,dot(reflect(-normalize(uSun),normal),
-            viewDir)),50.0);
-          water+=vec3(.85,.91,.87)*sparkle*.85;
-          float flowFoam=smoothstep(.67,.93,abs(ripple1*.8+ripple2*.3))*
-            (.04+.09*uRain+.10*smoothstep(1.3,2.2,vSpeed));
-          flowFoam+=smoothstep(.70,.98,vBank)*.13;
-          water=mix(water,vec3(.83,.91,.89),clamp(flowFoam,0.0,.4));
-          gl_FragColor=vec4(water,.94);
+            viewDir)),76.0);
+          float sunGlints=sparkle*(.25+.75*depth)*
+            (.56+.44*smoothstep(.35,.84,normal.y));
+          water+=vec3(1.0,.96,.82)*sunGlints*.75;
+          float flowFoam=smoothstep(.69,.98,abs(fine*.72+
+            broad*.33+capillary*.16))*(.035+.09*uRain);
+          flowFoam+=bank*(.12+.065*abs(broad));
+          flowFoam+=smoothstep(1.1,2.3,vSpeed)*.12*
+            smoothstep(.44,.9,abs(fine*.7+broad*.45));
+          // Rivulets accelerate at the lip and swirl into bright whitewater.
+          water=mix(water,vec3(.77,.89,.87),clamp(flowFoam,0.0,.48));
+          float rainPits=sin(current.x*57.0+uTime*6.4)*
+            sin(current.y*32.0-uTime*8.1);
+          water+=vec3(.13,.16,.17)*rainPits*.065*uRain;
+          gl_FragColor=vec4(water,.945);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
         }`,
       transparent:true,side:THREE.DoubleSide,depthWrite:false
     });
