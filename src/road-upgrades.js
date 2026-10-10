@@ -234,3 +234,65 @@ export function addRoadShoulders(scene,samples,width,terrainY,material) {
   }
   return shoulders;
 }
+
+// Natural roadside swales and cut/fill slopes. A draped five-band ribbon
+// follows the road and reconnects to the real terrain at both outside edges.
+// No separate terrain collider or invisible vertical concrete wall is added.
+export function addRoadDrainage(scene,samples,width,terrainY,quality='high'){
+  const channels=[];
+  const bands=[2.2,3.15,4.1,5.35,7.2,9.1];
+  const elevations=[.025,.10,.025,.012,.11,.015];
+  const palette=[
+    [.72,.68,.54],[.75,.71,.57],[.49,.46,.36],
+    [.39,.43,.32],[.61,.61,.46],[.54,.60,.43]
+  ];
+  for(const sign of [-1,1]){
+    const coords=[],uvs=[],colors=[],triangles=[];
+    let progress=0;
+    for(let i=0;i<samples.length;i++){
+      const p=centerOf(samples[i]),t=tangentOf(samples,i);
+      if(i>0){
+        const previous=centerOf(samples[i-1]);
+        progress+=Math.hypot(p.x-previous.x,p.z-previous.z);
+      }
+      const irregular=.12*Math.sin(progress*.12+sign*3.8)+
+        .065*Math.sin(progress*.53+sign*2);
+      for(let j=0;j<bands.length;j++){
+        const spread=j===0?0:irregular*(j/5);
+        const lateral=sign*(width*.5+bands[j]+spread);
+        const x=p.x-t.z*lateral,z=p.z+t.x*lateral;
+        // All levels remain on or above the underlying world collider. The
+        // lowered centre relative to the banks reads as a shallow ditch.
+        const height=elevations[j]+
+          (j===4?.028*Math.sin(progress*.18+sign):0);
+        coords.push(x,terrainY(x,z)+height,z);
+        uvs.push((bands[j]+spread)/2.8,progress/2.8);
+        const tint=.93+.05*Math.sin(progress*.19+j*2.1);
+        colors.push(...palette[j].map(value=>value*tint));
+      }
+      if(i<samples.length-1){
+        const a=i*bands.length,b=a+bands.length;
+        for(let j=0;j<bands.length-1;j++){
+          triangles.push(a+j,b+j,a+j+1,a+j+1,b+j,b+j+1);
+        }
+      }
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(coords,3));
+    geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
+    geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    geometry.setIndex(triangles);
+    geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
+    geometry.userData.corsaDrainage=true;
+    const mat=new THREE.MeshStandardMaterial({
+      color:0xffffff,vertexColors:true,roughness:.98,
+      side:THREE.DoubleSide
+    });
+    const mesh=new THREE.Mesh(geometry,mat);
+    mesh.name='Valeta natural · talude e drenagem '+(sign>0?'direita':'esquerda');
+    mesh.receiveShadow=true;
+    scene.add(mesh);channels.push(mesh);
+  }
+  return channels;
+}
