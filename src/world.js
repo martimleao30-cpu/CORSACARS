@@ -151,8 +151,7 @@ export class DrivingWorld {
     }
     // Roads, junctions and POI entrances share ONE clearance mask.
     this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
-    this.roadside=new RoadsideClearance(this.network,this.sectors.regions);
-    this.roadside.river=this.river;
+    this.roadside=new RoadsideClearance(this.network,this.sectors.regions,this.river);
     this.sectors.clearance=this.roadside;
     this.railway=new RegionalRailway(this.scene,this.physics,groundHeight,
       this.roadside,this.quality);
