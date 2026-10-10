@@ -103,6 +103,22 @@ try {
   assert.equal(await page.locator('#pauseScreen').isVisible(), true);
   await page.locator('#mapPause').click();
   assert.equal(await page.locator('#mapScreen').isVisible(), true);
+  assert.equal(await page.locator('#gpsCanvas').count(),1,
+    'The transparent navigator must be part of the game HUD');
+  await page.locator('#gpsDestination').selectOption('service');
+  await page.locator('#gpsGo').click();
+  assert.equal(await page.locator('#pauseScreen').isVisible(),true,
+    'Selecting a route should return to pause, ready to drive');
+  assert.equal(await page.locator('#gpsReference').evaluate(el=>el.classList.contains('hidden')),true);
+  await page.locator('#resumeButton').click();
+  await page.waitForFunction(()=>document.querySelector('#gpsStatus')?.textContent.includes('ÁREA DE SERVIÇO'),
+    null,{timeout:10000});
+  assert.ok(await page.locator('#gpsReference').evaluate(img=>img.complete&&img.naturalWidth>0),
+    'Original transparent GPS graphic should load even when the live route is shown');
+  await page.keyboard.press('Escape');
+  await page.locator('#mapPause').click();
+  await page.locator('#gpsClear').click();
+  assert.equal(await page.locator('#gpsReference').evaluate(el=>el.classList.contains('hidden')),false);
   await page.locator('#mapScreen [data-ui-back]').click();
   assert.equal(await page.locator('#pauseScreen').isVisible(), true);
   await page.locator('#resumeButton').click();
