@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { DrivingWorld, WORLD_HALF } from './world.js';
+import { DrivingWorld, WORLD_HALF, groundHeight } from './world.js';
 import { PlayerVehicle } from './vehicle.js';
 import { GraphicsPipeline } from './graphics.js';
 import { AssetUpgrade } from './assets.js';
@@ -601,6 +601,17 @@ function frame(now) {
       substeps++;
     }
     physicsStepMs=performance.now()-physicsStart;
+    // Failsafe for a corrupted/escaped physics position. The heightfield
+    // should keep wheels grounded; this also prevents an infinite fall.
+    const p=car.chassis.position;
+    const invalid=![p.x,p.y,p.z].every(Number.isFinite);
+    const outside=Math.abs(p.x)>WORLD_HALF-2||Math.abs(p.z)>WORLD_HALF-2;
+    const beneath=!invalid&&!outside&&p.y<groundHeight(p.x,p.z)-9;
+    if(invalid||outside||beneath){
+      car.reset();
+      physicsAccumulator=0;
+      toast('TERRENO RECUPERADO · CARRO REPOSICIONADO');
+    }
   } else {
     physicsAccumulator=0;
     // Detect gamepad Start even when paused.
