@@ -244,3 +244,33 @@ Os testes automáticos incluem compilação/sintaxe, ensaios de vegetação, LOD
 Esta versão é um **protótipo funcional em código**, não um simulador automóvel concluído. Os recursos visuais são geométricos e originais; não contém automóveis licenciados nem ativos de jogos comerciais. Falta testar a experiência em execução, melhorar o modelo de pneus, ABS/controlo de tração reais, superfícies físicas distintas, tráfego AI, som gravado, material PBR avançado, interiores detalhados, garagem, remapeamento de teclas, minimapa, zonas do mundo carregadas dinamicamente e publicação pública em Pages.
 
 Próxima prioridade: testar efetivamente em Chrome/Edge, acertar direção/suspensão/travagem e desempenho; depois expandir as estradas e os sistemas de simulação.
+
+
+## Florestas naturais — árvores 3D com quatro LOD
+
+O CORSACARS continua a usar Three.js/WebGL. O antigo sistema de troncos
+cilíndricos e copas geométricas em `src/world.js` foi substituído pelo
+`ForestSystem` de `src/forest-system.js`.
+
+- **Espécies:** carvalho, bétula e pinheiro, com geometrias de tronco,
+  ramificação e distribuição de folhas próprias.
+- **Idades:** jovens, adultas e antigas; alteram altura, volume de copa,
+  espessura e raízes expostas de forma ligeira nos modelos de proximidade.
+- **LOD 0:** troncos irregulares com relevo de casca procedural, ramos
+  principais e secundários, folhagem 3D com midribs/veios, projeção de sombras.
+- **LOD 1:** geometria orgânica simplificada e folhagem em menor quantidade.
+- **LOD 2:** copa e tronco de geometria simplificada a média/larga distância.
+- **LOD 3:** representação ultraleve a longa distância, ou não renderizada
+  se estiver fora da distância de corte ou do campo de visão.
+- **Otimização:** InstancedMesh por espécie, idade, região e LOD. As geometrias
+  mais detalhadas são criadas quando a região aparece perto da câmara; lotes
+  fora do frustum são ocultados. Câmera distante não obriga a construir LOD 0.
+- **Dinâmica:** deformação pelo vento nos shaders GPU, rajadas e resposta
+  visual à chuva/nevoeiro. A simulação pára quando o jogo está em pausa.
+- **Colocação:** distribuição determinista com variações de densidade, altitude,
+  tamanho, silhueta e orientação; respeita estradas e a área urbanizada.
+- **Sem downloads obrigatórios:** as texturas procedurais da casca e as máscaras
+  recortadas das folhas são geradas localmente.
+
+Os testes de distribuição, geometria, LOD, frustum e clima correm em
+`npm run test:forest`. O desempenho real deve ser medido no jogo em GPU.

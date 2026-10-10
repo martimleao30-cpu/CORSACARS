@@ -581,6 +581,7 @@ function frame(now) {
   car.updateVisuals(world.hour >= 19 || world.hour <= 6 || world.weather !== 'clear');
   world.update(dt, car.getPosition(), !play);
   updateCamera(dt);
+  world.updateForest(camera,dt,!play);
   roadDust.update(dt,car,world,camera,play);
   car.setVisualDetail(camera.position);
   graphics.update(dt, play);

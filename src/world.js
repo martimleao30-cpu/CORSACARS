@@ -7,6 +7,7 @@ import { WorldSectors } from './world-sectors.js';
 import { DrivingTestArea } from './driving-test-area.js';
 import {createRoadBed,addRoadSides,addRoadWear} from './road-upgrades.js';
 import {RoadEnvironment} from './road-environments.js';
+import {ForestSystem} from './forest-system.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -83,7 +84,7 @@ export class DrivingWorld {
     this.buildStreetLights();
     this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
     this.details = new WorldDetails(this.scene, this.roadPoints, this.roadWidth,
-      groundHeight, this.quality, this.vegetation);
+      groundHeight, this.quality, null);
     this.buildRain();
     this.updateAtmosphere();
   }
@@ -300,84 +301,17 @@ export class DrivingWorld {
   }
 
   buildScenery() {
-    const treeCount = this.quality === 'low' ? 230 : this.quality === 'medium' ? 420 : 680;
-    // Three independent foliage volumes per tree replace the old single cone.
-    // Instancing keeps the number of draw calls low even with hundreds of trees.
-    const clusters = 3;
-    const leaves = new THREE.InstancedMesh(
-      new THREE.IcosahedronGeometry(2.35, this.quality === 'low' ? 0 : 1),
-      new THREE.MeshStandardMaterial({ color: 0x879b77, roughness: 0.96, metalness: 0 }),
-      treeCount * clusters
-    );
-    const trunks = new THREE.InstancedMesh(
-      new THREE.CylinderGeometry(0.3, 0.46, 4.7, 8),
-      material(0x51412f), treeCount
-    );
-    // Distinct species: approximately 20% conifers, the rest broadleaf trees.
-    const conifers = new THREE.InstancedMesh(
-      new THREE.ConeGeometry(2.65, 8.7, 9, 3),
-      new THREE.MeshStandardMaterial({color:0x345b39,roughness:.99}),
-      treeCount
-    );
-    let pineCount = 0;
+    // Shared tree species/age prototypes, streamed LOD per spatial chunk.
+    // The old cylinders, single-cone pines and icosahedral crowns are gone.
+    this.forest = new ForestSystem(this.scene, {
+      quality:this.quality,
+      seed:20261010,
+      terrainY:groundHeight,
+      distanceToRoad:(x,z)=>this.distanceToRoad(x,z),
+      isNearRoad:(x,z)=>this.network.query(x,z).distance<24
+    });
+    // Rock transforms remain independent of the new forest batches.
     const dummy = new THREE.Object3D();
-    const shades = [0x3c613a, 0x547747, 0x6d854a, 0x324d35, 0x526946]
-      .map(x => new THREE.Color(x));
-    let planted = 0, leafCount = 0;
-    for (let i = 0; i < treeCount * 5 && planted < treeCount; i++) {
-      const x = (random() - 0.5) * 1650, z = (random() - 0.5) * 1650;
-      if (this.distanceToRoad(x, z) < 20 || this.network.query(x,z).distance < 17) continue;
-      if (x > 40 && x < 270 && z > -80 && z < 210) continue;
-      const h = groundHeight(x, z);
-      const size = 0.7 + random() * 0.95;
-      dummy.position.set(x, h + 2.35 * size, z);
-      dummy.rotation.set(0, random() * TAU, 0);
-      dummy.scale.set(size, size, size);
-      dummy.updateMatrix();
-      trunks.setMatrixAt(planted, dummy.matrix);
-      const type = Math.floor(random() * shades.length);
-      if(type===0) {
-        dummy.position.set(x, h + 6.25 * size, z);
-        dummy.rotation.set(0, random()*TAU, 0);
-        dummy.scale.set(size*.82,size,size*.82);
-        dummy.updateMatrix();
-        conifers.setMatrixAt(pineCount, dummy.matrix);
-        conifers.setColorAt(pineCount,
-          new THREE.Color(random()>.5?0x476944:0x2e543b));
-        pineCount++;
-      } else for (let k = 0; k < clusters; k++) {
-        const theta = k * TAU / clusters + random() * 0.7;
-        const radial = k === 2 ? 0.4 : 1.25;
-        dummy.position.set(
-          x + Math.cos(theta) * radial * size,
-          h + (5.5 + (k === 2 ? 2 : 0.2 * k)) * size,
-          z + Math.sin(theta) * radial * size
-        );
-        dummy.rotation.set(random() * 0.4, random() * TAU, random() * 0.4);
-        dummy.scale.set(size * (0.95 + random() * 0.35),
-          size * (0.85 + random() * 0.3), size * (0.88 + random() * 0.3));
-        dummy.updateMatrix();
-        leaves.setMatrixAt(leafCount, dummy.matrix);
-        leaves.setColorAt(leafCount, shades[(type + k) % shades.length]);
-        leafCount++;
-      }
-      planted++;
-    }
-    trunks.count = planted;
-    leaves.count = leafCount;
-    conifers.count = pineCount;
-    leaves.castShadow = this.quality !== 'low';
-    leaves.receiveShadow = true;
-    trunks.castShadow = this.quality === 'ultra';
-    leaves.instanceMatrix.needsUpdate = true;
-    leaves.instanceColor.needsUpdate = true;
-    trunks.instanceMatrix.needsUpdate = true;
-    conifers.instanceMatrix.needsUpdate = true;
-    conifers.instanceColor.needsUpdate = true;
-    conifers.castShadow = this.quality === 'ultra';
-    conifers.receiveShadow = true;
-    this.scene.add(leaves, trunks, conifers);
-    this.vegetation = { leaves, trunks, conifers, leafCount, planted, pineCount };
 
     const colors = [0xc1b7a1, 0x949fa4, 0xc4bdb0, 0x827b74, 0xa4a99c];
     const glass = material(0x5a7e90, 0.22, 0.26);
@@ -422,14 +356,15 @@ export class DrivingWorld {
   }
 
   setVegetationDensity(factor = 1) {
-    if(!this.vegetation)return;
     const ratio=Math.max(.2,Math.min(1,Number(factor)||1));
-    const v=this.vegetation;
-    v.trunks.count=Math.max(1,Math.floor(v.planted*ratio));
-    v.leaves.count=Math.max(1,Math.floor(v.leafCount*ratio));
-    v.conifers.count=Math.max(1,Math.floor(v.pineCount*ratio));
+    this.forest?.setDensity(ratio);
     this.details?.setDensity(ratio);
   }
+
+  updateForest(camera,dt=1/60,paused=false) {
+    this.forest?.update(camera,dt,this.weather,paused);
+  }
+
 
     buildRain() {
     const count = 1050;
