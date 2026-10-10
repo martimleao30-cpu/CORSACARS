@@ -23,7 +23,7 @@ export function evaluateAtmosphere(hour=14,weather='clear'){
   const daylight=Math.max(0,sunHeight);
   const twilight=smooth(sunHeight,-.14,.12);
   const daytime=smooth(sunHeight,.08,.53);
-  const golden=smooth(sunHeight,-.06,.08)*(1-smooth(sunHeight,.20,.49));
+  const golden=smooth(sunHeight,-.18,-.025)*(1-smooth(sunHeight,.20,.49));
   const isRain=weather==='rain',isFog=weather==='fog';
   const cloudy=isFog ? .87 : isRain ? .76 : 0;
   const sunDirection=new THREE.Vector3(Math.cos(angle)*185,
