@@ -20,7 +20,7 @@ function restoreSettings() {
     const saved = JSON.parse(localStorage.getItem(settingsKey) || '{}');
     return {
       quality: ['low', 'medium', 'high', 'ultra'].includes(saved.quality) ? saved.quality : 'high',
-      fps: [0, 30, 60, 120].includes(saved.fps) ? saved.fps : 60,
+      fps: [0, 30, 60, 120, 144, 165, 240, 300, 360].includes(saved.fps) ? saved.fps : 60,
       sound: saved.sound !== false,
       ao: saved.ao !== false,
       reflections: saved.reflections !== false,
@@ -88,6 +88,7 @@ let lastSessionSave = 0;
 let cameraMode = 0;
 let cameraLook = new THREE.Vector3();
 let lastFrame = 0;
+let nextFrameAt = 0;
 const FIXED_DT = 1/60;
 let physicsAccumulator = 0;
 let physicsStepMs = 0;
@@ -315,7 +316,7 @@ function startGame() {
   $('hud').classList.remove('hidden');
   engine.activate();
   $('hud').classList.remove('editing');
-  void assets.start(settings.quality);
+  void assets.start(settings.textureQuality || 'high');
   if (!window.__CORSACARS_DISABLE_REMOTE_ASSETS__) void indirect.load();
 }
 function setPaused(value) {
@@ -507,7 +508,7 @@ const ui = new PremiumInterface({
   showPanel,backPanel,closeSettings,
   showHud:(visible)=>$('hud').classList.toggle('hidden',!visible),
   toast,
-  reloadTextures:(quality)=>assets.loadPhotographicAsphalt(quality==='high'?'ultra':'high')
+  reloadTextures:(quality)=>assets.loadPhotographicAsphalt(quality)
 });
 car.setPaintColor(settings.paint);
 car.setTyreCompound(settings.tyreCompound||'road');
@@ -538,6 +539,8 @@ $('qualitySelect').addEventListener('change', event => {
 $('fpsSelect').value = String(settings.fps);
 $('fpsSelect').addEventListener('change', event => {
   settings.fps = Number(event.target.value);
+  nextFrameAt = 0;
+  performanceMonitor.reset();
   persistSettings();
 });
 $('aoToggle').checked = settings.ao;
@@ -583,8 +586,16 @@ $('fullscreenButton').addEventListener('click', async () => {
 function frame(now) {
   requestAnimationFrame(frame);
   const cap = settings.fps;
-  if (cap && now - lastFrame < 1000 / cap - 1.0) return;
-  const dt = lastFrame ? clamp((now - lastFrame) / 1000, 0.001, 0.12) : 1 / 60;
+  if (cap) {
+    const interval = 1000 / cap;
+    if (nextFrameAt && now < nextFrameAt - .5) return;
+    // Keep an absolute pacing schedule instead of restarting on each frame:
+    // this avoids accidentally rendering 48 FPS with a 60 FPS cap on 144 Hz.
+    nextFrameAt = nextFrameAt && now - nextFrameAt < interval * 2
+      ? nextFrameAt + interval : now + interval;
+  } else nextFrameAt = 0;
+  const elapsed = lastFrame ? Math.max(0,(now - lastFrame) / 1000) : 1 / 60;
+  const dt = clamp(elapsed, 0.001, 0.12); // simulation only
   lastFrame = now;
   const play = active && !paused;
   ui.pollGamepad();
@@ -647,7 +658,7 @@ function frame(now) {
   }
   graphics.render();
   if(play && now-lastSessionSave>10000){saveSession();lastSessionSave=now;}
-  performanceMonitor.update(dt, settings.quality, settings.autoQuality, play);
+  performanceMonitor.update(elapsed, settings.quality, settings.autoQuality, play);
 }
 
 applyQuality();
