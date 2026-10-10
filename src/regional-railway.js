@@ -44,6 +44,80 @@ export function sampleAlignment(line,distance){
   const side=new THREE.Vector3(-dir.z,0,dir.x).normalize();
   return {point,dir,side};
 }
+// Single continuous ballast deck. Unlike long overlapping BoxGeometry pieces
+// this follows the actual track curvature and has a tapered drainage shoulder.
+export function createBallastBedGeometry(line){
+  const cross=[[-2.25,-.60],[-1.86,-.38],[0,-.34],[1.86,-.38],[2.25,-.60]];
+  const vertices=[],uv=[],colors=[],indices=[];
+  for(let i=0;i<line.points.length;i++){
+    const a=line.points[Math.max(0,i-1)];
+    const b=line.points[Math.min(line.points.length-1,i+1)];
+    const direction=b.clone().sub(a).setY(0).normalize();
+    const side=new THREE.Vector3(-direction.z,0,direction.x);
+    const p=line.points[i],distance=line.length[i];
+    for(let j=0;j<cross.length;j++){
+      const [lateral,vertical]=cross[j];
+      const shade=1-.09*Math.abs(lateral)/2.25+
+        .035*Math.sin(distance*.19+j*1.8);
+      vertices.push(p.x+side.x*lateral,p.y+vertical,p.z+side.z*lateral);
+      uv.push(lateral/2.6,distance/2.6);
+      colors.push(shade,shade*.978,shade*.94);
+    }
+    if(i===line.points.length-1)continue;
+    const row=i*cross.length;
+    for(let j=0;j<cross.length-1;j++){
+      const a=row+j,b=a+cross.length;
+      indices.push(a,a+1,b,a+1,b+1,b);
+    }
+  }
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+  geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geometry.setIndex(indices);geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  geometry.userData.corsaRailway='continuous-tapered-ballast';
+  return geometry;
+}
+
+// Steel rail with a broad foot, thin web and narrow head (rather than a tube).
+// The 1.435m gauge is measured between the two rail centre-lines.
+export function createSteelRailGeometry(line,offset){
+  const section=[
+    [-.085,-.145],[.085,-.145],[.085,-.116],
+    [.026,-.102],[.026,-.018],[.06,-.01],
+    [.06,.055],[-.06,.055],[-.06,-.01],
+    [-.026,-.018],[-.026,-.102],[-.085,-.116]
+  ];
+  const vertices=[],uv=[],indices=[];
+  for(let i=0;i<line.points.length;i++){
+    const a=line.points[Math.max(0,i-1)];
+    const b=line.points[Math.min(line.points.length-1,i+1)];
+    const d=b.clone().sub(a).setY(0).normalize();
+    const side=new THREE.Vector3(-d.z,0,d.x),p=line.points[i];
+    for(const [w,h] of section){
+      const lateral=offset+w;
+      vertices.push(p.x+side.x*lateral,p.y+h,p.z+side.z*lateral);
+      uv.push(w*4,line.length[i]/2);
+    }
+    if(i===line.points.length-1)continue;
+    const row=i*section.length;
+    for(let j=0;j<section.length;j++){
+      const k=(j+1)%section.length;
+      const a=row+j,b=row+k,c=a+section.length,d=b+section.length;
+      indices.push(a,b,c,b,d,c);
+    }
+  }
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+  geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  geometry.setIndex(indices);geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  geometry.userData.corsaRailway='steel-rail-profile';
+  geometry.userData.gaugeM=1.435;
+  return geometry;
+}
+
 const colored=(m)=>m.clone();
 export class RegionalRailway{
   constructor(scene,physics,terrainY,roadside,quality='high'){
