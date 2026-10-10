@@ -19,8 +19,8 @@ assert.ok(system.crossings.length>=1,
   'A bridge must be placed at a real river/road intersection');
 assert.ok(system.crossings.every(p=>p.roadId===road.id&&
   p.x>=445&&p.x<=645),'Bridge cannot be positioned randomly');
-assert.equal(system.bodies.length,system.crossings.length*2,
-  'Real bridge guardrails need matching collision objects');
+assert.ok(system.bodies.length>=system.crossings.length*2,
+  'Bridge guardrails and substantial river boulders need physical collision');
 const point=RIVER_WAYPOINTS[4];
 const river=system.lookup(point[0],point[1]);
 assert.ok(river?.distance<2);
