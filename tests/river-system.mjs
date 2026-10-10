@@ -21,8 +21,17 @@ assert.ok(Array.from(flows.array).every(speed=>speed>=.7&&speed<=2.31),
   'Current must adapt to the changing valley slope');
 assert.match(system.waterMaterial.vertexShader,/uTime\*2\.8\*vSpeed/);
 assert.match(system.waterMaterial.fragmentShader,/whitewater|flowFoam/);
+assert.ok(system.lookup(535,430)?.distance<2,
+  'The river must pass through the known valley crossing X=535, Z=430');
 assert.ok(system.crossings.length>=1,
   'A bridge must be placed at a real river/road intersection');
+const originalRoads=system.network.roads;
+system.network.roads=[{...road,id:'rio-longo',
+  points:[new THREE.Vector3(200,3,430),new THREE.Vector3(900,3,430)]}];
+assert.ok(system.findCrossings().some(hit=>
+  hit.roadId==='rio-longo'&&Math.abs(hit.x-535)<8),
+  'Even a long road segment must get a bridge when it crosses the river');
+system.network.roads=originalRoads;
 assert.ok(system.crossings.every(p=>p.roadId===road.id&&
   p.x>=445&&p.x<=645),'Bridge cannot be positioned randomly');
 assert.ok(system.bodies.length>=system.crossings.length*2,
