@@ -67,11 +67,23 @@ export function powerKW(rpm,torqueNm) {
 export function tyreGrip(surface='dry',tyre='road',wetness=0) {
   const p=SURFACES[surface]||SURFACES.dry;
   const t=TYRES[tyre]||TYRES.road;
-  const wet = surface==='wet'||wetness>.1;
+  if(surface==='dry'&&wetness>0){
+    // Smooth physical transition instead of sudden grip loss at a boolean
+    // rainfall threshold. Dry roads still use the original tyre compound.
+    const amount=clamp(wetness,0,1);
+    return {
+      longitudinal:(1-amount)*p.grip*t.grip+
+        amount*SURFACES.wet.grip*t.grip*t.wet,
+      lateral:((1-amount)*p.lateral+
+        amount*SURFACES.wet.lateral*t.wet)*t.grip*t.sidewall,
+      rolling:(1-amount)*p.rolling+amount*SURFACES.wet.rolling,
+      surface:amount>.5?SURFACES.wet.name:p.name
+    };
+  }
+  const wet=surface==='wet';
   return {longitudinal:p.grip*t.grip*(wet?t.wet:1),
     lateral:p.lateral*t.grip*(wet?t.wet:1)*t.sidewall,
-    rolling:p.rolling,
-    surface:p.name};
+    rolling:p.rolling,surface:p.name};
 }
 
 // Smooth loss of contact force when slip exceeds its useful range.
