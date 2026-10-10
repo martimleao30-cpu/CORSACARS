@@ -138,30 +138,38 @@ export class WildGroundcover{
     const cell=cx+','+cz;
     if(this.localCell===cell)return;
     this.localCell=cell;
-    const random=rng(424242^(Math.imul(cx,73856093)^Math.imul(cz,19349663)));
     const dummy=new THREE.Object3D(),mesh=this.localGrass;
+    const spacing=12,radius=89;
+    const perTile={low:12,medium:25,high:45,ultra:73}[this.quality]||45;
+    const amount=Math.ceil(perTile*this.density);
     let planted=0;
-    const target=Math.floor(this.localCapacity*this.density);
-    // Fine grass around the player, even far from the original circular road.
-    // Test against roads, junctions, service areas and railway tracks.
-    for(let i=0;i<target*5&&planted<target;i++){
-      const radius=Math.sqrt(random())*86,angle=random()*Math.PI*2;
-      const x=cx+Math.cos(angle)*radius,z=cz+Math.sin(angle)*radius;
-      if(Math.abs(x)>1938||Math.abs(z)>1938)continue;
-      if(this.railway?.nearestTrack(x,z)<5.3)continue;
-      if(this.clearance&&!this.clearance.plantAllowed(x,z,'grass',.72))continue;
-      const edge=this.clearance?.roadProximity(x,z).edge??40;
-      const profile=meadowProfile(x,z,edge);
-      if(random()>profile.density*.92)continue;
-      const breadth=.60+random()*.73;
-      const height=profile.height*(.58+random()*1.02);
-      dummy.position.set(x,this.terrainY(x,z)-.028,z);
-      dummy.rotation.set(0,random()*Math.PI*2,0);
-      dummy.scale.set(breadth,height,breadth);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(planted,dummy.matrix);
-      mesh.setColorAt(planted,profile.color.clone().multiplyScalar(.85+random()*.27));
-      planted++;
+    // Each 12m patch is seeded by WORLD coordinates. Moving the streaming
+    // window preserves existing nearby tufts and only adds/removes its edges.
+    for(let gx=Math.floor((cx-radius)/spacing);gx<=Math.ceil((cx+radius)/spacing);gx++){
+      for(let gz=Math.floor((cz-radius)/spacing);gz<=Math.ceil((cz+radius)/spacing);gz++){
+        const tileX=gx*spacing,tileZ=gz*spacing;
+        if(Math.hypot(tileX-cx,tileZ-cz)>radius+spacing)continue;
+        const random=rng(424242^(Math.imul(gx,73856093)^Math.imul(gz,19349663)));
+        for(let k=0;k<amount&&planted<this.localCapacity;k++){
+          const x=tileX+random()*spacing,z=tileZ+random()*spacing;
+          if(Math.hypot(x-cx,z-cz)>radius)continue;
+          if(Math.abs(x)>1938||Math.abs(z)>1938)continue;
+          if(this.railway?.nearestTrack(x,z)<5.3)continue;
+          if(this.clearance&&!this.clearance.plantAllowed(x,z,'grass',.72))continue;
+          const edge=this.clearance?.roadProximity(x,z).edge??40;
+          const profile=meadowProfile(x,z,edge);
+          if(random()>profile.density*.92)continue;
+          const breadth=.60+random()*.73;
+          const height=profile.height*(.58+random()*1.02);
+          dummy.position.set(x,this.terrainY(x,z)-.028,z);
+          dummy.rotation.set(0,random()*Math.PI*2,0);
+          dummy.scale.set(breadth,height,breadth);
+          dummy.updateMatrix();
+          mesh.setMatrixAt(planted,dummy.matrix);
+          mesh.setColorAt(planted,profile.color.clone().multiplyScalar(.85+random()*.27));
+          planted++;
+        }
+      }
     }
     mesh.count=planted;
     mesh.instanceMatrix.needsUpdate=true;
