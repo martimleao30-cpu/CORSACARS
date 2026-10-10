@@ -187,7 +187,7 @@ export class RoadsideClearance{
       const across=dx*bay.outward.x+dz*bay.outward.z;
       // The paved apron extends towards the road, whilst the shelter stays
       // farther out. Keep the rail/fence support corridor clear.
-      return Math.abs(along)<25+margin&&across>-8-margin&&across<3+margin;
+      return Math.abs(along)<25+margin&&across>-11-margin&&across<3+margin;
     })||false;
   }
   addJunction(x,z,radius){
