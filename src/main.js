@@ -618,7 +618,14 @@ function frame(now) {
     const p=car.chassis.position;
     const invalid=![p.x,p.y,p.z].every(Number.isFinite);
     const outside=Math.abs(p.x)>WORLD_HALF-2||Math.abs(p.z)>WORLD_HALF-2;
-    const beneath=!invalid&&!outside&&p.y<groundHeight(p.x,p.z)-9;
+    // Carved riverbeds may legitimately be lower than the original ground
+    // function. Compare the fall limit against the lower channel elevation
+    // so driving into the valley does not trigger a false car reset.
+    const riverAt=!invalid?world.river?.lookup(p.x,p.z):null;
+    const referenceHeight=riverAt&&riverAt.distance<riverAt.width+24
+      ?Math.min(groundHeight(p.x,p.z),riverAt.waterY-1.55)
+      :groundHeight(p.x,p.z);
+    const beneath=!invalid&&!outside&&p.y<referenceHeight-9;
     if(invalid||outside||beneath){
       car.reset();
       physicsAccumulator=0;
