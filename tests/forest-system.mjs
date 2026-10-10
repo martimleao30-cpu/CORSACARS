@@ -76,6 +76,25 @@ assert.ok([...forest.chunks.values()].every(chunk=>chunk.lod<0));
 const compactForest=create();
 assert.equal(compactForest.statistics.planted,forest.statistics.planted,
   'Forest positions/species must be deterministic');
+let callbacks=0;
+const count=await compactForest.preloadAllLods((done,total)=>{
+  callbacks++;
+  assert.ok(done<=total);
+},async()=>{});
+assert.equal(count,compactForest.chunks.size);
+assert.equal(callbacks,count);
+assert.ok([...compactForest.chunks.values()].every(chunk=>
+  chunk.cache.size===FOREST_LOD.length&&
+  [...chunk.cache.values()].every(group=>group.visible===false)),
+  'All forest meshes must be constructed but hidden until they are needed');
+const cacheObjects=new Map([...compactForest.chunks].map(([key,chunk])=>
+  [key,[...chunk.cache.values()]]));
+compactForest.update(camera,.3,'clear',false);
+for(const [key,groups] of cacheObjects){
+  const chunk=compactForest.chunks.get(key);
+  assert.ok(groups.every((group,lod)=>chunk.cache.get(lod)===group),
+    'Driving must reuse every cached forest mesh without allocating another batch');
+}
 compactForest.dispose();
 forest.dispose();
 assert.equal(scene.children.length,originalSceneSize,'Forest batches must clean up');
