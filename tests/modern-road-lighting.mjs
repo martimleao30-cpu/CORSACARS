@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import {ModernRoadLighting} from '../src/modern-road-lighting.js';
+import {ModernRoadLighting,sampleLampStations,lampNightFactor} from '../src/modern-road-lighting.js';
+import {ROAD_LAMP_SPACING_METRES} from '../src/road-standards.js';
 
 globalThis.document={createElement(){return {
   width:192,height:192,getContext(){return {
@@ -27,8 +28,29 @@ assert.ok(lighting.stats.urban>16,'Urban streets must have higher pole density')
 assert.ok(lighting.stats.highway>=6,'Motorway access and services require LEDs');
 assert.ok(lighting.stats.ring>6,'Original ring should still be illuminated');
 assert.ok(lighting.stats.access>=2,'Motorway ramps need their own masts');
+assert.ok(lighting.stats.rural>=2,'Villages and rural junctions need new LEDs');
+assert.ok(lighting.stats.mountain>=1,'Mountain village approaches need night lighting');
+assert.equal(lampNightFactor(12),0);
+assert.equal(lampNightFactor(18.99),0);
+assert.equal(lampNightFactor(19),1);
+assert.equal(lampNightFactor(5.99),1);
+assert.equal(lampNightFactor(6),0);
+const uniform=sampleLampStations(network.roads.find(r=>r.id==='circular'));
+assert.ok(uniform.length>20);
+for(let i=1;i<uniform.length;i++)
+  assert.ok(Math.abs(uniform[i].distance-uniform[i-1].distance-
+    ROAD_LAMP_SPACING_METRES)<1e-7,
+    'Lamp cadence follows actual road length, not triangle density');
+for(const p of lighting.placements){
+  assert.equal(p.spacingM,ROAD_LAMP_SPACING_METRES);
+  assert.ok(Math.abs(p.stationM/ROAD_LAMP_SPACING_METRES-
+    (Math.floor(p.stationM/ROAD_LAMP_SPACING_METRES)+.5))<.00001,
+    'Every pole must be on the same 34-metre road chainage grid');
+}
 assert.ok(lighting.meshes.length>=7,'Detailed posts use seven instanced parts');
 assert.ok(lighting.meshes.every(m=>m.isInstancedMesh),'Fixture should use GPU instancing');
+assert.ok(lighting.lights.every(l=>l.isSpotLight),
+  'Luminaires must illuminate the tarmac with downward LED beams');
 assert.ok(lighting.lights.length<=8 && lighting.lights.length>=4,
   'Only a small pool of realtime lights may exist');
 for(const fixture of lighting.placements){
@@ -48,6 +70,10 @@ lighting.update(.2,22,player);
 assert.ok(lighting.lights.some(l=>l.visible&&l.intensity>0),
   'Nearby real lights must come on at night');
 assert.ok(lighting.materials.lens.emissiveIntensity>1,'LED lens glows at night');
+lighting.update(.2,18.8,player);
+assert.ok(lighting.lights.every(l=>!l.visible)&&
+  lighting.materials.lens.emissiveIntensity===0,
+  'LEDs must not switch on before true night');
 lighting.update(.2,13,player);
 assert.ok(lighting.lights.every(l=>!l.visible&&l.intensity===0),
   'Lights must be disabled during the day');
