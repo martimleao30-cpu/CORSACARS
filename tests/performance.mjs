@@ -13,13 +13,13 @@ assert.ok(Math.abs(perf.current.frameMs-1000/60)<.01);
 assert.match(label.textContent,/60.*16\.7 ms\/fotograma/);
 assert.match(label.textContent,/87 draw calls/);
 
-// 70 frames over 0.9 seconds: counting frames gives ~78 FPS,
+// 65 frames over 0.75 seconds: counting frames gives ~87 FPS,
 // whereas the old median-interframe algorithm would report 100 FPS.
 perf.reset();
 for(let i=0;i<60;i++)perf.update(.010,'high');
-for(let i=0;i<10;i++)perf.update(.030,'high');
-assert.equal(perf.current.fps,78);
-assert.ok(Math.abs(perf.current.frameMs-900/70)<.01);
+for(let i=0;i<5;i++)perf.update(.030,'high');
+assert.equal(perf.current.fps,87);
+assert.ok(Math.abs(perf.current.frameMs-750/65)<.01);
 
 // Do not incorrectly cap measured performance to 300 FPS.
 perf.reset();
