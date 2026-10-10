@@ -128,18 +128,27 @@ export class RiverSystem {
       if(!road.points?.length||road.width<5)continue;
       for(let i=0;i<road.points.length-1;i++){
         const a=road.points[i],b=road.points[i+1];
-        const mid={x:(a.x+b.x)*.5,z:(a.z+b.z)*.5};
-        if(!this.lookup(mid))continue;
-        // Spatial hashes keep detection cheap even on the entire 4km network.
+        // A bridge crosses the whole road SEGMENT, not just its midpoint.
+        // The old midpoint lookup could discard true crossings before the
+        // line-intersection test, especially on long, diagonal or winding roads.
+        // Visit the cells touched by the entire segment plus a riverbank
+        // margin; a cheap AABB filter keeps the narrow phase fast.
         const segmentIds=new Set();
-        for(const p of [a,b,mid]){
-          const cx=Math.floor(p.x/this.bucketSize),cz=Math.floor(p.z/this.bucketSize);
-          for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)
-            for(const k of this.buckets.get((cx+dx)+','+(cz+dz))||[])
-              segmentIds.add(k);
-        }
+        const margin=11;
+        const x0=Math.floor((Math.min(a.x,b.x)-margin)/this.bucketSize);
+        const x1=Math.floor((Math.max(a.x,b.x)+margin)/this.bucketSize);
+        const z0=Math.floor((Math.min(a.z,b.z)-margin)/this.bucketSize);
+        const z1=Math.floor((Math.max(a.z,b.z)+margin)/this.bucketSize);
+        for(let cx=x0;cx<=x1;cx++)for(let cz=z0;cz<=z1;cz++)
+          for(const k of this.buckets.get(cx+','+cz)||[])
+            segmentIds.add(k);
         for(const k of segmentIds){
-          const hit=crossing(a,b,this.points[k],this.points[k+1]);
+          const riverA=this.points[k],riverB=this.points[k+1];
+          if(Math.max(riverA.x,riverB.x)+.001<Math.min(a.x,b.x)||
+            Math.min(riverA.x,riverB.x)-.001>Math.max(a.x,b.x)||
+            Math.max(riverA.z,riverB.z)+.001<Math.min(a.z,b.z)||
+            Math.min(riverA.z,riverB.z)-.001>Math.max(a.z,b.z))continue;
+          const hit=crossing(a,b,riverA,riverB);
           if(!hit)continue;
           if(hits.some(h=>h.roadId===road.id&&
             Math.hypot(h.x-hit.x,h.z-hit.z)<55))continue;
