@@ -72,7 +72,7 @@ export class WorldSectors {
     const x=base.x,z=base.z,y=this.groundHeight(x,z);
     if(region.kind==='farm'||region.kind==='farmstead'||region.kind==='hamlet'){
       group.userData.rural=buildRuralSettlement(group,this.physics,bodies,
-        region,this.groundHeight,this.clearance);
+        region,this.groundHeight,this.clearance,this.network.quality);
     }else if(region.kind==='service'){
       // Streaming, collider-backed service station with shop, pumps, driveways,
       // canopy and real (nearby-only) lights.
@@ -159,6 +159,9 @@ export class WorldSectors {
   }
 
   update(carPosition,elapsed=0,hour=14){
+    // Swallows must flap at frame rate, not at the 0.85s sector-streaming tick.
+    for(const record of this.active.values())
+      record.group.userData.rural?.wildlife?.update(elapsed);
     if(elapsed-this.lastUpdate<.85)return;
     this.lastUpdate=elapsed;
     const nearSq=530*530,farSq=680*680;
