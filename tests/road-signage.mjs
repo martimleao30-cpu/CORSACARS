@@ -70,6 +70,14 @@ assert.equal(signage.statistics.double,0,
   'No arbitrary continuous double centre lines across rural or motorway routes');
 assert.ok(signage.statistics.arrows>0,'Painted straight/turning arrows must exist');
 assert.ok(signage.statistics.crosswalks>=4,'Painted crosswalks across urban roads');
+const dirtRoute=fakeRoad('caminho','dirt',6);
+network.roads.push(dirtRoute);
+const trackSignage=new RoadSignage(new THREE.Scene(),
+  {roads:[dirtRoute]},'low');
+assert.equal(trackSignage.meshes.length,0,
+  'Dirt roads must not have floating white painted lane markings');
+trackSignage.dispose();
+network.roads.pop();
 const join={x:curve.points[59].x,z:curve.points[59].z,halfU:13,
   halfV:curve.width*.5,angle:.94,primary:curve,secondary:network.roads[5]};
 network.junctions=[join];
