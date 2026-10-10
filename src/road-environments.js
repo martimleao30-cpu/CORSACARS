@@ -625,12 +625,56 @@ export class RoadEnvironment {
 
   dirt(road){
     const rng=deterministic(1400+(road.id==='terra'?71:3));
-    const n=road.points.length-1,tracks=[],stones=[];
-    for(let i=3;i<n-4;i+=3){
-      for(const side of [-1,1]){
-        const p=position(road,i,side*.86,this.terrainY,.049);
-        tracks.push({...p,sx:.36,sy:.019,sz:4.5});
+    const n=road.points.length-1,stones=[];
+    // Thin road-conforming tyre tracks replace giant rectangular wooden-
+    // looking blocks. Small gaps and nonuniform widths keep the ruts natural.
+    const vertices=[],uvs=[],colors=[],triangles=[];
+    let distance=0,visible=0;
+    const texel=road.mesh.geometry.getAttribute('position');
+    const dirtPoint=(i,lateral)=>{
+      const p=road.points[i],t=normal(road,i);
+      const x=p.x-t.z*lateral,z=p.z+t.x*lateral;
+      const f=2*lateral/road.width;
+      const uneven=.035*Math.sin(distance*.27+f*4.3)+
+        .017*Math.sin(distance*.74-f*7.9);
+      return [x,roadDeckHeight(this.terrainY,x,z,lateral,road.width)+
+        uneven+.028,z];
+    };
+    void texel;
+    for(let i=0;i<n;i++){
+      distance+=i?road.points[i].distanceTo(road.points[i-1]):0;
+      const nextDistance=distance+road.points[i].distanceTo(road.points[i+1]);
+      if(i<5||i>n-6||Math.sin(distance*.083)<-.72)continue;
+      if(this.clearance?.nearJunction(road.points[i].x,road.points[i].z,8))
+        continue;
+      for(const lateral of [-.89,.89]){
+        const index=vertices.length/3;
+        const width=.30+.04*Math.sin(distance*.19+lateral);
+        for(const [row,along] of [[i,distance],[i+1,nextDistance]]){
+          for(const sign of [-1,1]){
+            const point=dirtPoint(row,lateral+sign*width*.5);
+            vertices.push(...point);
+            uvs.push(sign<0?0:1,along*.35);
+            const shade=.79+.07*Math.sin(along*.12+sign);
+            colors.push(shade,shade*.92,shade*.80);
+          }
+        }
+        triangles.push(index,index+1,index+2,
+          index+1,index+3,index+2);
+        visible++;
       }
+    }
+    if(triangles.length){
+      const geo=new THREE.BufferGeometry();
+      geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+      geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
+      geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+      geo.setIndex(triangles);geo.computeVertexNormals();
+      geo.userData.corsaDirtRuts='terrain-draped';
+      const mat=new THREE.MeshStandardMaterial({color:0x87684a,
+        transparent:true,opacity:.34,roughness:1,vertexColors:true,
+        polygonOffset:true,polygonOffsetFactor:-2,side:THREE.DoubleSide});
+      this.add(new THREE.Mesh(geo,mat),'Rastos naturais de pneus · terra');
     }
     const limit=this.quality==='low'?45:120;
     for(let i=0;i<limit;i++){
@@ -642,12 +686,11 @@ export class RoadEnvironment {
       stones.push({...p,y:p.y+size*.15,sx:size,sy:size*.42,sz:size*.75,
         yaw:rng()*Math.PI*2});
     }
-    this.instances('Rastos no piso de terra',new THREE.BoxGeometry(1,1,1),
-      materials.earth,tracks);
+
     this.instances('Pedras soltas · Caminho',createWeatheredRockGeometry(1),
       new THREE.MeshStandardMaterial({color:0x9b9e99,roughness:1,vertexColors:true}),
       stones);
-    this.statistics.dirtRuts+=tracks.length;
+    this.statistics.dirtRuts+=visible;
     this.statistics.stones+=stones.length;
     this.sign(road,clamp(Math.round(n*.16),3,n-3),
       road.width*.5+3.9,'PISTA DE TERRA','30');
