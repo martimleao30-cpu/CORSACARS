@@ -66,6 +66,13 @@ assert.equal(environment.statistics.motorwayServiceSigns,2,'Advance signage for 
 assert.ok(environment.statistics.speedSigns>=4,'Round maximum-speed signs required');
 assert.ok(environment.statistics.dangerSigns>=4,'Triangular hazard signs required');
 assert.ok(environment.statistics.stones>0 && environment.statistics.dirtRuts>0);
+assert.equal(environment.objects.some(o=>o.name==='Rastos no piso de terra'),false,
+  'Floating rectangular rut blocks must not be used');
+const naturalRuts=environment.objects.filter(o=>
+  o.name==='Rastos naturais de pneus · terra');
+assert.equal(naturalRuts.length,2,'Every unpaved road needs draped tyre marks');
+assert.ok(naturalRuts.every(o=>o.geometry.userData.corsaDirtRuts==='terrain-draped'));
+assert.ok(naturalRuts.every(o=>o.material.transparent&&o.geometry.index.count>100));
 assert.ok(environment.statistics.ruralVegetation>0,'Rural roadside plants must be placed along its own route');
 assert.ok(environment.statistics.powerPoles>12,
   'Eligible roads need a coherent electrical roadside network');
