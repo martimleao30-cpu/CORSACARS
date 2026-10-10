@@ -97,6 +97,39 @@ export function ackermannAngles(steer,wheelbase,track) {
   return s>0?[inner,outer]:[-outer,-inner];
 }
 
+// Quasi-static lateral and longitudinal weight transfer in four independent
+// contact patches. Keeps front/rear mass distribution and total normal load
+// balanced, rather than multiplying every wheel's grip by the same number.
+export function axleLoadTransfers(spec,longAcceleration=0,lateralAcceleration=0){
+  const mass=Math.max(1,spec.massKg),height=Math.max(.05,spec.centerOfMassHeightM);
+  const wheelbase=Math.max(.8,spec.wheelbaseM),track=Math.max(.8,spec.trackM);
+  const longG=clamp(longAcceleration,-18,18);
+  const latG=clamp(lateralAcceleration,-16,16);
+  const staticFront=mass*9.81*(spec.frontWeightFraction??.52);
+  const staticRear=mass*9.81-staticFront;
+  const front=Math.max(.1*staticFront,staticFront-mass*longG*height/wheelbase);
+  const rear=Math.max(.1*staticRear,staticRear+mass*longG*height/wheelbase);
+  // Preserve the net contact load after clamps at extreme accelerations.
+  const total=front+rear,normalization=mass*9.81/total;
+  const frontNormal=front*normalization,rearNormal=rear*normalization;
+  const lateral=mass*latG*height/track;
+  const getPair=(axleLoad,axleStatic)=>{
+    const shift=lateral*(axleLoad/(mass*9.81))*.5;
+    return [
+      clamp((axleLoad*.5+shift)/(axleStatic*.5),.65,1.35),
+      clamp((axleLoad*.5-shift)/(axleStatic*.5),.65,1.35)
+    ];
+  };
+  return [...getPair(frontNormal,staticFront),...getPair(rearNormal,staticRear)];
+}
+// The combined-slip friction ellipse: a tyre that is braking and steering
+// cannot deliver both peak forces at once. Never entirely removes traction.
+export function combinedSlipFactor(longitudinalSlip=0,lateralSlip=0){
+  const longitudinal=Math.abs(longitudinalSlip)/.95;
+  const lateral=Math.abs(lateralSlip)/.43;
+  return clamp(1-.25*Math.min(1,Math.hypot(longitudinal,lateral)),.75,1);
+}
+
 export function aerodynamicDrag(speedMS,spec=CAR_SPECS.coupe) {
   return .5*spec.airDensityKgM3*spec.dragCoefficient*spec.frontalAreaM2*speedMS*speedMS;
 }
