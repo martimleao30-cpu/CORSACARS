@@ -67,6 +67,13 @@ assert.ok(environment.statistics.speedSigns>=4,'Round maximum-speed signs requir
 assert.ok(environment.statistics.dangerSigns>=4,'Triangular hazard signs required');
 assert.ok(environment.statistics.stones>0 && environment.statistics.dirtRuts>0);
 assert.ok(environment.statistics.ruralVegetation>0,'Rural roadside plants must be placed along its own route');
+assert.ok(environment.statistics.powerPoles>12,
+  'Eligible roads need a coherent electrical roadside network');
+assert.ok(environment.statistics.cableSpans>8);
+assert.ok(environment.powerLines.meshes.some(o=>
+  o.name==='Três condutores elétricos · cabos suspensos com flecha'));
+assert.ok(environment.statistics.coverage<.75,
+  'Power lines must not occupy every road segment');
 const rural=network.roads.find(r=>r.id==='rural');
 const matrix=new THREE.Matrix4(),worldPoint=new THREE.Vector3();
 for(const layer of [
