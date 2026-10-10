@@ -127,8 +127,11 @@ export class RegionalRailway{
     this.group=new THREE.Group();this.group.name='Linha Ferroviária Regional · Vale-Serra';
     scene.add(this.group);
     this.materials={
-      ballast:material(0x89877c,.99),sleeper:material(0x484a46,.97),
-      rail:material(0x858f95,.36,.91),concrete:material(0xaeb2b1,.9),
+      ballast:material(0x96938a,.99,0,{vertexColors:true}),sleeper:material(0xb3b1a8,.91),
+      rail:material(0x89949b,.27,.88,{side:THREE.DoubleSide}),
+      stones:material(0xffffff,.98,0),insulator:material(0x73776f,.54,.18),
+      wire:new THREE.LineBasicMaterial({color:0x747e80}),
+      concrete:material(0xaeb2b1,.9),
       structure:material(0x747a7c,.68,.37),paint:material(0xe9e5d5,.91),
       glass:material(0x334955,.24,.32,{transparent:true,opacity:.74}),
       roof:material(0x333d48,.48,.25),body:material(0xe5e7df,.55,.28),
@@ -142,7 +145,8 @@ export class RegionalRailway{
     // 88 km/h between stations, not a static diorama.
     this.statistics={lengthM:Math.round(this.line.total),stations:this.stations.length,
       trainCars:this.trainCars.length,sleepers:this.sleeperCount,bridges:this.bridgeSupports,
-      railSegments:this.line.points.length-1};
+      railSegments:this.line.points.length-1,
+      ballastStones:this.ballastStones,catenaryMasts:this.catenaryMasts};
   }
   createBox(name,position,dimensions,mat,parent=this.group,collide=false){
     const geo=new THREE.BoxGeometry(...dimensions);
@@ -159,57 +163,67 @@ export class RegionalRailway{
     return obj;
   }
   buildTrack(){
-    const {points,length,total}=this.line;
-    const ballastPositions=[],railPoints=[[],[]];
-    const ballastGeo=new THREE.BoxGeometry(1,1,1);
-    this.geometry.push(ballastGeo);
-    const n=Math.floor(total/1.0);
-    const sleepers=new THREE.InstancedMesh(ballastGeo,this.materials.sleeper,n);
-    sleepers.name='Travessas de betão · 1 metro';
-    const ballast=new THREE.InstancedMesh(ballastGeo,this.materials.ballast,
-      Math.ceil(total/6));
-    ballast.name='Leito ferroviário com balastro';
-    this.group.add(sleepers,ballast);
+    const total=this.line.total,up=new THREE.Vector3(0,1,0);
+    const sleeperGeo=new THREE.BoxGeometry(1,1,1);
+    const ballastGeo=createBallastBedGeometry(this.line);
+    this.geometry.push(sleeperGeo,ballastGeo);
+    const ballast=new THREE.Mesh(ballastGeo,this.materials.ballast);
+    ballast.name='Leito contínuo de balastro · taludes e drenagem';
+    ballast.receiveShadow=true;
+    this.group.add(ballast);
+    const n=Math.floor(total/.65);
+    const sleepers=new THREE.InstancedMesh(sleeperGeo,this.materials.sleeper,n);
+    sleepers.name='Travessas de betão · espaçamento 65 cm';
     const dummy=new THREE.Object3D();
-    const up=new THREE.Vector3(0,1,0);
     for(let i=0;i<n;i++){
-      const p=sampleAlignment(this.line,i*total/n);
-      dummy.position.copy(p.point).add(new THREE.Vector3(0,-.27,0));
+      const p=sampleAlignment(this.line,(i+.5)*total/n);
+      dummy.position.copy(p.point);dummy.position.y-=.22;
       dummy.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),
         new THREE.Vector3(p.dir.x,0,p.dir.z).normalize());
-      dummy.scale.set(2.65,.20,.23);
+      dummy.scale.set(2.55,.17,.27);
       dummy.updateMatrix();sleepers.setMatrixAt(i,dummy.matrix);
     }
-    for(let i=0;i<ballast.count;i++){
-      const p=sampleAlignment(this.line,(i+.5)*6);
-      const a=sampleAlignment(this.line,(i+.05)*6),b=sampleAlignment(this.line,(i+.95)*6);
-      dummy.position.copy(p.point).add(new THREE.Vector3(0,-.51,0));
-      dummy.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),
-        new THREE.Vector3(p.dir.x,0,p.dir.z).normalize());
-      dummy.scale.set(3.6,.36,Math.min(7,a.point.distanceTo(b)+.5));
-      dummy.updateMatrix();ballast.setMatrixAt(i,dummy.matrix);
-    }
-    sleepers.instanceMatrix.needsUpdate=true;ballast.instanceMatrix.needsUpdate=true;
-    sleepers.castShadow=false;ballast.castShadow=false;
-    this.sleeperCount=n;
-    const rails=[[],[]];
-    for(const p of points){
-      const i=points.indexOf(p);
-      const prev=points[Math.max(0,i-1)],next=points[Math.min(points.length-1,i+1)];
-      const tangent=next.clone().sub(prev).setY(0).normalize();
-      const side=new THREE.Vector3(-tangent.z,0,tangent.x);
-      for(let r=0;r<2;r++)rails[r].push(p.clone().addScaledVector(side,r===0?-.77:.77)
-        .add(new THREE.Vector3(0,.055,0)));
-    }
-    for(const rail of rails){
-      const geo=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rail,false,'centripetal'),
-        points.length-1,.058,5,false);
+    sleepers.instanceMatrix.needsUpdate=true;
+    sleepers.castShadow=this.quality==='ultra';
+    sleepers.receiveShadow=true;
+    this.group.add(sleepers);this.sleeperCount=n;
+    for(const offset of [-.7175,.7175]){
+      const geo=createSteelRailGeometry(this.line,offset);
       this.geometry.push(geo);
-      const mesh=new THREE.Mesh(geo,this.materials.rail);
-      mesh.name='Carril contínuo de aço';mesh.castShadow=false;mesh.receiveShadow=true;
-      this.group.add(mesh);
+      const rail=new THREE.Mesh(geo,this.materials.rail);
+      rail.name='Carril ferroviário perfilado · bitola 1435 mm';
+      rail.receiveShadow=true;this.group.add(rail);
     }
-    // Only bridge regions receive viaduct piers and crash-resistant deck.
+    // Three-dimensional scattered stones break up the otherwise perfectly
+    // smooth surface without requiring a mesh or draw call per rock.
+    const stoneCount=Math.floor(total*(this.quality==='low'?.45:
+      this.quality==='medium'?.8:this.quality==='high'?1.35:2));
+    const stoneGeo=new THREE.IcosahedronGeometry(1,0);
+    this.geometry.push(stoneGeo);
+    const stones=new THREE.InstancedMesh(stoneGeo,this.materials.stones,stoneCount);
+    stones.name='Pedras individuais do balastro';
+    let seed=846827;const rand=()=>{
+      seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+      return seed/4294967296;
+    };
+    const stoneColors=[0x89867d,0x9c9588,0x696d69,0xb0a99a];
+    for(let i=0;i<stoneCount;i++){
+      const d=rand()*total,p=sampleAlignment(this.line,d);
+      const lateral=(rand()-.5)*3.75,scale=.042+rand()*.092;
+      dummy.position.copy(p.point).addScaledVector(p.side,lateral);
+      dummy.position.y-=.32+Math.abs(lateral)*.018;
+      dummy.rotation.set(rand()*3,rand()*6,rand()*3);
+      dummy.scale.set(scale*(.75+rand()),scale*.5,scale*(.9+rand()));
+      dummy.updateMatrix();stones.setMatrixAt(i,dummy.matrix);
+      stones.setColorAt(i,new THREE.Color(stoneColors[Math.floor(rand()*stoneColors.length)]));
+    }
+    stones.instanceMatrix.needsUpdate=true;
+    if(stones.instanceColor)stones.instanceColor.needsUpdate=true;
+    stones.castShadow=false;stones.receiveShadow=true;
+    this.group.add(stones);this.ballastStones=stoneCount;
+
+    // Maintain the original road-crossing clearance. Pier spacing and the
+    // alignment are unchanged; train movement and station positions remain.
     this.bridgeSupports=0;
     for(let d=25;d<total-25;d+=43){
       const p=sampleAlignment(this.line,d),ground=this.terrainY(p.point.x,p.point.z);
@@ -220,6 +234,71 @@ export class RegionalRailway{
         new THREE.Vector3(p.point.x,(p.point.y+ground)/2-.2,p.point.z),
         [1.12,Math.max(.5,deckHeight-.5),1.12],this.materials.concrete);
       this.bridgeSupports++;
+    }
+    this.buildCatenary();
+  }
+  buildCatenary(){
+    const total=this.line.total,interval=57;
+    const count=Math.floor(total/interval);
+    const poleGeo=new THREE.CylinderGeometry(.065,.092,6.8,8);
+    const armGeo=new THREE.BoxGeometry(.10,.11,3.2);
+    const insulatorGeo=new THREE.CylinderGeometry(.09,.09,.32,8);
+    this.geometry.push(poleGeo,armGeo,insulatorGeo);
+    const poles=new THREE.InstancedMesh(poleGeo,this.materials.structure,count);
+    const arms=new THREE.InstancedMesh(armGeo,this.materials.structure,count);
+    const insulators=new THREE.InstancedMesh(insulatorGeo,this.materials.insulator,count);
+    const dummy=new THREE.Object3D();
+    for(let i=0;i<count;i++){
+      const p=sampleAlignment(this.line,i*total/count);
+      const pos=p.point.clone().addScaledVector(p.side,3.2);
+      dummy.position.copy(pos);dummy.position.y+=2.9;
+      dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);
+      dummy.updateMatrix();poles.setMatrixAt(i,dummy.matrix);
+      dummy.position.copy(p.point).addScaledVector(p.side,1.5);
+      dummy.position.y+=5.96;
+      dummy.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),
+        new THREE.Vector3(p.side.x,0,p.side.z));
+      dummy.scale.set(1,1,1);dummy.updateMatrix();
+      arms.setMatrixAt(i,dummy.matrix);
+      dummy.position.copy(p.point);dummy.position.y+=5.73;
+      dummy.quaternion.identity();dummy.updateMatrix();
+      insulators.setMatrixAt(i,dummy.matrix);
+    }
+    for(const mesh of [poles,arms,insulators]){
+      mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();
+      mesh.castShadow=false;mesh.receiveShadow=true;
+      this.group.add(mesh);
+    }
+    poles.name='Postes da catenária · espaçamento 57 m';
+    arms.name='Braços de suspensão da catenária';
+    insulators.name='Isoladores elétricos da catenária';
+    this.catenaryMasts=count;
+    // Two longitudinal wires, slightly sagging between support points.
+    const wireSegments=[],messengerSegments=[];
+    for(let i=0;i<count;i++){
+      const start=i*total/count,span=total/count;
+      for(let j=0;j<8;j++){
+        const t0=j/8,t1=(j+1)/8;
+        const p0=sampleAlignment(this.line,start+span*t0).point;
+        const p1=sampleAlignment(this.line,start+span*t1).point;
+        const wire=(p,t,y,drop)=>[
+          p.x,p.y+y-drop*4*t*(1-t),p.z
+        ];
+        wireSegments.push(...wire(p0,t0,5.65,.12),...wire(p1,t1,5.65,.12));
+        messengerSegments.push(
+          ...wire(p0,t0,6.48,.31),...wire(p1,t1,6.48,.31));
+      }
+    }
+    for(const [name,vertices] of [
+      ['Fio de contacto elétrico',wireSegments],
+      ['Cabo mensageiro da catenária',messengerSegments]
+    ]){
+      const geometry=new THREE.BufferGeometry();
+      geometry.setAttribute('position',
+        new THREE.Float32BufferAttribute(vertices,3));
+      geometry.computeBoundingSphere();this.geometry.push(geometry);
+      const mesh=new THREE.LineSegments(geometry,this.materials.wire);
+      mesh.name=name;this.group.add(mesh);
     }
   }
   buildStations(){
