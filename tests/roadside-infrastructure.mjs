@@ -7,7 +7,9 @@ globalThis.document={createElement(tag){
   return {width:512,height:256,getContext(){
     return {fillStyle:'',strokeStyle:'',lineWidth:0,font:'',textAlign:'',
       textBaseline:'',fillRect(){},strokeRect(){},
-      fillText(text){labels.push(String(text));}};
+      fillText(text){labels.push(String(text));},
+      createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
+      putImageData(){}};
   }};
 }};
 const {RoadNetwork}=await import('../src/road-network.js');
