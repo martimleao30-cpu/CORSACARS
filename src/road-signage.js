@@ -176,7 +176,10 @@ export function roadCenterMarking(road,sampler,gaps=[]){
       merged[merged.length-1][1]=Math.max(range[1],merged[merged.length-1][1]);
     else merged.push([...range]);
   }
-  return {style:'dashed',solid:merged};
+  // Merging nearby curve warnings may bridge a junction gap. Clip AGAIN
+  // after joining the intervals so no solid segment crosses an intersection.
+  return {style:'dashed',solid:merged.flatMap(([a,b])=>
+    paintIntervals(sampler.total,a,b,gaps))};
 }
 
 export function createLineGeometry(sampler,{style='continuous',lateral=0,width=.13,
@@ -322,7 +325,6 @@ export class RoadSignage {
     if(!highway&&!connector){
       const center=roadCenterMarking(road,sampler,gaps);
       const solid=center.solid;
-      const outside=paintIntervals(length,start,end,gaps);
       // The ordinary centre is dashed. Where a genuine sharp bend occurs,
       // remove dash paint first and place one clean unbroken prohibition line.
       this.add(createLineGeometry(sampler,{style:center.style,lateral:0,
@@ -340,7 +342,6 @@ export class RoadSignage {
           this.statistics.continuous++;
         }
       }
-      void outside;
     }
     if(highway){
       // Centreline belongs to the median barrier. Mark real lane divisions
