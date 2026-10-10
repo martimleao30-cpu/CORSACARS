@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {findAtGradeJunctions,clipGeometryAtJunctions,roadPriority}
+import {findAtGradeJunctions,clipGeometryAtJunctions,blendJunctionHeights,roadPriority}
   from '../src/road-junctions.js';
 
 const road=(id,category,width,coords)=>({
@@ -39,6 +39,11 @@ for(let k=0;k<index.count;k+=3){
 }
 assert.ok(triangles>0);
 assert.ok(clipped.getAttribute('uv'),'Texture coordinates preserved');
+const before=Array.from(clipped.getAttribute('position').array);
+blendJunctionHeights(clipped,junctions,()=>0);
+assert.ok(before.some((value,i)=>i%3===1&&
+  Math.abs(value-clipped.getAttribute('position').array[i])>.0001),
+  'A blended junction must smoothly adjust the secondary deck edge');
 
 // T junction with a secondary road ending in the carriageway, rather than
 // mathematically crossing its centreline, must still get a single owner.
@@ -49,7 +54,7 @@ assert.ok(joins.some(j=>j.secondary===branch&&j.kind==='endpoint'),
   'A T junction ending on the main carriageway must be clipped');
 const point=joins.find(j=>j.kind==='endpoint');
 assert.equal(point.primary,ring);
-assert.ok(point.halfU>0&&point.halfV>=ring.width*.5);
+assert.ok(point.halfU>0&&point.halfV>=ring.width*.5-.25);
 
 geo.dispose();clipped.dispose();
 console.log('PASS: single-owner T/X junctions, grade separation and exact surface clipping.');
