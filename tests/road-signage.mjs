@@ -66,6 +66,12 @@ const network={roads:[
 const signage=new RoadSignage(scene,network,'low');
 assert.ok(signage.statistics.continuous>=10,'Continuous edge lines on each road');
 assert.ok(signage.statistics.dashed>0,'Dashed centre and lane separation lines');
+const ringLaneMarks=signage.meshes.filter(mesh=>
+  mesh.name.includes('circular')&&mesh.name.includes('Divisão das vias urbanas'));
+assert.equal(ringLaneMarks.length,2,'Circular road must mark its four lanes');
+assert.ok(ringLaneMarks.every(mesh=>
+  Math.abs(Math.abs(mesh.geometry.userData.lateral)-network.roads[0].width*.25)<.00001),
+  'Ring-road markings must align with each 3.5m carriageway lane');
 const motorwayMarkings=signage.meshes.filter(mesh=>
   mesh.name.includes('autoestrada')&&mesh.name.includes('Linha entre vias'));
 assert.equal(motorwayMarkings.length,2,
