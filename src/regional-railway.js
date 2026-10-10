@@ -169,6 +169,7 @@ export class RegionalRailway{
       station.position.copy(position);
       station.rotation.y=Math.atan2(direction.x,direction.z);
       this.group.add(station);
+      const stationStart=this.group.children.length;
       const ground=this.terrainY(position.x,position.z);
       const railY=position.y;
       const platform=this.createBox(target.name+' · Plataforma',
@@ -210,6 +211,11 @@ export class RegionalRailway{
           local(7+v*(3+height),-height*(1-v)+.11,22),
           [1.75,.20,1.3],this.materials.concrete);
       }
+      // Keep every station part in its station group without modifying their
+      // terrain-following world transforms.
+      this.group.updateMatrixWorld(true);
+      station.updateMatrixWorld(true);
+      for(const part of this.group.children.slice(stationStart))station.attach(part);
       this.stations.push({...target,point:position.clone(),distance,group:station});
     }
   }
