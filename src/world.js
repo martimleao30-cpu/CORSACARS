@@ -165,7 +165,7 @@ export class DrivingWorld {
     this.roadside=new RoadsideClearance(this.network,this.sectors.regions,this.river);
     this.sectors.clearance=this.roadside;
     this.railway=new RegionalRailway(this.scene,this.physics,groundHeight,
-      this.roadside,this.quality);
+      this.roadside,this.quality,this.river);
     this.buildRoadside();
     this.trimRingRoadsideAtJunctions();
     this.roadEnvironment=new RoadEnvironment(this.scene,this.physics,this.network,
