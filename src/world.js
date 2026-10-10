@@ -142,6 +142,7 @@ export class DrivingWorld {
     this.buildRoad();
     this.network = new RoadNetwork(this.scene,this.physics,groundHeight,
       this.roadPoints,this.roadWidth,this.quality);
+    this.testRoadName=this.network.roads.find(r=>r.id==='provas')?.name;
     this.network.roads[0].mesh=this.roadMesh;
     this.network.roads[0].body=this.roadBody;
     this.ringProfileGeometry=buildRoadProfileGeometry(this.scene,
@@ -494,10 +495,11 @@ export class DrivingWorld {
     if(!['wet','dry'].includes(sample.surface))return sample;
     // Preserve the permanently wet test-track segment, while regular
     // asphalt loses tyre grip continuously as actual rainwater accumulates.
-    const testTrack=this.network.roads.find(r=>r.id==='provas');
-    const fixedWet=sample.surface==='wet'&&sample.road===testTrack?.name&&
+    const fixedWet=sample.surface==='wet'&&sample.road===this.testRoadName&&
       this.network.wetness<.45;
-    return {...sample,moisture:this.network.wetness,fixedWet};
+    sample.moisture=this.network.wetness;
+    sample.fixedWet=fixedWet;
+    return sample;
   }
 
   setWeather(weather) {
