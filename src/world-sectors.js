@@ -47,6 +47,8 @@ export class WorldSectors {
     this.scene=scene;this.physics=physics;this.network=network;
     this.groundHeight=groundHeight;this.regions=[];this.active=new Map();
     this.lastUpdate=-Infinity;
+    this.wildlifeTime=0;
+    this.lastWildlifeElapsed=null;
     for(const definition of DESCRIPTORS){
       const road=network.roads.find(r=>r.id===definition.road);
       if(!road)continue;
@@ -158,10 +160,14 @@ export class WorldSectors {
     this.active.delete(id);
   }
 
-  update(carPosition,elapsed=0,hour=14){
-    // Swallows must flap at frame rate, not at the 0.85s sector-streaming tick.
+  update(carPosition,elapsed=0,hour=14,paused=false){
+    // Flight must animate smoothly but stop with the game, including after
+    // the player returns from a long pause or an inactive browser tab.
+    if(this.lastWildlifeElapsed!==null&&!paused)
+      this.wildlifeTime+=Math.max(0,Math.min(.08,elapsed-this.lastWildlifeElapsed));
+    this.lastWildlifeElapsed=elapsed;
     for(const record of this.active.values())
-      record.group.userData.rural?.wildlife?.update(elapsed);
+      record.group.userData.rural?.wildlife?.update(this.wildlifeTime);
     if(elapsed-this.lastUpdate<.85)return;
     this.lastUpdate=elapsed;
     const nearSq=530*530,farSq=680*680;
