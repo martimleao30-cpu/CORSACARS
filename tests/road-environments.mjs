@@ -41,6 +41,16 @@ assert.ok(environment.statistics.manholes>0 && environment.statistics.drains>0);
 assert.ok(environment.statistics.parkingSpaces>0);
 assert.ok(environment.statistics.highwayBarriers>0);
 assert.ok(environment.statistics.mountainBarriers>0);
+const wBeams=environment.objects.filter(m=>m.name==='Barreira de proteção');
+const posts=environment.objects.filter(m=>m.name==='Barreira metálica · suportes');
+const spacers=environment.objects.filter(m=>m.name==='Barreira metálica · afastadores');
+assert.ok(wBeams.length>0 && wBeams.every(m=>
+  m.geometry.userData.corsaGuardrail==='corrugated-W-beam'),
+  'Metal rails must use a curved W-beam instead of solid rectangular strips');
+assert.ok(posts.length>0&&spacers.length===posts.length,
+  'Real guardrails need separate vertical posts and distance brackets');
+assert.ok(posts.reduce((n,m)=>n+m.count,0)>wBeams.reduce((n,m)=>n+m.count,0),
+  'Posts must be regularly spaced along long road sections');
 assert.ok(environment.statistics.woodFencePosts>5,'Rural fences have tangible posts');
 assert.ok(environment.statistics.woodFenceRails>5,'Rural fence must have two longitudinal rails');
 assert.ok(environment.statistics.skippedFenceSegments>0,
