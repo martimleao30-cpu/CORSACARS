@@ -113,12 +113,20 @@ export class RoadNetwork {
         Math.ceil(curve.getLength()/distanceStep)));
       const sample=u=>terrainRoadCurve(curve.getPointAt(u),this.terrainY);
       const points=[sample(0)];
-      // Adaptive subdivision based on true 3D edge length. Uniform map
-      // distance alone still produces 15-metre triangles on steep hills.
-      // Split until road and Cannon collider share short, continuous quads.
+      // Measure horizontal curvature and elevation along each span.
+      // A short chord can still cut across a tight hairpin; subdivide on
+      // both heading deflection and terrain sag, not distance alone.
       function append(a,pa,b,pb,depth=0){
-        if(pa.distanceTo(pb)<=8.5||depth>=7){points.push(pb);return;}
         const mid=(a+b)*.5,pm=sample(mid);
+        const chordMid=pa.clone().add(pb).multiplyScalar(.5);
+        const chordLength=pa.distanceTo(pb);
+        const lateralError=Math.hypot(pm.x-chordMid.x,pm.z-chordMid.z);
+        const slopeError=Math.abs(pm.y-chordMid.y);
+        const maxLength=route.category==='mountain'?3.8:6.5;
+        if(depth>=7||(chordLength<=maxLength&&
+          lateralError<.085&&slopeError<.11)){
+          points.push(pb);return;
+        }
         append(a,pa,mid,pm,depth+1);
         append(mid,pm,b,pb,depth+1);
       }
