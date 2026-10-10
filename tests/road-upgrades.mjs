@@ -72,7 +72,7 @@ for(const shoulder of shoulders){
   const uv=geometry.getAttribute('uv');
   assert.ok(uv.getX(4)>uv.getX(0),'Gravel UV should tile along real metres');
   const colors=geometry.getAttribute('color');
-  assert.notEqual(colors.getG(0),colors.getG(3),
+  assert.notEqual(colors.getY(0),colors.getY(3),
     'Outer verge must blend gravel into natural soil/grass');
 }
 assert.equal(scene.children.length,6);
