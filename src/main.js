@@ -425,11 +425,14 @@ function createDiagnostics(){
   ].join(';');
   document.body.appendChild(node);
   let last=0;
+  const bufferSize=new THREE.Vector2();
   return {node,update(data,stepMs,roadCount){
     if(node.hidden)return;
     const now=performance.now();
     if(now-last<160)return;
     last=now;
+    const perf=frameProfiler.snapshot();
+    renderer.getDrawingBufferSize(bufferSize);
     node.textContent=[
       'FÍSICA CORSACARS · F3 PARA FECHAR',
       'Velocidade: '+data.speed+' km/h',
@@ -446,15 +449,20 @@ function createDiagnostics(){
       'Carga relativa FL/FR/RL/RR: '+(data.wheelLoads||[]).join(' · '),
       'TCS redução: '+Math.round((data.tractionIntervention||0)*100)+'%',
       'Tempo física: '+stepMs.toFixed(2)+' ms',
-      'CPU total: '+frameProfiler.snapshot().cpu.toFixed(2)+' ms · mundo '+
-        frameProfiler.snapshot().world.toFixed(2)+' ms',
-      'CPU reflexos/efeitos: '+frameProfiler.snapshot().effects.toFixed(2)+
-        ' ms · CPU render: '+frameProfiler.snapshot().render.toFixed(2)+' ms',
-      'GPU render: '+(frameProfiler.snapshot().gpu==null?'não disponível':
-        frameProfiler.snapshot().gpu.toFixed(2)+' ms (temporizador WebGL)'),
-      'RAM JS: '+(frameProfiler.snapshot().heapMB==null?'não disponível':
-        frameProfiler.snapshot().heapMB.toFixed(0)+' MB (aprox.)'),
-      'Possível gargalo: '+frameProfiler.snapshot().bottleneck,
+      'CPU total: '+perf.cpu.toFixed(2)+' ms · mundo '+
+        perf.world.toFixed(2)+' ms',
+      'CPU reflexos/efeitos: '+perf.effects.toFixed(2)+
+        ' ms · CPU render: '+perf.render.toFixed(2)+' ms',
+      'GPU render: '+(perf.gpu==null?'não disponível':
+        perf.gpu.toFixed(2)+' ms (temporizador WebGL)'),
+      'RAM JS: '+(perf.heapMB==null?'não disponível':
+        perf.heapMB.toFixed(0)+' MB (aprox.)'),
+      'Possível gargalo: '+perf.bottleneck,
+      'Buffer 3D: '+Math.round(bufferSize.x)+'×'+Math.round(bufferSize.y)+
+        ' px · escala efetiva '+renderer.getPixelRatio().toFixed(2)+'×',
+      'Pico p95: '+perf.p95Frame.toFixed(1)+' ms · frame médio '+
+        perf.frame.toFixed(1)+' ms',
+      'Desenho GPU inclui capturas de reflexos quando ativas',
       'FPS estimados: '+performanceMonitor.current.fps,
       'Render: '+renderer.info.render.calls+' draw calls · '+renderer.info.render.triangles+' tri',
       'Memória GPU aprox.: '+renderer.info.memory.textures+' texturas / '+renderer.info.memory.geometries+' geometrias',
@@ -675,6 +683,9 @@ function frame(now) {
   roadDust.update(dt,car,world,camera,play);
   car.setVisualDetail(camera.position);
   const effectsCpuStart=performance.now();
+  // Include the extra cubemap face in the GPU timer as well as the final
+  // postprocessed frame; otherwise F3 under-reports reflective-paint cost.
+  frameProfiler.gpuBegin();
   graphics.update(dt, play);
   const effectsCpuMs=performance.now()-effectsCpuStart;
   const telemetry = car.getTelemetry();
@@ -694,10 +705,10 @@ function frame(now) {
     notifyUntil = 0;
   }
   const renderCpuStart=performance.now();
-  frameProfiler.gpuBegin();
   try{graphics.render();}
   finally{frameProfiler.gpuEnd();}
   frameProfiler.record({
+    frame:elapsed*1000,
     cpu:performance.now()-frameCpuStart,
     physics:play?physicsStepMs:0,
     world:effectsCpuStart-worldCpuStart,
