@@ -124,7 +124,7 @@ export class DrivingWorld {
     this.hour = 14;
     this.weather = 'clear';
     this.sunSpeed = 1.2; // simulated hours per real minute: full 24h cycle in ~20 real minutes
-    this.roadWidth = 13.5;
+    this.roadWidth = 14; // four urban ring-road lanes × 3.50 m
     this.terrainMaterial = new CANNON.Material('ground');
     this.asphaltMaterial = new CANNON.Material('asphalt');
     this.roadPoints = [];
