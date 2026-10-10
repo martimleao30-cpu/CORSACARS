@@ -78,12 +78,12 @@ export class WildGroundcover{
         const slope=Math.abs(this.terrainY(x+2,z)-this.terrainY(x-2,z))+
           Math.abs(this.terrainY(x,z+2)-this.terrainY(x,z-2));
         if(slope>5.6&&random()<.8)continue;
-        const gx=Math.floor(x/size),gz=Math.floor(z/size),key=gx+','+gz+','+kind;
-        if(!groups.has(key))groups.set(key,{kind,x:(gx+.5)*size,z:(gz+.5)*size,items:[]});
         const radius=scale[kind][0]+random()*(scale[kind][1]-scale[kind][0]);
         const profile=kind==='grass'?
           meadowProfile(x,z,this.clearance?.roadProximity(x,z).edge??40):null;
         if(profile&&random()>profile.density)continue;
+        const gx=Math.floor(x/size),gz=Math.floor(z/size),key=gx+','+gz+','+kind;
+        if(!groups.has(key))groups.set(key,{kind,x:(gx+.5)*size,z:(gz+.5)*size,items:[]});
         const color=profile?profile.color.clone().multiplyScalar(.83+random()*.3):
           new THREE.Color(palettes[kind][Math.floor(random()*palettes[kind].length)]);
         groups.get(key).items.push({x,y,z,scale:radius,
