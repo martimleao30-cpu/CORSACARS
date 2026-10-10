@@ -7,7 +7,7 @@ import {clipGeometryAtJunctions,trimRoadWearAtJunctions} from './road-junctions.
 import { WorldSectors } from './world-sectors.js';
 import {RoadsideClearance} from './roadside-clearance.js';
 import { DrivingTestArea } from './driving-test-area.js';
-import {createRoadBed,addRoadSides,addRoadWear,addRoadShoulders} from './road-upgrades.js';
+import {createRoadBed,addRoadSides,addRoadWear,addRoadShoulders,roadsideTerrainDelta} from './road-upgrades.js';
 import {RoadEnvironment} from './road-environments.js';
 import {ForestSystem} from './forest-system.js';
 import {RoadSignage} from './road-signage.js';
@@ -136,6 +136,7 @@ export class DrivingWorld {
     this.network = new RoadNetwork(this.scene,this.physics,groundHeight,
       this.roadPoints,this.roadWidth,this.quality);
     this.network.roads[0].mesh=this.roadMesh;
+    this.fitTerrainToRoads();
     // Roads, junctions and POI entrances share ONE clearance mask.
     this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
     this.roadside=new RoadsideClearance(this.network,this.sectors.regions);
@@ -237,7 +238,48 @@ export class DrivingWorld {
     const surface = new THREE.Mesh(geometry, createTerrainMaterial());
     surface.receiveShadow = true;
     this.scene.add(surface);
+    this.terrainMesh=surface;
     this.terrainBody=createTerrainCollider(this.physics, geometry, this.terrainMaterial);
+  }
+
+  fitTerrainToRoads(){
+    // Settle the actual ground surface into the verges. The heightfield is
+    // rebuilt from the IDENTICAL vertices, so off-road tyres cannot hit an
+    // invisible earlier version of the hillside.
+    const geometry=this.terrainMesh.geometry;
+    const pos=geometry.getAttribute('position');
+    const network=this.network;
+    let changed=0;
+    for(let i=0;i<pos.count;i++){
+      const x=pos.getX(i),z=pos.getZ(i);
+      const cell=Math.floor(x/network.cellSize)+','+
+        Math.floor(z/network.cellSize);
+      const candidates=network.cells.get(cell)||[];
+      let nearest=Infinity,selected=null;
+      for(const item of candidates){
+        const road=item.road;
+        if(!(['rural','mountain','urban'].includes(road.category)||
+          road.id==='circular'))continue;
+        const dx=item.b.x-item.a.x,dz=item.b.z-item.a.z;
+        const length=dx*dx+dz*dz;
+        const fraction=length?Math.max(0,Math.min(1,
+          ((x-item.a.x)*dx+(z-item.a.z)*dz)/length)):0;
+        const distance=Math.hypot(x-item.a.x-dx*fraction,
+          z-item.a.z-dz*fraction);
+        const edge=distance-road.width*.5;
+        if(edge<nearest){nearest=edge;selected={road,distance};}
+      }
+      if(!selected||nearest>9.5)continue;
+      const adjustment=roadsideTerrainDelta(selected.distance,selected.road.width);
+      if(Math.abs(adjustment)<.001)continue;
+      pos.setY(i,pos.getY(i)+adjustment);changed++;
+    }
+    if(!changed)return;
+    pos.needsUpdate=true;geometry.computeVertexNormals();
+    geometry.computeBoundingBox();geometry.computeBoundingSphere();
+    this.physics.removeBody(this.terrainBody);
+    this.terrainBody=createTerrainCollider(this.physics,geometry,this.terrainMaterial);
+    this.terrainVerticesAdapted=changed;
   }
 
   buildRoad() {
