@@ -375,6 +375,10 @@ export class RiverSystem {
     pool.rotation.y=Math.atan2(tangent.x,tangent.z);
     pool.renderOrder=3;this.group.add(pool);this.waterfallPool=pool;
     this.waterfallPosition=new THREE.Vector3(lower.x,lower.y,lower.z);
+    const vistaX=lower.x+lower.nx*(lower.width+29);
+    const vistaZ=lower.z+lower.nz*(lower.width+29);
+    this.waterfallViewpoint=new THREE.Vector3(
+      vistaX,this.terrainY(vistaX,vistaZ)+1,vistaZ);
     // The spray is animated entirely on GPU: no per-frame particles, mesh
     // creation, or physics bodies. Mist rises and disperses at the impact.
     const random=seedRandom(20261011);
