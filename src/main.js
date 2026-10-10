@@ -690,6 +690,12 @@ async function prepareFirstFrame(){
           bar.parentElement?.setAttribute('aria-valuenow',String(percent));}
       }
     });
+    // Initial six-face reflection render is intentional on the loading
+    // screen, never as a six-render spike while driving.
+    if(graphics.reflectionEnabled){
+      try{graphics.warmupReflections();}
+      catch(error){console.warn('[CORSACARS] Pré-reflexos indisponíveis:',error);}
+    }
     $('loading').dataset.regions=String(prepared.regions);
     $('loading').dataset.forestChunks=String(prepared.forestChunks);
   }catch(error){
