@@ -529,9 +529,16 @@ export class PlayerVehicle {
       const local=wheel.chassisConnectionPointLocal;
       const rotated=this.chassis.quaternion.vmult(local);
       const pos=hit?.hasHit ? hit.hitPointWorld : this.chassis.position.vadd(rotated);
-      const surface=typeof surfaceQuery==='function' ?
-        surfaceQuery(pos.x,pos.z)?.surface||'grass' : (surfaceQuery==='rain'?'wet':surfaceQuery);
-      const grip=tyreGrip(surface,this.tyreCompound);
+      const sample=typeof surfaceQuery==='function'
+        ?surfaceQuery(pos.x,pos.z):null;
+      const surface=sample?.surface||
+        (surfaceQuery==='rain'?'wet':typeof surfaceQuery==='string'?surfaceQuery:'grass');
+      const moisture=sample?.moisture??0;
+      // Wet asphalt can still be only partly soaked. Keep the permanent
+      // wet-test surface independent of weather-driven water accumulation.
+      const physicalSurface=surface==='wet'&&sample?.moisture!==undefined&&
+        !sample.fixedWet?'dry':surface;
+      const grip=tyreGrip(physicalSurface,this.tyreCompound,moisture);
       wheelSurface.push(surface);gripFactors.push(grip);
       averageGrip+=grip.longitudinal;
       rolling+=grip.rolling;
