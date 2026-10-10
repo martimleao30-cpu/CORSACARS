@@ -251,7 +251,7 @@ export class PremiumInterface {
         ${mk('shadowQuality','SOMBRAS', '<select id="%%"><option value="off">Desligadas</option><option value="low">Baixo</option><option value="medium">Médio</option><option value="high">Alto</option></select>')}
         ${mk('drawDistance','DISTÂNCIA DE RENDERIZAÇÃO', '<select id="%%"><option value="500">500 m</option><option value="950">950 m</option><option value="1500">1500 m</option><option value="1900">1900 m</option></select>')}
         ${mk('vegetation','DENSIDADE DE VEGETAÇÃO', '<select id="%%"><option value="0.3">30%</option><option value="0.6">60%</option><option value="1">100%</option></select>')}
-        ${mk('textureQuality','QUALIDADE DE TEXTURAS NOVAS', '<select id="%%"><option value="low">1K</option><option value="high">2K</option></select>')}
+        ${mk('textureQuality','RESOLUÇÃO DO ASFALTO', '<select id="%%"><option value="low">1K · DESEMPENHO</option><option value="high">2K · DETALHADO</option><option value="ultra">4K · MÁXIMO DETALHE</option></select>')}
         ${mk('bloom','BLOOM', '<select id="%%"><option value="off">Desligado</option><option value="low">Discreto</option><option value="medium">Médio</option></select>')}
         ${mk('displayMode','MODO DE ECRÃ', '<select id="%%"><option value="windowed">Janela</option><option value="fullscreen">Ecrã inteiro (navegador)</option></select>')}
       </div>
@@ -410,7 +410,7 @@ export class PremiumInterface {
     const cfg=this.api.settings;
     const defaults={
       renderScale:1,antiAlias:'native',shadowQuality:'high',
-      drawDistance:1500,vegetation:1,textureQuality:'low',bloom:'low',
+      drawDistance:1500,vegetation:1,textureQuality:'high',bloom:'low',
       displayMode:'windowed',engineVolume:.7,steeringSensitivity:1,
       gamepadDeadzone:.12,menuAccent:'#d2b493'
     };
