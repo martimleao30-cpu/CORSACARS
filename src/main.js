@@ -6,6 +6,7 @@ import { GraphicsPipeline } from './graphics.js';
 import { AssetUpgrade } from './assets.js';
 import { IndirectLighting } from './lighting.js';
 import { PerformanceMonitor } from './performance.js';
+import {FrameProfiler} from './frame-profiler.js';
 import { PremiumInterface } from './interface.js';
 import {setupPCEntry} from './pc-entry.js';
 import { RoadDust } from './road-dust.js';
@@ -93,6 +94,7 @@ let nextFrameAt = 0;
 const FIXED_DT = 1/60;
 let physicsAccumulator = 0;
 let physicsStepMs = 0;
+const frameProfiler=new FrameProfiler(renderer);
 let notifyUntil = 0;
 let gamepadLast = { camera: false, menu: false };
 const viewNames = ['SEGUIMENTO', 'EXTERIOR', 'INTERIOR', 'CAPÔ', 'CINEMATOGRÁFICA'];
@@ -439,6 +441,15 @@ function createDiagnostics(){
       'Slip rodas: '+(data.wheelSlip||[]).join(' · '),
       'TCS redução: '+Math.round((data.tractionIntervention||0)*100)+'%',
       'Tempo física: '+stepMs.toFixed(2)+' ms',
+      'CPU total: '+frameProfiler.snapshot().cpu.toFixed(2)+' ms · mundo '+
+        frameProfiler.snapshot().world.toFixed(2)+' ms',
+      'CPU reflexos/efeitos: '+frameProfiler.snapshot().effects.toFixed(2)+
+        ' ms · CPU render: '+frameProfiler.snapshot().render.toFixed(2)+' ms',
+      'GPU render: '+(frameProfiler.snapshot().gpu==null?'não disponível':
+        frameProfiler.snapshot().gpu.toFixed(2)+' ms (temporizador WebGL)'),
+      'RAM JS: '+(frameProfiler.snapshot().heapMB==null?'não disponível':
+        frameProfiler.snapshot().heapMB.toFixed(0)+' MB (aprox.)'),
+      'Possível gargalo: '+frameProfiler.snapshot().bottleneck,
       'FPS estimados: '+performanceMonitor.current.fps,
       'Render: '+renderer.info.render.calls+' draw calls · '+renderer.info.render.triangles+' tri',
       'Memória GPU aprox.: '+renderer.info.memory.textures+' texturas / '+renderer.info.memory.geometries+' geometrias',
@@ -597,6 +608,7 @@ function frame(now) {
   const elapsed = lastFrame ? Math.max(0,(now - lastFrame) / 1000) : 1 / 60;
   const dt = clamp(elapsed, 0.001, 0.12); // simulation only
   lastFrame = now;
+  const frameCpuStart=performance.now();
   const play = active && !paused;
   ui.pollGamepad();
   let controls = { steer: 0, accelerate: 0, brake: 0, handbrake: false };
@@ -641,12 +653,15 @@ function frame(now) {
     gamepadLast.menu = pressed;
   }
   car.updateVisuals(world.hour >= 19 || world.hour <= 6 || world.weather !== 'clear');
+  const worldCpuStart=performance.now();
   world.update(dt, car.getPosition(), !play);
   updateCamera(dt);
   world.updateForest(camera,dt,!play);
   roadDust.update(dt,car,world,camera,play);
   car.setVisualDetail(camera.position);
+  const effectsCpuStart=performance.now();
   graphics.update(dt, play);
+  const effectsCpuMs=performance.now()-effectsCpuStart;
   const telemetry = car.getTelemetry();
   ui.updateTelemetry(telemetry,controls.handbrake);
   $('hudState').textContent = telemetry.gearbox + ' · '+car.spec.drivetrain+' · '+(telemetry.surface||'ASFALTO').toUpperCase();
@@ -663,7 +678,17 @@ function frame(now) {
     $('toast').classList.add('hidden');
     notifyUntil = 0;
   }
-  graphics.render();
+  const renderCpuStart=performance.now();
+  frameProfiler.gpuBegin();
+  try{graphics.render();}
+  finally{frameProfiler.gpuEnd();}
+  frameProfiler.record({
+    cpu:performance.now()-frameCpuStart,
+    physics:play?physicsStepMs:0,
+    world:effectsCpuStart-worldCpuStart,
+    effects:effectsCpuMs,
+    render:performance.now()-renderCpuStart
+  });
   if(play && now-lastSessionSave>10000){saveSession();lastSessionSave=now;}
   performanceMonitor.update(elapsed, settings.quality, settings.autoQuality, play);
 }
