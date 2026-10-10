@@ -23,6 +23,7 @@ const create=()=>new ForestSystem(scene,{quality:'low',seed:3124,terrainY:()=>0,
   distanceToRoad:()=>Infinity,isNearRoad:()=>false});
 const forest=create();
 assert.ok(forest.statistics.planted>=200,'Significant real forest population expected');
+assert.ok(forest.statistics.planted>=450,'Forest must fill broad map instead of the west edge');
 assert.equal(Object.values(forest.statistics.species).reduce((a,b)=>a+b,0),forest.statistics.planted);
 assert.equal(Object.values(forest.statistics.ages).reduce((a,b)=>a+b,0),forest.statistics.planted);
 assert.equal(forest.prototypes.size,0,'High-detail geometry must not load at startup');

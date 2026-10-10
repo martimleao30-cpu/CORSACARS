@@ -13,6 +13,7 @@ import {RoadSignage} from './road-signage.js';
 import {CinematicSky,evaluateAtmosphere,configureCinematicShadows} from './cinematic-lighting.js';
 import {ModernRoadLighting} from './modern-road-lighting.js';
 import {RegionalRailway} from './regional-railway.js';
+import {WildGroundcover} from './wild-groundcover.js';
 import {RainStreaks} from './atmosphere-effects.js';
 import {createWeatheredRockGeometry,UrbanFacadeBatch,createWeatheredWallMaterial} from './natural-assets.js';
 
@@ -274,6 +275,8 @@ export class DrivingWorld {
   buildScenery() {
     // Shared tree species/age prototypes, streamed LOD per spatial chunk.
     // The old cylinders, single-cone pines and icosahedral crowns are gone.
+    this.understory=new WildGroundcover(this.scene,groundHeight,
+      this.roadside,this.railway,this.quality);
     this.forest = new ForestSystem(this.scene, {
       quality:this.quality,
       seed:20261010,
@@ -334,11 +337,13 @@ export class DrivingWorld {
   setVegetationDensity(factor = 1) {
     const ratio=Math.max(.2,Math.min(1,Number(factor)||1));
     this.forest?.setDensity(ratio);
+    this.understory?.setDensity(ratio);
     this.details?.setDensity(ratio);
   }
 
   updateForest(camera,dt=1/60,paused=false) {
     this.forest?.update(camera,dt,this.weather,paused);
+    this.understory?.update(camera.position,dt,paused);
   }
 
 

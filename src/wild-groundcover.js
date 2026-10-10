@@ -1,0 +1,116 @@
+import * as THREE from 'three';
+import {createNaturalShrubGeometry,createNaturalFlowerGeometry} from './natural-assets.js';
+import {createMeadowTuftGeometry,createMeadowWindMaterial,meadowProfile} from './meadow-grass.js';
+
+function rng(seed){let s=seed>>>0;return ()=>((s=Math.imul(s,1664525)+1013904223>>>0)/4294967296);}
+export class WildGroundcover{
+  constructor(scene,terrainY,clearance,railway,quality='high'){
+    this.scene=scene;this.terrainY=terrainY;this.clearance=clearance;
+    this.railway=railway;this.quality=quality;this.chunks=[];
+    this.density=1;this.materials=[];this.geometries=[];this.winds=[];
+    this.statistics={shrubs:0,flowerPatches:0,meadow:0,tiles:0};
+    this.build();
+  }
+  build(){
+    const random=rng(20261018),size=145;
+    const max={
+      low:{shrub:520,flower:460,grass:1600},
+      medium:{shrub:1000,flower:850,grass:2800},
+      high:{shrub:1650,flower:1200,grass:4350},
+      ultra:{shrub:2350,flower:1800,grass:6500}
+    }[this.quality]||{shrub:1650,flower:1200,grass:4350};
+    const shrubGeo=createNaturalShrubGeometry('low');
+    const flowerGeo=createNaturalFlowerGeometry();
+    const grassGeo=createMeadowTuftGeometry(this.quality==='low'?'low':'medium');
+    this.geometries.push(shrubGeo,flowerGeo,grassGeo);
+    const shrubMat=new THREE.MeshStandardMaterial({
+      color:0xffffff,vertexColors:true,roughness:.96,
+      side:THREE.DoubleSide
+    });
+    const flowerMat=new THREE.MeshStandardMaterial({
+      color:0xffffff,vertexColors:true,roughness:.93,
+      side:THREE.DoubleSide
+    });
+    const grassWind=createMeadowWindMaterial();
+    this.winds.push(grassWind.wind);
+    this.materials.push(shrubMat,flowerMat,grassWind.mat);
+    const groups=new Map();
+    const geometries={shrub:shrubGeo,flower:flowerGeo,grass:grassGeo};
+    const materials={shrub:shrubMat,flower:flowerMat,grass:grassWind.mat};
+    const palettes={
+      shrub:[0x677c55,0x84916c,0x6e795b,0x9a926b],
+      flower:[0xe8d9a1,0xbac4a9,0xb0a0ad,0xf3e0ab]
+    };
+    const scale={shrub:[.68,1.55],flower:[.55,1.23],grass:[.52,1.18]};
+    const maxRadius={shrub:1.5,flower:.45,grass:.95};
+    for(const kind of Object.keys(max)){
+      let planted=0;
+      for(let i=0;i<max[kind]*12&&planted<max[kind];i++){
+        const x=(random()-.5)*1790,z=(random()-.5)*1790;
+        const macro=Math.sin(x*.009+Math.cos(z*.011))*Math.cos(z*.011);
+        const local=Math.sin(x*.037-z*.015)*Math.cos(z*.039+x*.014);
+        const density=.49+.30*macro+.11*local;
+        if(random()>density)continue;
+        if(x>32&&x<299&&z>-110&&z<239)continue;
+        if(this.railway.nearestTrack(x,z)<(kind==='shrub'?7.5:5.3))continue;
+        if(!this.clearance.plantAllowed(x,z,kind==='grass'?'grass':
+          kind==='flower'?'flower':'shrub',maxRadius[kind]))continue;
+        const y=this.terrainY(x,z);
+        const slope=Math.abs(this.terrainY(x+2,z)-this.terrainY(x-2,z))+
+          Math.abs(this.terrainY(x,z+2)-this.terrainY(x,z-2));
+        if(slope>5.6&&random()<.8)continue;
+        const gx=Math.floor(x/size),gz=Math.floor(z/size),key=gx+','+gz+','+kind;
+        if(!groups.has(key))groups.set(key,{kind,x:(gx+.5)*size,z:(gz+.5)*size,items:[]});
+        const radius=scale[kind][0]+random()*(scale[kind][1]-scale[kind][0]);
+        const color=kind==='grass'?
+          meadowProfile(x,z,this.clearance.roadProximity(x,z).edge).color:
+          new THREE.Color(palettes[kind][Math.floor(random()*palettes[kind].length)]);
+        groups.get(key).items.push({x,y,z,scale:radius,yaw:random()*Math.PI*2,color});
+        planted++;
+      }
+      if(kind==='shrub')this.statistics.shrubs=planted;
+      if(kind==='flower')this.statistics.flowerPatches=planted;
+      if(kind==='grass')this.statistics.meadow=planted;
+    }
+    const dummy=new THREE.Object3D();
+    for(const group of groups.values()){
+      const mesh=new THREE.InstancedMesh(geometries[group.kind],
+        materials[group.kind],group.items.length);
+      mesh.name='Vegetação silvestre · '+group.kind;
+      for(let i=0;i<group.items.length;i++){
+        const p=group.items[i];
+        dummy.position.set(p.x,p.y-.02,p.z);
+        dummy.rotation.set(0,p.yaw,0);
+        dummy.scale.setScalar(p.scale);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i,dummy.matrix);mesh.setColorAt(i,p.color);
+      }
+      mesh.instanceMatrix.needsUpdate=true;
+      mesh.instanceColor.needsUpdate=true;
+      mesh.frustumCulled=true;
+      mesh.castShadow=false;mesh.receiveShadow=true;
+      mesh.computeBoundingSphere();
+      this.scene.add(mesh);
+      this.chunks.push({mesh,x:group.x,z:group.z,count:group.items.length});
+    }
+    this.statistics.tiles=this.chunks.length;
+  }
+  update(cameraPosition,dt,paused=false){
+    for(const chunk of this.chunks){
+      const dx=chunk.x-cameraPosition.x,dz=chunk.z-cameraPosition.z;
+      chunk.mesh.visible=dx*dx+dz*dz<470*470;
+    }
+    if(!paused)for(const wind of this.winds)wind.value+=Math.min(.12,dt||0);
+  }
+  setDensity(factor){
+    this.density=Math.max(.2,Math.min(1,Number(factor)||1));
+    for(const chunk of this.chunks)
+      chunk.mesh.count=Math.floor(chunk.count*this.density);
+  }
+  dispose(){
+    for(const chunk of this.chunks)this.scene.remove(chunk.mesh);
+    for(const geo of this.geometries)geo.dispose();
+    for(const mat of this.materials)mat.dispose();
+    this.chunks.length=0;
+  }
+}

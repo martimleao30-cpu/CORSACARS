@@ -326,12 +326,12 @@ export class ForestSystem {
   generate(seed){
     const random=rng(seed);
     const extent=optionsExtent(this.quality);
-    const max={low:300,medium:480,high:770,ultra:1020}[this.quality]||770;
-    const spacing=this.quality==='ultra'?32:36;
+    const max={low:560,medium:960,high:1550,ultra:2150}[this.quality]||1550;
     let planted=0;
-    for(let x=-extent;x<extent&&planted<max;x+=spacing){
-      for(let z=-extent;z<extent&&planted<max;z+=spacing){
-        const px=x+(random()-.5)*spacing*.84,pz=z+(random()-.5)*spacing*.84;
+    // Sample the entire map: the old nested loops filled the westernmost
+    // columns first and stopped at the cap, leaving eastern zones barren.
+    for(let trial=0;trial<max*11&&planted<max;trial++){
+        const px=(random()-.5)*extent*2,pz=(random()-.5)*extent*2;
         const patch=.57+.34*Math.sin(px*.0083+Math.cos(pz*.0071))*
           Math.cos(pz*.0103+Math.sin(px*.012));
         if(random()>patch)continue;
@@ -359,7 +359,6 @@ export class ForestSystem {
         planted++;
         this.statistics.species[species]++;
         this.statistics.ages[age]++;
-      }
     }
     this.statistics.planted=planted;
   }

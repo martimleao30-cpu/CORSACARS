@@ -481,3 +481,14 @@ natural e edifício de bilheteira. Uma automotora com duas carruagens viaja
 pela linha, com animação e paragens. O comboio é um elemento animado — não um
 simulador ferroviário com cabine controlável e colisões ferroviárias completas.
 Testes: `node tests/regional-railway.mjs`.
+
+
+## Florestas e vegetação silvestre mais densas
+
+As três espécies de árvores com tronco e folhagem tridimensional já existentes
+passam a distribuir-se por todo o mapa em vez de esgotarem a capacidade no
+extremo ocidental. A densidade máxima foi aumentada e os sistemas de LOD,
+instancing e culling são preservados. `src/wild-groundcover.js` adiciona
+arbustos, flores espontâneas e relva em blocos naturais, com centenas de
+aglomerados independentes no mapa, excluindo vias rodoviárias, acessos e
+carril ferroviário. A opção de densidade da vegetação atua sobre ambos.
