@@ -55,6 +55,27 @@ assert.ok(environment.statistics.speedSigns>=4,'Round maximum-speed signs requir
 assert.ok(environment.statistics.dangerSigns>=4,'Triangular hazard signs required');
 assert.ok(environment.statistics.stones>0 && environment.statistics.dirtRuts>0);
 assert.ok(environment.statistics.ruralVegetation>0,'Rural roadside plants must be placed along its own route');
+const rural=network.roads.find(r=>r.id==='rural');
+const matrix=new THREE.Matrix4(),worldPoint=new THREE.Vector3();
+for(const layer of [
+  'Vedação rural · postes','Vedação rural · travessa superior',
+  'Vedação rural · travessa inferior'
+]){
+  const mesh=environment.objects.find(m=>m.name===layer);
+  assert.ok(mesh?.isInstancedMesh && mesh.count>0,
+    'Crossing-aware timber fence component missing: '+layer);
+  const stride=Math.max(1,Math.floor(mesh.count/25));
+  for(let i=0;i<mesh.count;i+=stride){
+    mesh.getMatrixAt(i,matrix);
+    worldPoint.setFromMatrixPosition(matrix);
+    assert.equal(clearance.fenceAllowed(worldPoint.x,worldPoint.z,rural,0),true,
+      'Timber fence may not cross another road, junction or driveway: '+layer);
+  }
+}
+const ruralPostMesh=environment.objects.find(m=>m.name==='Vedação rural · postes');
+assert.ok(ruralPostMesh.geometry.parameters.radiusTop>=.9,
+  'Instanced timber post must have a real cylinder profile, not a thin wire');
+
 const ruralShrubs=environment.objects.find(m=>m.name==='Vegetação junto à estrada rural');
 assert.equal(ruralShrubs.geometry.userData.corsaNatural,'leafy-shrub');
 const mountainRocks=environment.objects.find(m=>m.name==='Rochas · Serra');

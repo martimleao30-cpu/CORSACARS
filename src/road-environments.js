@@ -386,7 +386,7 @@ export class RoadEnvironment {
     }
     if(!upper.length)return;
     // Muted rough timber and very thin fence wire, never flat gold blocks.
-    this.instances('Vedação rural · postes',new THREE.CylinderGeometry(.13,.16,1,7),
+    this.instances('Vedação rural · postes',new THREE.CylinderGeometry(1,1,1,7),
       materials.wood,posts,true);
     this.instances('Vedação rural · travessa superior',new THREE.BoxGeometry(1,1,1),
       materials.wood,upper);
