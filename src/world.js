@@ -145,7 +145,7 @@ export class DrivingWorld {
     this.buildRoadside();
     this.trimRingRoadsideAtJunctions();
     this.roadEnvironment=new RoadEnvironment(this.scene,this.physics,this.network,
-      groundHeight,this.quality,this.roadside);
+      groundHeight,this.quality,this.roadside,this.railway);
     this.roadSignage=new RoadSignage(this.scene,this.network,this.quality);
     this.testArea=new DrivingTestArea(this.scene,this.physics,this.network,groundHeight);
     const testRoad=this.network.roads.find(r=>r.id==='provas');
