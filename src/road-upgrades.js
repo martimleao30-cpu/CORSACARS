@@ -26,7 +26,7 @@ const tint = (metres, lateral, width, seed) => {
 export const roadDeckHeight = (terrainY, x, z, lateral, width) =>
   terrainY(x,z) + .205 + .052*(1-Math.pow(2*lateral/width,2));
 
-export function createRoadBed(samples, width, terrainY, seed=31) {
+export function createRoadBed(samples, width, terrainY, seed=31, surface='dry') {
   if (samples.length < 2 || width <= 0) throw new Error('Estrada sem pontos ou largura');
   const vertices=[], uvs=[], colors=[], indices=[];
   const sideVertices=[], sideUvs=[], sideIndices=[];
@@ -41,7 +41,9 @@ export function createRoadBed(samples, width, terrainY, seed=31) {
     for (const f of ROAD_SECTION) {
       const offset=width*.5*f;
       const x=p.x+sideX*offset,z=p.z+sideZ*offset;
-      vertices.push(x,roadDeckHeight(terrainY,x,z,offset,width),z);
+      const uneven=(surface==='dirt'||surface==='gravel')?
+        (.035*Math.sin(progress*.27+f*4.3)+.017*Math.sin(progress*.74-f*7.9)):0;
+      vertices.push(x,roadDeckHeight(terrainY,x,z,offset,width)+uneven,z);
       uvs.push((offset+width*.5)/metresPerTile,progress/metresPerTile);
       const shade=tint(progress,offset,width,seed);
       colors.push(shade,shade*(.994+Math.sin(progress*.019)*.006),shade*.987);

@@ -7,22 +7,25 @@ import {createRoadBed,addRoadSides,addRoadWear,addRoadShoulders} from './road-up
 // ring. Keeping the old road preserves saved spawn positions and old sessions.
 // All geometry is collision-enabled, not simply drawn over the terrain.
 export const REGIONAL_LINKS = Object.freeze([
-  {id:'nacional',name:'EN 201 · Vale Central',surface:'dry',width:10,
+  {id:'nacional',name:'EN 201 · Vale Central',category:'urban',surface:'dry',width:10,
     from:35,to:260,
     via:[[-290,-125],[-115,-70],[35,-115],[200,-105],[335,-60]]},
-  {id:'autoestrada',name:'A1 · Corredor Central',surface:'dry',width:16,
+  {id:'autoestrada',name:'A1 · Corredor Central',category:'highway',surface:'dry',width:16,
     from:116,to:240,
     via:[[-160,205],[-45,115],[55,85],[180,90],[310,125]]},
-  {id:'montanha',name:'Serra Alta · Miradouro',surface:'dry',width:8,
+  {id:'montanha',name:'Serra Alta · Miradouro',category:'mountain',surface:'dry',width:8,
     from:165,to:215,
     via:[[-70,505],[-95,595],[80,680],[215,600],[360,385]]},
-  {id:'rural',name:'Caminho do Pinhal',surface:'dirt',width:7,
+  {id:'rural',name:'Caminho do Pinhal',category:'rural',surface:'dry',width:7,
     from:337,to:30,
     via:[[35,-480],[-165,-525],[-385,-465],[-455,-320]]},
-  {id:'gravilha',name:'Acesso à Pedreira',surface:'gravel',width:8,
+  {id:'gravilha',name:'Acesso à Pedreira',category:'dirt',surface:'gravel',width:8,
     from:65,to:115,
     via:[[-470,-130],[-580,-25],[-525,150],[-375,235]]},
-  {id:'provas',name:'Centro de Testes Físicos',surface:'dry',width:13,
+  {id:'terra',name:'Trilho de Terra do Vale',category:'dirt',surface:'dirt',width:6,
+    from:290,to:270,
+    via:[[295,-415],[440,-505],[570,-445],[510,-310]]},
+  {id:'provas',name:'Centro de Testes Físicos',category:'test',surface:'dry',width:13,
     from:343,to:20,
     via:[[125,-470],[-65,-620],[-260,-650],[-440,-550],[-415,-375]]}
 ]);
@@ -33,7 +36,7 @@ function materialFor(surface,quality,routeId='') {
     if(surface==='dirt')mat.color.set(0xbca17d);
     return mat;
   }
-  return createAsphaltMaterial(quality,routeId==='autoestrada'||routeId==='provas'?'fresh':routeId==='montanha'?'worn':'aged');
+  return createAsphaltMaterial(quality,routeId==='autoestrada'||routeId==='provas'?'fresh':(routeId==='montanha'||routeId==='rural')?'worn':'aged');
 }
 function terrainRoadCurve(p,geometryHeight) {
   const point=p.clone();
@@ -56,6 +59,7 @@ export class RoadNetwork {
     this.cells=new Map();
     this.materials=new Map();
     this.buildLinks(ringPoints);
+    this.buildConnectors(ringPoints);
     this.buildSurfaceIndex();
   }
 
@@ -74,7 +78,7 @@ export class RoadNetwork {
       for(let i=0;i<=count;i++){
         points.push(terrainRoadCurve(curve.getPoint(i/count),this.terrainY));
       }
-      const bed=createRoadBed(points,route.width,this.terrainY,route.from);
+      const bed=createRoadBed(points,route.width,this.terrainY,route.from,route.surface);
       const mat=materialFor(route.surface,this.quality,route.id);
       const road=new THREE.Mesh(bed.top,mat);
       road.name=route.name;
@@ -106,6 +110,68 @@ export class RoadNetwork {
         }
         stripe.count=n;stripe.instanceMatrix.needsUpdate=true;this.scene.add(stripe);
       }
+    }
+  }
+
+  // Accessible auxiliary roads: a town cross street and real 3D motorway ramps.
+  // Their ends overlap the parent decks and the circular road, with Cannon
+  // triangles and spatial road lookup, not just painted signs.
+  buildConnectors(ringPoints) {
+    const definitions=[
+      {id:'rua-lateral',name:'Rua da Praça · Cruzamento',category:'urban',
+        parent:'nacional',sample:71,side:1,width:6.2,seed:142},
+      {id:'rampa-entrada',name:'A1 · Entrada',category:'highway-ramp',
+        parent:'autoestrada',sample:29,side:1,width:5.2,seed:203},
+      {id:'rampa-saida',name:'A1 · Saída',category:'highway-ramp',
+        parent:'autoestrada',sample:100,side:-1,width:5.2,seed:204}
+    ];
+    this.connectors=[];
+    for(const def of definitions){
+      const parent=this.roads.find(road=>road.id===def.parent);
+      if(!parent)continue;
+      const i=Math.min(parent.points.length-2,def.sample);
+      const p=parent.points[i];
+      const tangent=parent.points[i+1].clone().sub(parent.points[i-1]).setY(0).normalize();
+      const lateral=new THREE.Vector3(-tangent.z,0,tangent.x);
+      const start=p.clone().addScaledVector(lateral,def.side*parent.width*.34);
+      let nearest=0,min=Infinity;
+      for(let j=0;j<ringPoints.length-1;j++){
+        const target=ringPoints[j].center;
+        const d=start.distanceToSquared(target);
+        if(d<min){min=d;nearest=j;}
+      }
+      const finish=ringPoints[nearest].center.clone();
+      const ringTangent=ringPoints[nearest].tangent?.clone().setY(0).normalize() ||
+        ringPoints[(nearest+1)% (ringPoints.length-1)].center.clone()
+          .sub(ringPoints[(nearest+ringPoints.length-2)%(ringPoints.length-1)].center)
+          .setY(0).normalize();
+      const span=Math.sqrt(min);
+      // Avoid tight kinks; tangent handles scale with actual connector length.
+      const handle=Math.min(36,Math.max(11,span*.22));
+      const bend=[
+        start,
+        start.clone().addScaledVector(tangent,handle),
+        finish.clone().addScaledVector(ringTangent,-handle),
+        finish
+      ];
+      const curve=new THREE.CatmullRomCurve3(bend,false,'centripetal',.4);
+      const count=Math.max(34,Math.ceil(span/3.3));
+      const points=Array.from({length:count+1},(_,index)=>
+        terrainRoadCurve(curve.getPoint(index/count),this.terrainY));
+      const bed=createRoadBed(points,def.width,this.terrainY,def.seed,'dry');
+      const mat=createAsphaltMaterial(this.quality,def.category==='urban'?'aged':'fresh');
+      const mesh=new THREE.Mesh(bed.top,mat);
+      mesh.name=def.name;mesh.receiveShadow=true;this.scene.add(mesh);
+      const sides=addRoadSides(this.scene,bed.sides,def.name);
+      const shoulders=addRoadShoulders(this.scene,points,def.width,this.terrainY,createGravelMaterial());
+      const vertices=Array.from(bed.top.getAttribute('position').array);
+      const faces=Array.from(bed.top.index.array);
+      const body=new CANNON.Body({mass:0,material:new CANNON.Material('dry')});
+      body.addShape(new CANNON.Trimesh(vertices,faces));
+      this.physics.addBody(body);
+      const item={...def,surface:'dry',points,mesh,body,sides,shoulders};
+      this.roads.push(item);this.connectors.push(item);
+      this.materials.set(def.id,mat);
     }
   }
 
