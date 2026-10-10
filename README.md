@@ -15,7 +15,7 @@ com `InstancedMesh` e alguns colisores em `cannon-es`:
   que cumpra os semáforos e a navegação entre faixas.
 - Serra Alta: curvas e relevo existentes preservados, guardas com colisão,
   rochas e sinalização de curva.
-- Caminho do Pinhal: asfalto envelhecido, bermas de terra, postes rurais
+- Caminho do Pinhal: asfalto envelhecido, bermas de terra, vegetação 3D instanciada e postes rurais
   e ramal de terra acessível pela estrada circular.
 - Pedreira e Trilho de Terra do Vale: gravilha e terra com relevo físico
   irregular, pedras instanciadas, rastos estáticos e aderência própria.

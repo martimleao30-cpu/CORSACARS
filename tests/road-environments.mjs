@@ -39,6 +39,7 @@ assert.ok(environment.statistics.highwayBarriers>0);
 assert.ok(environment.statistics.mountainBarriers>0);
 assert.ok(environment.statistics.roadSigns>=5);
 assert.ok(environment.statistics.stones>0 && environment.statistics.dirtRuts>0);
+assert.ok(environment.statistics.ruralVegetation>0,'Rural roadside plants must be placed along its own route');
 assert.equal(environment.statistics.physicalJunctions,3);
 assert.ok(physics.bodies.length>physicalRoadBodies,'Sidewalks / barriers must collide');
 assert.ok(environment.trafficLights.length>=4,'Working traffic lights required');

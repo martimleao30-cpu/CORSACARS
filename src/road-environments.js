@@ -42,7 +42,7 @@ export class RoadEnvironment {
     this.terrainY=terrainY;this.quality=quality;
     this.objects=[];this.bodies=[];this.trafficLights=[];
     this.statistics={urban:0,highway:0,mountain:0,rural:0,dirt:0,
-      sidewalks:0,crosswalks:0,parkingSpaces:0,manholes:0,drains:0,
+      sidewalks:0,crosswalks:0,parkingSpaces:0,manholes:0,drains:0,ruralVegetation:0,
       highwayBarriers:0,mountainBarriers:0,roadSigns:0,stones:0,
       dirtRuts:0,physicalJunctions:network.connectors?.length||0};
     for(const road of network.roads){
@@ -301,6 +301,26 @@ export class RoadEnvironment {
     }
     this.instances('Vedação rural · postes',
       new THREE.BoxGeometry(1,1,1),materials.wood,posts);
+    // Native shrubs follow the actual rural route, with enough distance from
+    // the outer lane to keep the driving corridor accessible.
+    const shrubs=[],rng=deterministic(77117);
+    for(let i=6;i<n-6;i+=3){
+      for(const side of [-1,1]){
+        if(rng()<.23)continue;
+        const offset=side*(road.width*.5+4.7+rng()*6.5);
+        const p=position(road,i,offset,this.terrainY);
+        const scale=.38+rng()*.93;
+        shrubs.push({...p,y:this.terrainY(p.x,p.z)+scale*.38,
+          sx:scale*.88,sy:scale*.54,sz:scale,
+          yaw:rng()*Math.PI*2,
+          color:rng()>.5?0x567047:0x718054});
+      }
+    }
+    this.instances('Vegetação junto à estrada rural',
+      new THREE.IcosahedronGeometry(1,1),
+      new THREE.MeshStandardMaterial({color:0xffffff,roughness:.97}),
+      shrubs);
+    this.statistics.ruralVegetation+=shrubs.length;
     this.sign(road,clamp(Math.round(n*.24),3,n-3),road.width*.5+4.8,
       'ESTRADA RURAL','60');
   }
