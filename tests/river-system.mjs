@@ -36,6 +36,18 @@ assert.ok(system.crossings.every(p=>p.roadId===road.id&&
   p.x>=445&&p.x<=645),'Bridge cannot be positioned randomly');
 assert.ok(system.bodies.length>=system.crossings.length*2,
   'Bridge guardrails and substantial river boulders need physical collision');
+const bridgePiers=system.group.children.filter(mesh=>
+  mesh.name==='Ponte · apoio no leito rochoso');
+assert.equal(bridgePiers.length,system.crossings.length*4,
+  'Each crossing needs two pillars on both river banks');
+for(const pillar of bridgePiers){
+  const x=pillar.position.x,z=pillar.position.z,local=system.lookup(x,z);
+  const channel=local&&local.distance<local.width+8.5
+    ?local.waterY-1.55:3;
+  const footing=Math.min(3,channel)-.18;
+  assert.ok(Math.abs(pillar.position.y-pillar.scale.y*.5-footing)<.025,
+    'Bridge supports must meet the post-excavation riverbed');
+}
 const point=RIVER_WAYPOINTS[4];
 const river=system.lookup(point[0],point[1]);
 assert.ok(river?.distance<2);
