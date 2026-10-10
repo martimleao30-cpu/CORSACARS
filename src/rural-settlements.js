@@ -160,7 +160,7 @@ export function buildRuralSettlement(group,physics,bodies,region,terrain,clearan
       box('Quinta · portão aberto',25,along,.23,1.65,.22,'steel');
     }
   }
-  const wildlife=buildRuralWildlife(root,region,terrain,quality,physics,bodies);
+  const wildlife=buildRuralWildlife(root,region,terrain,quality,physics,bodies,safePlot);
   Object.assign(stats,wildlife.stats);
   root.userData.ruralWildlife=wildlife;
   root.userData.ruralStats=stats;
