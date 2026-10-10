@@ -70,6 +70,18 @@ const river=system.lookup(point[0],point[1]);
 assert.ok(river?.distance<2);
 assert.equal(system.contains(point[0],point[1]),true);
 assert.equal(system.contains(0,-1600),false);
+const riverMiddle=system.lookup(535,430);
+const level=riverMiddle.waterY,width=riverMiddle.width;
+const deep=system.channelHeight(30,{...riverMiddle,distance:0});
+const shore=system.channelHeight(30,{...riverMiddle,distance:width+4});
+const outer=system.channelHeight(30,{...riverMiddle,distance:width+28});
+assert.ok(deep<shore&&shore<outer,
+  'The river must have a deeper centre and smoothly climbing banks');
+assert.ok(Math.abs(deep-(level-1.55))<.001,
+  'The riverbed must remain submerged below the visible water');
+assert.equal(outer,30,
+  'Erosion must not produce a flat trench beyond the riverbank');
+
 const ground=new THREE.PlaneGeometry(1600,1600,90,90);
 ground.rotateX(-Math.PI/2);
 const attrib=ground.getAttribute('position');
