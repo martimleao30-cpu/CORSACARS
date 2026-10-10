@@ -6,6 +6,7 @@ import { RoadNetwork } from './road-network.js';
 import { WorldSectors } from './world-sectors.js';
 import { DrivingTestArea } from './driving-test-area.js';
 import {createRoadBed,addRoadSides,addRoadWear} from './road-upgrades.js';
+import {RoadEnvironment} from './road-environments.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -69,6 +70,8 @@ export class DrivingWorld {
     this.network = new RoadNetwork(this.scene,this.physics,groundHeight,
       this.roadPoints,this.roadWidth,this.quality);
     this.buildRoadside();
+    this.roadEnvironment=new RoadEnvironment(this.scene,this.physics,this.network,
+      groundHeight,this.quality);
     this.testArea=new DrivingTestArea(this.scene,this.physics,this.network,groundHeight);
     const testRoad=this.network.roads.find(r=>r.id==='provas');
     if(testRoad) {
@@ -508,6 +511,7 @@ export class DrivingWorld {
       this.roadMaterial.color.setRGB(1 - .25 * wetness, 1 - .23 * wetness, 1 - .19 * wetness);
     }
     this.network?.setWetness(wetness);
+    this.roadEnvironment?.update(dt,paused);
     this.updateAtmosphere();
     if (vehiclePosition) {
       this.sectors.update(vehiclePosition,performance.now()/1000);

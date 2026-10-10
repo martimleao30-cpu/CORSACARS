@@ -2,6 +2,30 @@
 
 **CORSACARS** é um projeto de jogo de automóveis 3D independente, disponível em **aplicação Windows (.exe) e navegador** com [Three.js](https://threejs.org/) e [cannon-es](https://pmndrs.github.io/cannon-es/). **Não utiliza Unity** e não partilha quaisquer ficheiros com o projeto Minecraft.
 
+## Cinco categorias de vias — urbanas, autoestradas, serra, rural e terra
+A classificação `category` das estradas é efetiva em `src/road-network.js`.
+O módulo `src/road-environments.js` constrói decoração tridimensional
+com `InstancedMesh` e alguns colisores em `cannon-es`:
+- Urbana (EN 201): passeios com espessura e malha de colisão, lancis,
+  passadeiras 3D, tampas e sarjetas, baías de estacionamento, cruzamento
+  por uma rua lateral fisicamente ligada e semáforos com ciclo de cores.
+- Autoestrada (A1): duas vias em cada sentido na secção principal, linhas
+  de separação, separador central com colisões, barreiras laterais, placas
+  e duas rampas percorríveis para a estrada circular. Ainda não existe IA
+  que cumpra os semáforos e a navegação entre faixas.
+- Serra Alta: curvas e relevo existentes preservados, guardas com colisão,
+  rochas e sinalização de curva.
+- Caminho do Pinhal: asfalto envelhecido, bermas de terra, postes rurais
+  e ramal de terra acessível pela estrada circular.
+- Pedreira e Trilho de Terra do Vale: gravilha e terra com relevo físico
+  irregular, pedras instanciadas, rastos estáticos e aderência própria.
+  Poeira ao conduzir em superfícies soltas é gerada em tempo real.
+
+As rampas, o cruzamento e o percurso de terra fazem parte do índice espacial
+e das colisões Cannon. A renderização mantém Three.js/WebGL, sem Unity.
+A física e os testes de geometria não equivalem ainda à homologação da
+segurança viária ou à simulação completa de trânsito.
+
 ## Estradas realistas 3D — atualização de pavimentos
 As sete vias existentes mantêm as ligações e os colisores cannon-es. A estrada circular
 e as seis ligações regionais usam agora secções 3D com ligeiro abaulamento central
