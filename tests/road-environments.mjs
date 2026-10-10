@@ -17,6 +17,8 @@ globalThis.document={
 };
 const {RoadNetwork}=await import('../src/road-network.js');
 const {RoadEnvironment,ROAD_CATEGORIES}=await import('../src/road-environments.js');
+const {RoadsideClearance}=await import('../src/roadside-clearance.js');
+const {WorldSectors}=await import('../src/world-sectors.js');
 const scene=new THREE.Scene(),physics=new CANNON.World();
 const ring=[];
 for(let i=0;i<=420;i++){
@@ -27,7 +29,9 @@ for(let i=0;i<=420;i++){
 }
 const network=new RoadNetwork(scene,physics,()=>0,ring,13.5,'low');
 const physicalRoadBodies=physics.bodies.length;
-const environment=new RoadEnvironment(scene,physics,network,()=>0,'low');
+const sectors=new WorldSectors(scene,physics,network,()=>0);
+const clearance=new RoadsideClearance(network,sectors.regions);
+const environment=new RoadEnvironment(scene,physics,network,()=>0,'low',clearance);
 assert.deepEqual(ROAD_CATEGORIES,['urban','highway','mountain','rural','dirt']);
 for(const category of ['urban','highway','mountain','rural','dirt'])
   assert.ok(environment.statistics[category]>0,'Missing 3D road type: '+category);
@@ -37,6 +41,15 @@ assert.ok(environment.statistics.manholes>0 && environment.statistics.drains>0);
 assert.ok(environment.statistics.parkingSpaces>0);
 assert.ok(environment.statistics.highwayBarriers>0);
 assert.ok(environment.statistics.mountainBarriers>0);
+assert.ok(environment.statistics.woodFencePosts>5,'Rural fences have tangible posts');
+assert.ok(environment.statistics.woodFenceRails>5,'Rural fence must have two longitudinal rails');
+assert.ok(environment.statistics.skippedFenceSegments>0,
+  'Guardrails and fences must leave gaps at crossings/entries');
+for(const name of ['Vedação rural · travessa superior','Vedação rural · travessa inferior',
+   'Vedação rural · fio metálico']){
+  assert.ok(environment.objects.some(m=>m.name===name),
+    'Missing realistic rural fence layer: '+name);
+}
 assert.ok(environment.statistics.roadSigns>=5);
 assert.ok(environment.statistics.speedSigns>=4,'Round maximum-speed signs required');
 assert.ok(environment.statistics.dangerSigns>=4,'Triangular hazard signs required');

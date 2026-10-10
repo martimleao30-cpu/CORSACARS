@@ -361,3 +361,24 @@ sem causar brilho artificial. Utilizadores com preferências antigas
 A dispersão solar é uma aproximação atmosférica procedural em WebGL — não
 ray tracing. Os testes `tests/cinematic-lighting.mjs` verificam dia,
 crepúsculo, chuva, nevoeiro, noite, céu e sombras.
+
+
+## Estradas limpas, vegetação sem invasões e cercas com aberturas
+
+`src/roadside-clearance.js` cria uma máscara de ocupação para **todas** as
+vias transitáveis: circular, autoestrada, estrada nacional, rural, montanha,
+terra, pistas de teste, rampas e rua lateral. Deteta entroncamentos e
+cruzamentos pela geometria das estradas, além dos acessos à quinta, vila,
+área de serviço, miradouro e pedreira. Relva, flores, arbustos, árvores,
+pedras nas bermas e vegetação rural passam por esta máscara antes de serem
+gerados; cada espécie tem uma margem de segurança própria.
+
+As vedações rurais têm postes cilíndricos de madeira, duas travessas
+horizontais e fio metálico, cada peça posicionada ao longo da inclinação
+do terreno. Barreiras metálicas e separadores de autoestrada também usam
+peças e suportes individualizados; são interrompidos nos cruzamentos,
+entradas e saídas, juntamente com os respetivos corpos físicos Cannon.
+A estrada circular usa estas guardas no lugar das velhas vigas decorativas.
+Os controlos de densidade e LOD existentes foram preservados.
+
+Teste: `node tests/roadside-clearance.mjs` e `npm run test:roads`.

@@ -38,15 +38,16 @@ const deterministic=seed=>{
 export const ROAD_CATEGORIES=Object.freeze(['urban','highway','mountain','rural','dirt']);
 
 export class RoadEnvironment {
-  constructor(scene,physics,network,terrainY,quality='high'){
+  constructor(scene,physics,network,terrainY,quality='high',clearance=null){
     this.scene=scene;this.physics=physics;this.network=network;
-    this.terrainY=terrainY;this.quality=quality;
+    this.terrainY=terrainY;this.quality=quality;this.clearance=clearance;
     this.objects=[];this.bodies=[];this.trafficLights=[];
     this.statistics={urban:0,highway:0,mountain:0,rural:0,dirt:0,
       sidewalks:0,crosswalks:0,parkingSpaces:0,manholes:0,drains:0,ruralVegetation:0,
       speedSigns:0,dangerSigns:0,
       highwayBarriers:0,mountainBarriers:0,roadSigns:0,stones:0,
-      dirtRuts:0,physicalJunctions:network.connectors?.length||0};
+      dirtRuts:0,physicalJunctions:network.connectors?.length||0,
+      woodFencePosts:0,woodFenceRails:0,metalRailPosts:0,skippedFenceSegments:0};
     for(const road of network.roads){
       if(road.category==='urban')this.urban(road);
       if(road.category==='highway')this.highway(road);
@@ -54,6 +55,16 @@ export class RoadEnvironment {
       if(road.category==='rural')this.rural(road);
       if(road.category==='dirt')this.dirt(road);
       if(ROAD_CATEGORIES.includes(road.category))this.statistics[road.category]++;
+    }
+    // Continuous metal guardrails around the circular road replace the old
+    // decorative beams and automatically open at regional-road junctions.
+    if(this.clearance){
+      const ring=network.roads.find(r=>r.id==='circular');
+      if(ring){
+        for(const side of [-1,1])
+          this.barrier(ring,side*(ring.width*.5+2.9),4,
+            ring.points.length-6,5,'metal');
+      }
     }
     this.elapsed=0;
   }
@@ -72,7 +83,7 @@ export class RoadEnvironment {
     for(let i=0;i<placements.length;i++){
       const p=placements[i];
       dummy.position.set(p.x,p.y,p.z);
-      dummy.rotation.set(p.rx||0,p.yaw||0,p.rz||0);
+      dummy.rotation.set(p.pitch||p.rx||0,p.yaw||0,p.rz||0,'YXZ');
       dummy.scale.set(p.sx||1,p.sy||1,p.sz||1);
       dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
       if(p.color)mesh.setColorAt(i,new THREE.Color(p.color));
@@ -283,33 +294,109 @@ export class RoadEnvironment {
     return root;
   }
 
-  // Continuous crash barrier visual + a compound static Cannon body.
+  // Road-following metal safety rail: paired galvanized beams, thin support
+  // posts and a real Cannon collider only where no road/entrance crosses.
   barrier(road,offset,first,last,step,kind='metal'){
-    const placements=[],body=new CANNON.Body({mass:0});
-    const height=kind==='median'?.77:.58;
-    const thick=kind==='median'?.48:.19;
+    const beams=[],posts=[],body=new CANNON.Body({mass:0});
+    const isMedian=kind==='median';
     for(let i=first;i+step<=last;i+=step){
       const a=position(road,i,offset,this.terrainY);
       const b=position(road,i+step,offset,this.terrainY);
-      const dx=b.x-a.x,dz=b.z-a.z;
-      const length=Math.hypot(dx,dz);
-      if(length<.1||length>55)continue;
-      const yaw=Math.atan2(dx,dz);
-      const mid={x:(a.x+b.x)*.5,y:(a.y+b.y)*.5+height*.6,z:(a.z+b.z)*.5,
-        yaw,sx:thick,sy:height,sz:length+.18};
-      placements.push(mid);
+      const aa={x:a.x,y:this.terrainY(a.x,a.z),z:a.z};
+      const bb={x:b.x,y:this.terrainY(b.x,b.z),z:b.z};
+      if(this.clearance&&!this.clearance.fenceSegmentAllowed(aa,bb,road,isMedian?1.5:1)){
+        this.statistics.skippedFenceSegments++;continue;
+      }
+      const dx=bb.x-aa.x,dz=bb.z-aa.z,dy=bb.y-aa.y;
+      const horizontal=Math.hypot(dx,dz);
+      if(horizontal<.1||horizontal>55)continue;
+      const yaw=Math.atan2(dx,dz),pitch=-Math.atan2(dy,horizontal);
+      const midpoint={x:(aa.x+bb.x)*.5,y:(aa.y+bb.y)*.5,
+        z:(aa.z+bb.z)*.5,yaw,pitch};
+      if(isMedian){
+        beams.push({...midpoint,y:midpoint.y+.56,sx:.40,sy:.85,sz:Math.hypot(horizontal,dy)+.10});
+      }else{
+        for(const h of [.72,.98])
+          beams.push({...midpoint,y:midpoint.y+h,sx:.17,sy:.15,sz:Math.hypot(horizontal,dy)+.11});
+        posts.push({x:aa.x,y:aa.y+.59,z:aa.z,
+          sx:.095,sy:1.18,sz:.095});
+      }
       const orientation=new CANNON.Quaternion();
       orientation.setFromAxisAngle(new CANNON.Vec3(0,1,0),yaw);
-      body.addShape(new CANNON.Box(new CANNON.Vec3(thick*.5,height*.5,(length+.18)*.5)),
-        new CANNON.Vec3(mid.x,mid.y,mid.z),orientation);
+      body.addShape(new CANNON.Box(new CANNON.Vec3(
+        isMedian?.20:.09,isMedian?.43:.29,(horizontal+.12)*.5)),
+        new CANNON.Vec3(midpoint.x,midpoint.y+(isMedian?.56:.84),midpoint.z),
+        orientation);
     }
-    if(!placements.length)return;
-    this.instances(kind==='median'?'Separador central':'Barreira de proteção',
-      new THREE.BoxGeometry(1,1,1),kind==='median'?materials.cement:materials.steel,
-      placements,false);
+    if(!beams.length)return;
+    const label=isMedian?'Separador central':'Barreira de proteção';
+    this.instances(label,new THREE.BoxGeometry(1,1,1),
+      isMedian?materials.cement:materials.steel,beams);
+    if(posts.length){
+      this.instances('Barreira metálica · suportes',
+        new THREE.CylinderGeometry(1,1,1,8),materials.steel,posts);
+      this.statistics.metalRailPosts+=posts.length;
+    }
     this.physics.addBody(body);this.bodies.push(body);
-    if(kind==='median')this.statistics.highwayBarriers+=placements.length;
-    else this.statistics.mountainBarriers+=placements.length;
+    if(isMedian)this.statistics.highwayBarriers+=beams.length;
+    else this.statistics.mountainBarriers+=Math.round(beams.length/2);
+  }
+
+  // Rural post-and-rail fence, with real horizontal timbers following the
+  // terrain. Gaps are intentionally left at crossings, ramps and POI accesses.
+  woodFence(road,side,start,end,step=3){
+    const posts=[],upper=[],lower=[],wire=[];
+    const body=new CANNON.Body({mass:0});
+    const offset=side*(road.width*.5+3.9);
+    const rand=deterministic(7017+(side>0?3:7));
+    let previousEnd=-1;
+    for(let i=start;i+step<=end;i+=step){
+      const a=position(road,i,offset,this.terrainY);
+      const b=position(road,i+step,offset,this.terrainY);
+      const aa={x:a.x,y:this.terrainY(a.x,a.z),z:a.z};
+      const bb={x:b.x,y:this.terrainY(b.x,b.z),z:b.z};
+      if(this.clearance&&!this.clearance.fenceSegmentAllowed(aa,bb,road,1.5)){
+        previousEnd=-1;
+        this.statistics.skippedFenceSegments++;
+        continue;
+      }
+      const dx=bb.x-aa.x,dz=bb.z-aa.z,dy=bb.y-aa.y;
+      const horizontal=Math.hypot(dx,dz);
+      if(horizontal<.25||horizontal>35)continue;
+      const yaw=Math.atan2(dx,dz),pitch=-Math.atan2(dy,horizontal);
+      const length=Math.hypot(horizontal,dy);
+      const vary=1+(rand()-.5)*.12;
+      const post=p=>({x:p.x,y:p.y+.74*vary,z:p.z,
+        sx:.13,sy:1.48*vary,sz:.13,rz:(rand()-.5)*.035});
+      if(previousEnd!==i)posts.push(post(aa));
+      posts.push(post(bb));
+      previousEnd=i+step;
+      const midpoint={x:(aa.x+bb.x)*.5,y:(aa.y+bb.y)*.5,
+        z:(aa.z+bb.z)*.5,yaw,pitch};
+      upper.push({...midpoint,y:midpoint.y+1.12*vary,
+        sx:.105,sy:.145,sz:length+.12});
+      lower.push({...midpoint,y:midpoint.y+.65*vary,
+        sx:.095,sy:.13,sz:length+.12});
+      wire.push({...midpoint,y:midpoint.y+.37*vary,
+        sx:.023,sy:.023,sz:length+.12});
+      const rotation=new CANNON.Quaternion();
+      rotation.setFromAxisAngle(new CANNON.Vec3(0,1,0),yaw);
+      body.addShape(new CANNON.Box(new CANNON.Vec3(.065,.45,(horizontal+.12)*.5)),
+        new CANNON.Vec3(midpoint.x,midpoint.y+.87,midpoint.z),rotation);
+    }
+    if(!upper.length)return;
+    // Muted rough timber and very thin fence wire, never flat gold blocks.
+    this.instances('Vedação rural · postes',new THREE.CylinderGeometry(.13,.16,1,7),
+      materials.wood,posts,true);
+    this.instances('Vedação rural · travessa superior',new THREE.BoxGeometry(1,1,1),
+      materials.wood,upper);
+    this.instances('Vedação rural · travessa inferior',new THREE.BoxGeometry(1,1,1),
+      materials.wood,lower);
+    this.instances('Vedação rural · fio metálico',new THREE.BoxGeometry(1,1,1),
+      materials.steel,wire);
+    this.physics.addBody(body);this.bodies.push(body);
+    this.statistics.woodFencePosts+=posts.length;
+    this.statistics.woodFenceRails+=upper.length+lower.length;
   }
 
   highway(road){
@@ -334,6 +421,7 @@ export class RoadEnvironment {
       const side=rng()>.5?1:-1;
       const p=position(road,index,side*(road.width*.5+4+rng()*12),this.terrainY);
       const size=.32+rng()*1.7;
+      if(this.clearance&&!this.clearance.plantAllowed(p.x,p.z,'rock',size*.5))continue;
       rocks.push({...p,y:this.terrainY(p.x,p.z)+size*.24,
         sx:size,sy:size*.67,sz:size*.92,yaw:rng()*Math.PI*2});
     }
@@ -347,15 +435,8 @@ export class RoadEnvironment {
   }
 
   rural(road){
-    const n=road.points.length-1,posts=[];
-    for(let i=7;i<n-7;i+=7){
-      for(const side of [-1,1]){
-        const p=position(road,i,side*(road.width*.5+3.25),this.terrainY);
-        posts.push({...p,y:this.terrainY(p.x,p.z)+.64,sx:.13,sy:1.28,sz:.13});
-      }
-    }
-    this.instances('Vedação rural · postes',
-      new THREE.BoxGeometry(1,1,1),materials.wood,posts);
+    const n=road.points.length-1;
+    for(const side of [-1,1])this.woodFence(road,side,6,n-6,3);
     // Native shrubs follow the actual rural route, with enough distance from
     // the outer lane to keep the driving corridor accessible.
     const shrubs=[],rng=deterministic(77117);
@@ -365,6 +446,8 @@ export class RoadEnvironment {
         const offset=side*(road.width*.5+4.7+rng()*6.5);
         const p=position(road,i,offset,this.terrainY);
         const scale=.38+rng()*.93;
+        if(this.clearance&&!this.clearance.plantAllowed(p.x,p.z,
+          'roadsideShrub',scale*.6))continue;
         shrubs.push({...p,y:this.terrainY(p.x,p.z)+.012,
           sx:scale*.88,sy:scale*.89,sz:scale,
           yaw:rng()*Math.PI*2,

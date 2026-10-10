@@ -82,9 +82,12 @@ export class DrivingWorld {
     this.network = new RoadNetwork(this.scene,this.physics,groundHeight,
       this.roadPoints,this.roadWidth,this.quality);
     this.network.roads[0].mesh=this.roadMesh;
+    // Roads, junctions and POI entrances share ONE clearance mask.
+    this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
+    this.roadside=new RoadsideClearance(this.network,this.sectors.regions);
     this.buildRoadside();
     this.roadEnvironment=new RoadEnvironment(this.scene,this.physics,this.network,
-      groundHeight,this.quality);
+      groundHeight,this.quality,this.roadside);
     this.roadSignage=new RoadSignage(this.scene,this.network,this.quality);
     this.testArea=new DrivingTestArea(this.scene,this.physics,this.network,groundHeight);
     const testRoad=this.network.roads.find(r=>r.id==='provas');
@@ -95,9 +98,8 @@ export class DrivingWorld {
     }
     this.buildScenery();
     this.buildStreetLights();
-    this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
     this.details = new WorldDetails(this.scene, this.roadPoints, this.roadWidth,
-      groundHeight, this.quality, null);
+      groundHeight, this.quality, null, this.roadside);
     this.buildRain();
     this.updateAtmosphere();
   }
@@ -299,7 +301,7 @@ export class DrivingWorld {
       seed:20261010,
       terrainY:groundHeight,
       distanceToRoad:(x,z)=>this.distanceToRoad(x,z),
-      isNearRoad:(x,z)=>this.network.query(x,z).distance<24
+      isNearRoad:(x,z)=>!this.roadside.plantAllowed(x,z,'tree',2)
     });
     // Rock transforms remain independent of the new forest batches.
     const dummy = new THREE.Object3D();
@@ -331,8 +333,9 @@ export class DrivingWorld {
     let count = 0;
     for (let i = 0; i < 500 && count < 140; i++) {
       const x = (random() - 0.5) * 1800, z = (random() - 0.5) * 1800;
-      if (this.distanceToRoad(x, z) < 16 || this.network.query(x,z).distance < 12) continue;
       const size = 0.4 + random() * 2.4;
+      if (!this.roadside.plantAllowed(x,z,'rock',size*.75)||
+          this.distanceToRoad(x,z)<16) continue;
       dummy.position.set(x, groundHeight(x, z) + size * 0.15, z);
       dummy.rotation.set(random(), random() * TAU, random());
       dummy.scale.set(size, size * 0.6, size * 1.1);

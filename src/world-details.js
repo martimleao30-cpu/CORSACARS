@@ -36,12 +36,13 @@ function windMaterial(color, amplitude = 0.12) {
 }
 
 export class WorldDetails {
-  constructor(scene, roadPoints, roadWidth, terrainY, quality = 'high', trees = null) {
+  constructor(scene, roadPoints, roadWidth, terrainY, quality = 'high', trees = null, clearance = null) {
     this.scene = scene;
     this.points = roadPoints;
     this.width = roadWidth;
     this.terrainY = terrainY;
     this.quality = quality;
+    this.clearance = clearance;
     this.elapsed = 0;
     this.wetness = 0;
     this.grassPatches = [];
@@ -64,7 +65,9 @@ export class WorldDetails {
   }
 
   buildGuardrails() {
-    if (this.quality === 'low') return;
+    // The actual game uses crossing-aware barriers built from RoadEnvironment.
+    // Keep the legacy visual ring only for standalone scenery tests.
+    if (this.clearance || this.quality === 'low') return;
     // Follow curved outer road edges with individual steel beams.
     const beamGeometry = new THREE.BoxGeometry(0.09, 0.36, 1);
     const postGeometry = new THREE.BoxGeometry(0.14, 1.28, 0.15);
@@ -187,6 +190,7 @@ export class WorldDetails {
       const distance = (rand() < .5 ? -1 : 1) * (this.width/2 + 6 + rand()*47);
       const x = point.center.x + point.side.x*distance + (rand()-.5)*9;
       const z = point.center.z + point.side.z*distance + (rand()-.5)*9;
+      if(this.clearance&&!this.clearance.plantAllowed(x,z,'grass',.9))continue;
       const tileX = Math.floor(x/tileSize), tileZ = Math.floor(z/tileSize);
       const key = tileX+','+tileZ;
       if (!buckets.has(key)) buckets.set(key,[]);
@@ -239,19 +243,24 @@ export class WorldDetails {
     const shrubs=new THREE.InstancedMesh(geometry,material,count);
     const t=new THREE.Object3D();
     const palettes=[C(0x8b997e),C(0x829b80),C(0x8c9a7d),C(0x7f947b)];
+    let placed=0;
     for(let i=0;i<count;i++) {
       const p=this.points[Math.floor(rand()*(this.points.length-1))];
       const side=(rand()<.5?-1:1)*(this.width/2+8+rand()*85);
       const x=p.center.x+p.side.x*side;
       const z=p.center.z+p.side.z*side;
       const scale=.5+rand()*1.15;
+      if(this.clearance&&!this.clearance.plantAllowed(x,z,'shrub',scale*.7))continue;
       t.position.set(x,this.terrainY(x,z)+.012,z);
       t.rotation.set(rand()*.35,rand()*TAU,rand()*.35);
       t.scale.set(scale*.95,scale*.88,scale);
       t.updateMatrix();
-      shrubs.setMatrixAt(i,t.matrix);
-      shrubs.setColorAt(i,palettes[Math.floor(rand()*palettes.length)]);
+      shrubs.setMatrixAt(placed,t.matrix);
+      shrubs.setColorAt(placed,palettes[Math.floor(rand()*palettes.length)]);
+      placed++;
     }
+    shrubs.count=placed;
+    shrubs.userData.baseCount=placed;
     shrubs.instanceMatrix.needsUpdate=true;
     shrubs.instanceColor.needsUpdate=true;
     shrubs.receiveShadow=true;
@@ -273,20 +282,25 @@ export class WorldDetails {
     );
     const palettes=[C(0xe8d6ac),C(0xc8b4ba),C(0xa6a6bc),C(0xf0e5d1)];
     const t=new THREE.Object3D();
+    let placed=0;
     for(let i=0;i<amount;i++){
       const point=this.points[Math.floor(rand()*(this.points.length-1))];
       const side=(rand()<.5?-1:1)*(this.width/2+9+rand()*42);
       const x=point.center.x+point.side.x*side;
       const z=point.center.z+point.side.z*side;
+      if(this.clearance&&!this.clearance.plantAllowed(x,z,'flower',.22))continue;
       const y=this.terrainY(x,z);
       const h=.6+rand()*.45;
       t.position.set(x,y+h*.32,z);
       t.scale.set(1,h,1);t.rotation.set(0,rand()*TAU,0);t.updateMatrix();
-      stem.setMatrixAt(i,t.matrix);
+      stem.setMatrixAt(placed,t.matrix);
       t.position.y=y+h*.85;t.scale.set(.55+rand()*.34,1,.55+rand()*.34);t.updateMatrix();
-      bloom.setMatrixAt(i,t.matrix);
-      bloom.setColorAt(i,palettes[Math.floor(rand()*palettes.length)]);
+      bloom.setMatrixAt(placed,t.matrix);
+      bloom.setColorAt(placed,palettes[Math.floor(rand()*palettes.length)]);
+      placed++;
     }
+    for(const mesh of [stem,bloom]){mesh.count=placed;mesh.userData.baseCount=placed;}
+    this.flowerMeshes=[stem,bloom];
     for(const mesh of [stem,bloom])mesh.instanceMatrix.needsUpdate=true;
     bloom.instanceColor.needsUpdate=true;
     this.scene.add(stem,bloom);
@@ -334,7 +348,9 @@ export class WorldDetails {
     for (const patch of this.grassPatches) {
       patch.mesh.count = Math.max(1,Math.floor(patch.mesh.instanceMatrix.count*f));
     }
-    if(this.shrubs)this.shrubs.count=Math.max(1,Math.floor(this.shrubs.instanceMatrix.count*f));
+    if(this.shrubs)this.shrubs.count=Math.floor((this.shrubs.userData.baseCount??this.shrubs.count)*f);
+    for(const mesh of this.flowerMeshes||[])
+      mesh.count=Math.floor((mesh.userData.baseCount??mesh.count)*f);
   }
 
   update(dt, car, weather, hour, paused=false) {
