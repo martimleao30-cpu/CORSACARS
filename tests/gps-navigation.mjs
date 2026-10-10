@@ -39,4 +39,30 @@ assert.ok(status.textContent.includes('CAFÉ'));
 assert.ok(cmds.some(c=>c.p==='clearRect'),'GPS must remain transparent');
 assert.equal(gps.setDestination('unknown'),false);
 assert.equal(gps.destinationId,null);
-console.log('PASS: heading-up transparent GPS, crossing-aware routes, destination changes and HUD drawing.');
+// The complete game's ring and all POI roads must form one navigable graph.
+globalThis.document={createElement(){return {width:64,height:64,getContext(){
+  return {createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
+    putImageData(){},fillText(){},fillRect(){},strokeRect(){}};
+}};}};
+const CANNON=await import('cannon-es');
+const {RoadNetwork}=await import('../src/road-network.js');
+const {WorldSectors}=await import('../src/world-sectors.js');
+const ring=[];
+for(let i=0;i<=420;i++){
+  const a=i/420*2*Math.PI;
+  ring.push({center:new THREE.Vector3(Math.cos(a)*400,0,Math.sin(a)*400),
+    tangent:new THREE.Vector3(-Math.sin(a),0,Math.cos(a))});
+}
+const city=new RoadNetwork(new THREE.Scene(),new CANNON.World(),()=>0,ring,13.5,'low');
+const sectors=new WorldSectors(new THREE.Scene(),new CANNON.World(),city,()=>0);
+const liveGraph=buildNavigationGraph(city);
+const spawn=liveGraph.closest(city.roads[0],
+  city.roads[0].points[5].x,city.roads[0].points[5].z);
+for(const site of sectors.regions){
+  const goal=liveGraph.closest(city.roads.find(r=>r.id===site.road),
+    site.roadPoint.x,site.roadPoint.z);
+  const computed=shortestRoute(liveGraph,spawn,goal);
+  assert.ok(computed?.points.length>2,'All POIs must be reachable from spawn: '+site.name);
+  assert.ok(computed.length>15,'A real route must cover a measurable distance');
+}
+console.log('PASS: heading-up transparent GPS, crossing-aware routes, all POI destinations and HUD drawing.');
