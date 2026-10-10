@@ -50,14 +50,23 @@ export const REGIONAL_LINKS = Object.freeze([
       [-1710,780],[-1270,830],[-720,620]]}
 ]);
 
-function materialFor(surface,quality,routeId='') {
+function materialFor(surface,quality,routeId='',category='') {
   if(surface==='gravel'||surface==='dirt'){
     const mat=createGravelMaterial();
     if(surface==='dirt')mat.color.set(0xbca17d);
     return mat;
   }
-  // Continuous asphalt colour and roughness across roads and junctions.
-  return createAsphaltMaterial(quality,'aged');
+  // Higher native PBR texel density on mountainous roads, without changing
+  // the albedo family used at the junctions or the road collision mesh.
+  const mountain=category==='mountain';
+  const textureQuality=mountain&&quality==='high'?'ultra':
+    mountain&&quality==='medium'?'high':quality;
+  const mat=createAsphaltMaterial(textureQuality,'aged');
+  if(mountain){
+    mat.normalScale.set(.82,.82);
+    mat.userData.mountainDetail=true;
+  }
+  return mat;
 }
 function terrainRoadCurve(p,geometryHeight) {
   const point=p.clone();
@@ -99,8 +108,8 @@ export class RoadNetwork {
       // routes that may span several kilometres. Long, under-sampled curved
       // quads used to fold across hairpins and appear as buggy overlapping
       // road triangles; physics and visual deck use identical new samples.
-      const distanceStep=route.category==='mountain'?5.2:6;
-      const count=Math.max(140,Math.min(700,
+      const distanceStep=route.category==='mountain'?3.4:6;
+      const count=Math.max(140,Math.min(route.category==='mountain'?1150:700,
         Math.ceil(curve.getLength()/distanceStep)));
       const sample=u=>terrainRoadCurve(curve.getPointAt(u),this.terrainY);
       const points=[sample(0)];
@@ -118,7 +127,15 @@ export class RoadNetwork {
         append(a,points[points.length-1],b,sample(b));
       }
       const bed=createRoadBed(points,route.width,this.terrainY,route.from,route.surface);
-      const mat=materialFor(route.surface,this.quality,route.id);
+      if(route.category==='mountain'){
+        // More tiled photographic detail per metre than the wider highways.
+        // Scale *only* UVs, never geometry/colliders.
+        const uv=bed.top.getAttribute('uv');
+        for(let i=0;i<uv.count;i++)
+          uv.setXY(i,uv.getX(i)*1.5,uv.getY(i)*1.5);
+        uv.needsUpdate=true;
+      }
+      const mat=materialFor(route.surface,this.quality,route.id,route.category);
       const road=new THREE.Mesh(bed.top,mat);
       road.name=route.name;
       road.receiveShadow=true;
