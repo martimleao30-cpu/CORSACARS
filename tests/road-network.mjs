@@ -29,8 +29,13 @@ for(const road of network.roads){
   if(road.id==='circular')continue;
   if(road.from!==undefined)assert.equal(road.points[0].x,ring[road.from].center.x);
   assert.ok(road.mesh.geometry.index.count>30);
-  assert.equal(road.mesh.geometry.getAttribute('position').count,
-    road.points.length*7,'Road cross-section must be actual 3D geometry');
+  assert.equal((road.sourceGeometry||road.mesh.geometry).getAttribute('position').count,
+    road.points.length*7,'Road cross-section source must be actual 3D geometry');
+  if(road.junctionCuts?.length){
+    assert.equal(road.mesh.geometry.userData.junctionClipped,true,
+      'Intersecting road must use cut geometry, not stacked roadway slabs');
+    assert.ok(road.mesh.geometry.index.count>100);
+  }
   assert.ok(road.sides.geometry.index.count>0,'Visible roadbed side walls required');
   assert.equal(road.shoulders.length,2,'Both road shoulders must exist');
   if(road.surface==='dry'&&road.wear)assert.ok(road.wear.skids.count>0);
@@ -45,6 +50,16 @@ assert.equal(network.query(4000,4000).surface,'grass');
 assert.deepEqual(new Set(REGIONAL_LINKS.map(r=>r.category)),
   new Set(['urban','highway','mountain','rural','dirt','test']));
 assert.equal(network.connectors.length,3,'Town side road plus motorway on/off ramps');
+assert.ok(network.junctions.length>=3,'At-grade X/T crossings must be detected');
+assert.ok(network.junctions.some(j=>j.secondary.id==='rua-lateral'),
+  'Side street must join its parent without duplicated triangles');
+for(const junction of network.junctions){
+  assert.ok(junction.halfU>1&&junction.halfV>1);
+  assert.ok(junction.angle>.25);
+  assert.notEqual(junction.primary.id,junction.secondary.id);
+}
+assert.equal(physics.bodies.length,network.roads.length-1,
+  'Trimming intersections must preserve one collision body per road');
 assert.ok(network.roads.find(r=>r.id==='rural').mesh.material.userData.variant==='worn');
 assert.ok(network.roads.some(r=>r.surface==='dirt'),
   'Driveable physical dirt route must be present');

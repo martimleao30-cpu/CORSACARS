@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {createAsphaltMaterial,createGravelMaterial} from './materials.js';
 import {createRoadBed,addRoadSides,addRoadWear,addRoadShoulders} from './road-upgrades.js';
+import {resolveRoadJunctions} from './road-junctions.js';
 
 // First expandable playable region: each link begins and ends on the legacy
 // ring. Keeping the old road preserves saved spawn positions and old sessions.
@@ -60,6 +61,7 @@ export class RoadNetwork {
     this.materials=new Map();
     this.buildLinks(ringPoints);
     this.buildConnectors(ringPoints);
+    this.resolveJunctions();
     this.buildSurfaceIndex();
   }
 
@@ -162,6 +164,10 @@ export class RoadNetwork {
       this.roads.push(item);this.connectors.push(item);
       this.materials.set(def.id,mat);
     }
+  }
+
+  resolveJunctions(){
+    return resolveRoadJunctions(this,this.physics);
   }
 
   setWetness(wetness) {

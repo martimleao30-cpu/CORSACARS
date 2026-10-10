@@ -441,3 +441,16 @@ as lentes LED deixam de emitir luz e as luzes reais desligam. A estação de
 serviço mantém a sua iluminação específica. Tudo é configurável por
 qualidade gráfica; o teste `tests/modern-road-lighting.mjs` valida
 posicionamento, geometria, alternância dia/noite e limpeza dos recursos.
+
+
+## Pavimento de cruzamentos e prevenção de estradas sobrepostas
+
+`src/road-junctions.js` identifica cruzamentos ao nível do solo entre todas
+as vias, e atribui uma hierarquia entre os respetivos pavimentos. O eixo
+principal mantém uma superfície contínua; o pavimento secundário é cortado
+com precisão ao longo da faixa principal para criar entroncamentos e
+cruzamentos sem duas superfícies sobrepostas. Os muros laterais, bermas,
+marcações e colisores Cannon são igualmente recortados. Os pavimentos
+originais são preservados como fonte de amostragem das marcações para não
+perder a precisão das faixas em curvas. A separação por altura impede
+tratar falsamente passagens superiores como cruzamentos ao mesmo nível.

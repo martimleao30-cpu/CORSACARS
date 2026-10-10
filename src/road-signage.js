@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {ROAD_SECTION} from './road-upgrades.js';
+import {clipGeometryAtJunctions} from './road-junctions.js';
 
 // Paint is projected on the EXACT road deck vertices, not a second terrain
 // height calculation or long BoxGeometry floating above steep curved roads.
@@ -9,7 +10,7 @@ const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 
 export function createRoadSampler(road){
   if(!road?.mesh?.geometry?.getAttribute('position'))throw new Error('Road needs a rendered 3D deck');
-  const attribute=road.mesh.geometry.getAttribute('position');
+  const attribute=(road.sourceGeometry||road.mesh.geometry).getAttribute('position');
   const stride=ROAD_SECTION.length;
   if(attribute.count!==road.points.length*stride)
     throw new Error('Road paint must match the original cross section');
@@ -184,7 +185,18 @@ export class RoadSignage {
     for(const road of network.roads) {
       if(road.surface==='dirt'||road.surface==='gravel')continue;
       if(!road.mesh)continue;
+      const before=this.meshes.length;
       this.buildRoad(road);
+      // Paint cannot float above the master carriageway at T/X junctions.
+      if(road.junctionCuts?.length){
+        for(const mesh of this.meshes.slice(before)){
+          const trimmed=clipGeometryAtJunctions(mesh.geometry,road.junctionCuts);
+          if(trimmed){
+            mesh.geometry.dispose();
+            mesh.geometry=trimmed;
+          }
+        }
+      }
     }
   }
 
