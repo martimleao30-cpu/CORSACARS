@@ -448,8 +448,36 @@ function createDiagnostics(){
     ].join('\n');
   }};
 }
+function createCoordinateOverlay() {
+  const node=document.createElement('div');
+  node.id='coordinateOverlay';
+  node.hidden=true;
+  node.setAttribute('aria-live','off');
+  node.style.cssText=[
+    'position:fixed;top:76px;left:22px;z-index:12',
+    'min-width:188px;padding:12px 15px;border:1px solid rgba(185,199,215,.3)',
+    'border-radius:10px;background:rgba(10,16,26,.89)',
+    'box-shadow:0 8px 30px rgba(0,0,0,.25)',
+    'color:#ecf2ff;font:12px/1.6 monospace;white-space:pre-line',
+    'pointer-events:none;backdrop-filter:blur(10px)'
+  ].join(';');
+  document.body.appendChild(node);
+  return {node,update(position) {
+    if(node.hidden)return;
+    const fmt=value=>Number.isFinite(value)?value.toFixed(2):'—';
+    node.textContent=[
+      'COORDENADAS · F6 PARA FECHAR',
+      'X: '+fmt(position.x),
+      'Y: '+fmt(position.y)+' (ALTURA)',
+      'Z: '+fmt(position.z)
+    ].join('\\n');
+  }};
+}
+const coordinates=createCoordinateOverlay();
 window.addEventListener('keydown',e=>{
+  if(e.repeat || ['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
   if(e.key==='F3'){e.preventDefault();diagnostics.node.hidden=!diagnostics.node.hidden;}
+  if(e.key==='F6'){e.preventDefault();coordinates.node.hidden=!coordinates.node.hidden;coordinates.update(car.getPosition());}
 });
 
 function resize() {
@@ -594,6 +622,7 @@ function frame(now) {
   ui.updateTelemetry(telemetry,controls.handbrake);
   $('hudState').textContent = telemetry.gearbox + ' · '+car.spec.drivetrain+' · '+(telemetry.surface||'ASFALTO').toUpperCase();
   diagnostics.update(telemetry,physicsStepMs,world.network?.roads.length||1);
+  coordinates.update(car.getPosition());
   const nearby=active&&world.sectors?.nearby(car.getPosition(),43);
   poiHint.hidden=!nearby;
   if(nearby)poiHint.textContent='F · '+nearby.name.toUpperCase()+' · INTERAGIR';
