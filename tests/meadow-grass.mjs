@@ -69,4 +69,29 @@ const original=details.grassPatches.reduce((n,p)=>n+p.mesh.count,0);
 details.setDensity(.25);
 const quarter=details.grassPatches.reduce((n,p)=>n+p.mesh.count,0);
 assert.ok(quarter<original*.38 && quarter>0,'Quality slider still reduces density');
-console.log('PASS: bent meadow geometry, dry/green gradients, realistic verges, clearance, wind and instanced culling.');
+// Integration: verify every tuft stays beyond both a curved carriageway
+// and an independent road that intersects it.
+const {RoadsideClearance}=await import('../src/roadside-clearance.js');
+const actualMask=new RoadsideClearance({roads:[
+  {id:'circular',width:13.5,points:points.map(p=>p.center)},
+  {id:'cross-road',width:10,points:[
+    new THREE.Vector3(-245,0,0),new THREE.Vector3(245,0,0)
+  ]}
+]});
+const live=new WorldDetails(new THREE.Scene(),points,13.5,()=>0,'low',null,actualMask);
+assert.ok(live.grassStatistics.planted>100,'Natural grass should grow on legal verges');
+const walk=new THREE.Matrix4(),position=new THREE.Vector3();
+let scanned=0;
+for(const patch of live.grassPatches){
+  for(let i=0;i<patch.mesh.count;i++){
+    patch.mesh.getMatrixAt(i,walk);
+    position.setFromMatrixPosition(walk);
+    assert.ok(actualMask.roadProximity(position.x,position.z).edge>=3.75-1e-4,
+      'A tuft footprint must not overlap the road or shoulder');
+    assert.equal(actualMask.nearJunction(position.x,position.z,1.95),false,
+      'Tuft must not occupy the intersection between the two roads');
+    scanned++;
+  }
+}
+assert.equal(scanned,live.grassStatistics.planted);
+console.log('PASS: bent meadow geometry, dry/green gradients, realistic verges, real-road clearance, wind and instanced culling.');
