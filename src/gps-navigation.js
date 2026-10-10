@@ -63,7 +63,13 @@ export function buildNavigationGraph(network){
       if(best>=0&&distance<Math.max(12,road.width*1.3))edge(end,best,Math.max(1,distance));
     }
   }
-  return {nodes,roadNodeIds,edges,closest};
+  const cellSize=96,spatialCells=new Map();
+  for(const node of nodes){
+    const key=Math.floor(node.point.x/cellSize)+','+Math.floor(node.point.z/cellSize);
+    if(!spatialCells.has(key))spatialCells.set(key,[]);
+    spatialCells.get(key).push(node);
+  }
+  return {nodes,roadNodeIds,edges,closest,spatialCells,cellSize};
 }
 export function shortestRoute(graph,start,goal){
   if(start<0||goal<0)return null;
