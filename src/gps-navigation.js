@@ -148,7 +148,10 @@ export class NavigationHUD{
     this.destinationId=region?.id||null;
     this.targetNode=region?this.closestNode(region.roadPoint||region.point):-1;
     this.currentNode=-1;this.route=null;
-    if(this.status)this.status.textContent=region?'RUMO A '+region.name.toUpperCase():'EXPLORAÇÃO LIVRE';
+    if(this.status){
+      this.status.textContent=region?'RUMO A '+region.name.toUpperCase():'EXPLORAÇÃO LIVRE';
+      this.status.hidden=!region;
+    }
     return Boolean(region);
   }
   closestNode(position){
