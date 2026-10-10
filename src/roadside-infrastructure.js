@@ -12,6 +12,7 @@ export class RoadsideInfrastructure{
     this.scene=scene;this.physics=physics;this.network=network;
     this.terrainY=terrainY;this.clearance=clearance;this.quality=quality;
     this.groups=[];this.bodies=[];this.textures=[];this.signMaterials=[];
+    this.busBayGeometries=[];this.busBayMaterials=[];
     this.geometries={
       box:new THREE.BoxGeometry(1,1,1),
       cylinder:new THREE.CylinderGeometry(1,1,1,10),
@@ -31,7 +32,8 @@ export class RoadsideInfrastructure{
     this.stats={
       stops:0,informationKiosks:0,gantries:0,emergencyCabinets:0,
       distanceMarkers:0,directionBoards:0,wayfindingSigns:0,
-      delineators:0,structures:0,placedSafely:0,rejected:0,colliders:0
+      delineators:0,structures:0,placedSafely:0,rejected:0,colliders:0,
+      busBays:0,busPainted:0
     };
     this.build();
   }
@@ -131,32 +133,108 @@ export class RoadsideInfrastructure{
     plane.position.z+=.065;
     this.stats.directionBoards++;
   }
-  // Stops serve actual communities, not arbitrary percentages along a road.
-  // Keep 28–120 m away from the actual POI's driveway and remain walkable.
-  stopLocation(road,region,side,lead=1){
-    let nearest=0,best=Infinity;
-    for(let i=0;i<road.points.length;i++){
-      const p=road.points[i],d=(p.x-region.roadPoint.x)**2+
-        (p.z-region.roadPoint.z)**2;
-      if(d<best){best=d;nearest=i;}
-    }
-    const stepOrder=[7,9,11,13,15,18,21,24,28,32];
-    if(!Number.isFinite(side)||Math.abs(side)!==1)return null;
-    for(const direction of [lead,-lead]){
-      for(const steps of stepOrder){
-        const i=nearest+steps*direction;
-        if(i<5||i>=road.points.length-5)continue;
-        const p=this.candidate(road,i,side,road.width*.5+10.4);
-        const distance=Math.hypot(p.x-region.roadPoint.x,p.z-region.roadPoint.z);
-        if(distance<27||distance>127)continue;
-        if(this.allowed(p,7)){
-          this.stats.placedSafely++;
-          return {...p,poiId:region.id,poiDistance:distance};
-        }
-        this.stats.rejected++;
+  // All passenger stops use the shared clearance plan. This keeps a
+  // planned bus bay separate from another junction, driveway or rail guard.
+  stopLocation(road,region,side){
+    const site=this.clearance?.busBays?.find(bay=>
+      bay.roadId===road.id&&bay.regionId===region.id&&bay.side===side);
+    if(!site)return null;
+    const p=this.candidate(road,site.index,side,site.offset);
+    this.stats.placedSafely++;
+    return {...p,poiId:region.id,poiDistance:site.poiDistance,
+      busBay:site};
+  }
+  buildBusBay(root,p){
+    const road=p.road,site=p.busBay;
+    if(!site)return;
+    const offset=road.width*.5;
+    const sections=[],positions=[],uv=[],color=[],indices=[];
+    root.updateMatrixWorld(true);
+    for(let j=-11;j<=11;j++){
+      const distance=j*2,relative=Math.abs(distance);
+      const t=clamp((22-relative)/10,0,1);
+      const taper=t*t*(3-2*t);
+      const bayWidth=.12+3.65*taper;
+      const sample=this.clearance.alongRoad(road,p.index,distance);
+      const tangent=this.tangent(road,p.index);
+      const nx=-tangent.z*p.side,nz=tangent.x*p.side;
+      for(const f of [0,.32,.67,1]){
+        const lateral=offset-.16+bayWidth*f;
+        const x=sample.x+nx*lateral,z=sample.z+nz*lateral;
+        const y=this.terrainY(x,z)+.209-.068*f+.006;
+        const v=root.worldToLocal(new THREE.Vector3(x,y,z));
+        positions.push(v.x,v.y,v.z);
+        uv.push((distance+22)/5,lateral/5);
+        color.push(.99,.99,.99);
+      }
+      sections.push(bayWidth);
+      if(j===11)continue;
+      const row=(j+11)*4;
+      for(let k=0;k<3;k++){
+        const a=row+k,b=a+4;
+        // Correct triangle winding for the mesh collider/raycast wheel hits.
+        indices.push(a,a+1,b,a+1,b+1,b);
       }
     }
-    return null;
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+    geometry.setAttribute('color',new THREE.Float32BufferAttribute(color,3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
+    geometry.userData.corsaBusBay=true;
+    this.busBayGeometries.push(geometry);
+    // Reuse the same photographic/procedural tarmac as the parent road.
+    const mesh=new THREE.Mesh(geometry,road.mesh?.material||this.materials.dark);
+    mesh.name='Baía de autocarro · asfalto transitável';
+    mesh.receiveShadow=true;root.add(mesh);
+    root.updateMatrixWorld(true);
+    const colliderVertices=[];
+    for(let i=0;i<positions.length;i+=3){
+      const world=root.localToWorld(new THREE.Vector3(
+        positions[i],positions[i+1],positions[i+2]));
+      colliderVertices.push(world.x,world.y,world.z);
+    }
+    const body=new CANNON.Body({mass:0,material:new CANNON.Material('dry')});
+    body.addShape(new CANNON.Trimesh(colliderVertices,indices));
+    this.physics.addBody(body);this.bodies.push(body);this.stats.colliders++;
+    // BUS painted on the asphalt. Letters are arranged longitudinally so
+    // they remain legible from the driver's approach direction.
+    const canvas=document.createElement('canvas');
+    canvas.width=512;canvas.height=1024;
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect?.(0,0,512,1024);
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font='900 260px sans-serif';ctx.fillStyle='#f3f3eb';
+    for(const [i,letter] of [...'BUS'].entries())
+      ctx.fillText(letter,256,190+i*322);
+    const tex=new THREE.CanvasTexture(canvas);
+    tex.colorSpace=THREE.SRGBColorSpace;
+    tex.anisotropy=8;this.textures.push(tex);
+    const material=new THREE.MeshBasicMaterial({map:tex,transparent:true,
+      depthWrite:false,side:THREE.DoubleSide,
+      polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+    this.busBayMaterials.push(material);
+    const paintGeo=new THREE.PlaneGeometry(2.5,6.2);
+    paintGeo.rotateX(-Math.PI/2);
+    this.busBayGeometries.push(paintGeo);
+    const paint=new THREE.Mesh(paintGeo,material);
+    paint.name='BUS · inscrição branca no pavimento';
+    const markOffset=offset+1.67;
+    const localX=p.side*(site.offset-markOffset);
+    const tangent=p.tangent;
+    const wx=road.points[p.index].x-tangent.z*p.side*markOffset;
+    const wz=road.points[p.index].z+tangent.x*p.side*markOffset;
+    paint.position.set(localX,this.terrainY(wx,wz)+.190-p.y,0);
+    paint.renderOrder=2;
+    root.add(paint);
+    root.userData.busBay=true;
+    root.userData.bayLengthM=44;
+    root.userData.bayWidthM=3.77;
+    root.userData.bayBody=body;
+    this.stats.busBays++;
+    this.stats.busPainted++;
   }
   shelter(road,region,side,lead=1){
     const p=this.stopLocation(road,region,side,lead);
@@ -166,9 +244,10 @@ export class RoadsideInfrastructure{
     root.userData.servesPOI=region.id;
     root.userData.poiDistance=p.poiDistance;
     root.userData.roadId=road.id;
+    this.buildBusBay(root,p);
     // Marked pedestrian link from the shelter to the road shoulder. Small
     // segments follow the actual terrain; never a floating 10m slab.
-    for(let step=1;step<=5;step++){
+    for(let step=1;step<=4;step++){
       const localX=p.side*(step*1.55);
       const direction=new THREE.Vector3(Math.cos(p.yaw),0,-Math.sin(p.yaw));
       const px=p.x+direction.x*localX,pz=p.z+direction.z*localX;
@@ -357,6 +436,8 @@ export class RoadsideInfrastructure{
     for(const body of this.bodies)this.physics.removeBody(body);
     for(const obj of this.groups)this.scene.remove(obj);
     for(const geo of Object.values(this.geometries))geo.dispose();
+    for(const geo of this.busBayGeometries)geo.dispose();
+    for(const mat of this.busBayMaterials)mat.dispose();
     for(const mat of Object.values(this.materials))mat.dispose();
     for(const mat of this.signMaterials)mat.dispose();
     for(const tex of this.textures)tex.dispose();
