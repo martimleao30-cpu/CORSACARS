@@ -48,6 +48,14 @@ assert.ok(wetFriction<dryFriction,'Water must decrease effective wheel friction'
 assert.ok(car.chassis.velocity.length()<v1,'Braking must reduce physical velocity');
 assert.ok(car.lastDiagnostics.suspension.length===4);
 assert.ok(car.lastDiagnostics.wheelSlip.length===4);
+assert.ok(car.lastDiagnostics.wheelLoads?.length===4,
+  'Every wheel should report a contact-load transfer factor');
+assert.ok(car.lastDiagnostics.wheelLoads.every(n=>n>=.65&&n<=1.35),
+  'Wheel loads must remain stable at high engine and brake forces');
+assert.ok(Number.isFinite(car.lastDiagnostics.longitudinalAcceleration));
+assert.ok(Number.isFinite(car.lastDiagnostics.lateralAcceleration));
+assert.ok(car.vehicle.wheelInfos.every(w=>Number.isFinite(w.frictionSlip)&&w.frictionSlip>0),
+  'Physical grip must remain positive for every tyre on wet road');
 assert.ok(car.lastDiagnostics.surface==='wet');
 car.manual=true;
 car.gear=1;
