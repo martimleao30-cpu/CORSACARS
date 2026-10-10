@@ -82,7 +82,8 @@ export class HighwayDrainage{
       const offset=road.width*.5+profile.outerShoulder+3.15;
       for(const sign of [-1,1]){
         const vertices=[],uv=[],colors=[],indices=[],waterPos=[],waterUv=[],
-          waterDir=[],waterIndex=[],inlets=[];
+          waterDir=[],waterIndex=[],inlets=[],
+          runoffPos=[],runoffUv=[],runoffDir=[],runoffIndices=[];
         let distance=0,previous=null;
         let lastInlet=-Infinity;
         const stations=[];
@@ -126,6 +127,28 @@ export class HighwayDrainage{
             lastInlet=distance;
             const pos=new THREE.Vector3(cx,this.terrainY(cx,cz)+.38,cz);
             inlets.push({position:pos,yaw:Math.atan2(side.dx,side.dz)});
+            // Surface runoff crosses the outer grass/gravel strip and
+            // drops into the collector. All inlets share ONE combined
+            // animated geometry to avoid per-gully GPU draw calls.
+            const span=offset-(road.width*.5+profile.outerShoulder+.8);
+            const base=runoffPos.length/3;
+            for(let j=0;j<=7;j++){
+              const t=j/7,lateral=offset-span*(1-t);
+              const rx=p.x+side.x*lateral*sign;
+              const rz=p.z+side.z*lateral*sign;
+              const elevation=this.terrainY(rx,rz)+.13+
+                .16*Math.pow(1-t,1.4);
+              for(const across of [-.12,.12]){
+                runoffPos.push(rx+side.dx*across,elevation,
+                  rz+side.dz*across);
+                runoffUv.push(across/.24+.5,t*3.1);
+                runoffDir.push(1);
+              }
+              if(j>0){
+                const v=base+(j-1)*2,w=base+j*2;
+                runoffIndices.push(v,w,v+1,v+1,w,w+1);
+              }
+            }
           }
         }
         if(!indices.length)continue;
@@ -158,6 +181,22 @@ export class HighwayDrainage{
         water.name='Água pluvial a escoar pela canaleta';
         water.renderOrder=2;water.visible=false;
         this.group.add(water);
+        const runoffGeo=new THREE.BufferGeometry();
+        runoffGeo.setAttribute('position',
+          new THREE.Float32BufferAttribute(runoffPos,3));
+        runoffGeo.setAttribute('uv',new THREE.Float32BufferAttribute(runoffUv,2));
+        runoffGeo.setAttribute('flowDirection',
+          new THREE.Float32BufferAttribute(runoffDir,1));
+        runoffGeo.setIndex(runoffIndices);
+        if(runoffIndices.length){
+          runoffGeo.computeVertexNormals();
+          runoffGeo.computeBoundingSphere();
+        }
+        this.geometry.push(runoffGeo);
+        const runoff=new THREE.Mesh(runoffGeo,this.waterMat);
+        runoff.name='Escoamento transversal da berma para as valetas';
+        runoff.renderOrder=2;runoff.visible=false;
+        this.group.add(runoff);
         const grates=new THREE.InstancedMesh(inletGeometry,this.grateMat,
           Math.max(1,inlets.length));
         grates.name='Autoestrada · grelhas metálicas dos coletores pluviais';
@@ -173,7 +212,7 @@ export class HighwayDrainage{
         this.group.add(grates);
         this.inletCount+=inlets.length;
         this.meshCount++;
-        this.channels.push({road,sign,mesh,water,grates,
+        this.channels.push({road,sign,mesh,water,runoff,grates,
           segmentCount:indices.length/6,offset});
       }
     }
@@ -192,7 +231,10 @@ export class HighwayDrainage{
     this.waterMat.uniforms.uRain.value=this.rainfall;
     this.waterMat.uniforms.uLevel.value=this.level;
     const show=this.level>.025;
-    for(const channel of this.channels)channel.water.visible=show;
+    for(const channel of this.channels){
+      channel.water.visible=show;
+      channel.runoff.visible=show&&this.rainfall>.08;
+    }
   }
   dispose(){
     this.scene.remove(this.group);
