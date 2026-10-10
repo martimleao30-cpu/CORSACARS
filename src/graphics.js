@@ -150,22 +150,14 @@ export class GraphicsPipeline {
     this.frameCount++;
     const frequency=this.quality==='ultra'?4:10;
     if(active&&this.reflectionEnabled&&this.frameCount%frequency===0){
-      this.reflectionCamera.position.copy(this.vehicle.model.position)
-        .add(new THREE.Vector3(0,.6,0));
-      const oldCarVisibility=this.vehicle.model.visible;
-      const oldWheels=this.vehicle.wheelModels.map(w=>w.visible);
-      this.vehicle.model.visible=false;
-      for(const wheel of this.vehicle.wheelModels)wheel.visible=false;
+      if(this.reflectionFace===0)
+        this.reflectionCapturePosition.copy(this.vehicle.model.position).add(this.reflectionOffset);
       try{
-        this.reflectionCamera.update(this.renderer,this.scene);
-        if(this.indirect&&!this.indirect.probeAttempted)
-          void this.indirect.captureProbe(this.reflectionTarget);
+        this.captureReflectionFace(this.reflectionFace);
+        this.reflectionFace=(this.reflectionFace+1)%6;
       }catch(error){
-        console.warn('[CORSACARS] Reflexos dinâmicos desativados:',error);
+        console.warn('[CORSACARS] Reflexos dinâmicos indisponíveis:',error);
         this.reflectionEnabled=false;
-      }finally{
-        this.vehicle.model.visible=oldCarVisibility;
-        this.vehicle.wheelModels.forEach((w,i)=>{w.visible=oldWheels[i];});
       }
     }
   }
