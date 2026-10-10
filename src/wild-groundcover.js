@@ -46,7 +46,7 @@ export class WildGroundcover{
     for(const kind of Object.keys(max)){
       let planted=0;
       for(let i=0;i<max[kind]*12&&planted<max[kind];i++){
-        const x=(random()-.5)*1790,z=(random()-.5)*1790;
+        const x=(random()-.5)*3050,z=(random()-.5)*3050;
         const macro=Math.sin(x*.009+Math.cos(z*.011))*Math.cos(z*.011);
         const local=Math.sin(x*.037-z*.015)*Math.cos(z*.039+x*.014);
         const density=.49+.30*macro+.11*local;

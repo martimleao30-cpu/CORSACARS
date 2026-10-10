@@ -28,7 +28,21 @@ export const REGIONAL_LINKS = Object.freeze([
     via:[[295,-415],[440,-505],[570,-445],[510,-310]]},
   {id:'provas',name:'Centro de Testes Físicos',category:'test',surface:'dry',width:13,
     from:343,to:20,
-    via:[[125,-470],[-65,-620],[-260,-650],[-440,-550],[-415,-375]]}
+    via:[[125,-470],[-65,-620],[-260,-650],[-440,-550],[-415,-375]]},
+  // Road expansion: three connected excursions beyond the former 2 km map.
+  // Old ring indices and spawn positions are stable for existing saves.
+  {id:'serra-norte',name:'Estrada da Serra Norte',category:'mountain',surface:'dry',
+    width:8,from:165,to:215,
+    via:[[-220,720],[-540,990],[-790,1260],[-1090,1120],
+      [-1040,820],[-750,600],[-360,480]]},
+  {id:'planicie-sul',name:'Estrada das Herdades',category:'rural',surface:'dry',
+    width:8,from:337,to:30,
+    via:[[-550,-620],[-850,-920],[-1190,-1210],[-1390,-1000],
+      [-1280,-680],[-920,-550],[-650,-410]]},
+  {id:'vale-leste',name:'Estrada da Ribeira Leste',category:'rural',surface:'dry',
+    width:8,from:245,to:295,
+    via:[[440,-400],[700,-700],[1070,-1040],[1390,-920],
+      [1410,-540],[1050,-260],[690,-280]]}
 ]);
 
 function materialFor(surface,quality,routeId='') {
@@ -75,7 +89,8 @@ export class RoadNetwork {
         to.center.clone()
       ];
       const curve=new THREE.CatmullRomCurve3(corners,false,'centripetal',.4);
-      const count=route.id==='montanha'?175:route.id==='rural'?140:130;
+      const extended=['serra-norte','planicie-sul','vale-leste'].includes(route.id);
+      const count=extended?240:route.id==='montanha'?175:route.id==='rural'?140:130;
       const points=[];
       for(let i=0;i<=count;i++){
         points.push(terrainRoadCurve(curve.getPoint(i/count),this.terrainY));

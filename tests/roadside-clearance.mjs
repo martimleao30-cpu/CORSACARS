@@ -28,7 +28,7 @@ const sectors=new WorldSectors(scene,physics,network,()=>0);
 const mask=new RoadsideClearance(network,sectors.regions);
 assert.ok(mask.segments.length>1000,'All connected roads indexed');
 assert.ok(mask.junctions.length>=12,'Endpoints and crossings cut fence gaps');
-assert.equal(mask.openings.length,5,'Every named POI has a driveway');
+assert.equal(mask.openings.length,8,'Every named POI has a driveway');
 assert.equal(mask.serviceZones.length,1,'The entire station apron is reserved');
 const serviceRegion=sectors.regions.find(r=>r.kind==='service');
 const fuelCenter=serviceRegion.roadPoint.clone()

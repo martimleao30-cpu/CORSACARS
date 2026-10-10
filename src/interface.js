@@ -664,7 +664,10 @@ export class PremiumInterface {
     ctx.fillStyle='#10202c';ctx.fillRect(0,0,w,h);
     for(let i=0;i<w;i+=24){ctx.strokeStyle='rgba(255,255,255,.045)';ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,h);ctx.stroke();}
     for(let j=0;j<h;j+=24){ctx.strokeStyle='rgba(255,255,255,.045)';ctx.beginPath();ctx.moveTo(0,j);ctx.lineTo(w,j);ctx.stroke();}
-    const project=(p)=>[w/2+p.x*.285,h/2+p.z*.25];
+    const maxExtent=Math.max(850,...this.api.world.network.roads.flatMap(
+      r=>r.points.filter((_,i)=>i%18===0).map(p=>Math.max(Math.abs(p.x),Math.abs(p.z)))));
+    const scale=Math.min((w-64)/(maxExtent*2),(h-60)/(maxExtent*2));
+    const project=p=>[w*.5+p.x*scale,h*.5+p.z*scale];
     const roads=this.api.world.network?.roads||[];
     for(const road of roads) {
       ctx.beginPath();

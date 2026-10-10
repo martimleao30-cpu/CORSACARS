@@ -21,8 +21,8 @@ for(let i=0;i<=420;i++){
   ring.push({center:new THREE.Vector3(Math.cos(angle)*400,.2,Math.sin(angle)*400)});
 }
 const network=new RoadNetwork(scene,physics,()=>0,ring,13.5,'low');
-assert.equal(REGIONAL_LINKS.length,7);
-assert.equal(network.roads.length,11);
+assert.equal(REGIONAL_LINKS.length,10);
+assert.equal(network.roads.length,14);
 assert.equal(physics.bodies.length,network.roads.length-1,'All new roads need real collision bodies');
 assert.ok(network.cells.size>30,'Surface lookups should use spatial hashing');
 for(const road of network.roads){
@@ -47,6 +47,12 @@ for(const road of network.roads){
   }
 }
 assert.equal(network.query(4000,4000).surface,'grass');
+for(const id of ['serra-norte','planicie-sul','vale-leste']){
+  const road=network.roads.find(r=>r.id===id);
+  assert.ok(road&&road.points.length>=220,'New outer map road missing: '+id);
+  assert.ok(road.points.some(p=>Math.max(Math.abs(p.x),Math.abs(p.z))>1050),
+    'New route should explore territory outside the old terrain: '+id);
+}
 assert.deepEqual(new Set(REGIONAL_LINKS.map(r=>r.category)),
   new Set(['urban','highway','mountain','rural','dirt','test']));
 assert.equal(network.connectors.length,3,'Town side road plus motorway on/off ramps');
@@ -75,7 +81,7 @@ const testTrack=new DrivingTestArea(scene,physics,network,()=>0);
 assert.equal(testTrack.samples.length,7,'Physical driving test markers should exist');
 assert.equal(testTrack.obstacleBodies.length,4,'Speed bump and slalom need solid colliders');
 const sectors=new WorldSectors(scene,physics,network,()=>0);
-assert.equal(sectors.regions.length,5);
+assert.equal(sectors.regions.length,8);
 const spot=sectors.regions[0];
 const initial=physics.bodies.length;
 sectors.update(spot.point,3);

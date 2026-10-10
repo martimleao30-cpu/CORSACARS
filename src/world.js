@@ -145,7 +145,8 @@ export class DrivingWorld {
 
   buildTerrain() {
     const subdivisions = this.quality === 'ultra' ? 236 : this.quality === 'high' ? 188 : this.quality==='medium'?150:118;
-    const geometry = new THREE.PlaneGeometry(2000, 2000, subdivisions, subdivisions);
+    const geometry = new THREE.PlaneGeometry(3400, 3400,
+      Math.round(subdivisions*1.38),Math.round(subdivisions*1.38));
     geometry.rotateX(-Math.PI / 2);
     const positions = geometry.getAttribute('position');
     const colors = [];
@@ -314,7 +315,7 @@ export class DrivingWorld {
         vertexColors:true}), 140);
     let count = 0;
     for (let i = 0; i < 500 && count < 140; i++) {
-      const x = (random() - 0.5) * 1800, z = (random() - 0.5) * 1800;
+      const x = (random() - 0.5) * 3060, z = (random() - 0.5) * 3060;
       const size = 0.4 + random() * 2.4;
       if (this.railway.nearestTrack(x,z)<5||
           !this.roadside.plantAllowed(x,z,'rock',size*.75)||
