@@ -54,8 +54,9 @@ try {
         '\nErros JavaScript: '+JSON.stringify(browserErrors)+
         '\nEstado da página: '+JSON.stringify(diagnostic));
     });
-  await page.locator('#entryUpdateStatus').getByText('ÚLTIMO LANÇAMENTO · v0.7.0')
-    .waitFor({timeout:15000});
+  await page.waitForFunction(()=>
+    document.querySelector('#entryUpdateStatus')?.textContent?.includes('ÚLTIMO LANÇAMENTO · v0.7.0'),
+    null,{timeout:15000});
   assert.equal(await page.locator('#entryScreen').isVisible(),true,
     'PC game must start on a dedicated title gate');
   assert.ok(await page.locator('#entryCheckUpdate').isVisible());
