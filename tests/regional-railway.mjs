@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {RegionalRailway,generateRailwayAlignment,sampleAlignment,
-  createBallastBedGeometry,createSteelRailGeometry,createRailwayBallastSurface}
+  createBallastBedGeometry,createSteelRailGeometry,createRailwayBallastSurface,
+  railwayNormal}
   from '../src/regional-railway.js';
 const terrain=(x,z)=>2*Math.sin(x*.018)+2*Math.cos(z*.013);
 const clearance={roadProximity(x,z){
@@ -19,6 +20,20 @@ const bed=createBallastBedGeometry(map);
 assert.equal(bed.userData.corsaRailway,'continuous-tapered-ballast');
 assert.equal(bed.getAttribute('position').count,map.points.length*5);
 assert.equal(bed.getAttribute('color').count,map.points.length*5);
+const last=map.points.length-1;
+assert.ok(railwayNormal(map,0).distanceTo(railwayNormal(map,last))<1e-12,
+  'The rail ballast and both steel rails must have an identical loop seam');
+const pos=bed.getAttribute('position');
+for(let j=0;j<5;j++){
+  const k=last*5+j;
+  assert.ok(Math.hypot(pos.getX(k)-pos.getX(j),
+    pos.getY(k)-pos.getY(j),pos.getZ(k)-pos.getZ(j))<.0001,
+    'The terminal ballast section must join the start with no cracks');
+}
+for(let i=0;i<last;i++){
+  const p=map.points[i],ground=terrain(p.x,p.z);
+  assert.ok(p.y>=ground+.61,'Rail tracks cannot be buried by the terrain');
+}
 assert.ok(bed.index.count>8000,'Ballast should be one tessellated ribbon');
 for(const lateral of [-.7175,.7175]){
   const steel=createSteelRailGeometry(map,lateral);
@@ -107,5 +122,25 @@ for(const train of rail.trainCars){
 }
 assert.ok(rail.nearestTrack(rail.line.points[50].x,rail.line.points[50].z)<4);
 rail.dispose();
+const river={
+  lookup(x,z){
+    if(Math.abs(x-540)>85||z<150||z>680)return null;
+    return {distance:Math.abs(x-540),width:12,waterY:-3};
+  }
+};
+const waterRail=new RegionalRailway(scene,physics,terrain,clearance,'low',river);
+const crossingSamples=waterRail.line.points.filter(p=>{
+  const water=river.lookup(p.x,p.z);
+  return water&&water.distance<water.width+8.5;
+});
+assert.ok(crossingSamples.length>1,'The test river must intersect the railway');
+assert.ok(crossingSamples.every(p=>p.y>3.0),
+  'Track must be elevated above the river rather than buried in the water');
+const wetFootings=waterRail.group.children.filter(o=>
+  o.name==='Viaduto · sapata de fundação'&&river.lookup(o.position.x,o.position.z));
+for(const footing of wetFootings)
+  assert.ok(footing.position.y>=waterRail.trackGround(footing.position.x,
+    footing.position.z)-.1,'Bridge foundation must be based on the riverbed');
+waterRail.dispose();
 assert.ok(!scene.children.includes(rail.group));
 console.log('PASS: map-spanning railway, grade-separated crossing height, station models, moving electric train and pause.');
