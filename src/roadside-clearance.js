@@ -27,7 +27,8 @@ function segmentPair(a,b,c,d){
     distance:Math.hypot(p.x-q.x,p.z-q.z)};
 }
 export class RoadsideClearance{
-  constructor(network,regions=[]){
+  constructor(network,regions=[],river=null){
+    this.river=river;
     this.network=network;
     this.regions=regions;
     this.cells=new Map();
@@ -132,6 +133,7 @@ export class RoadsideClearance{
             const x=center.x+outward.x*offset,z=center.z+outward.z*offset;
             const poiDistance=Math.hypot(x-region.roadPoint.x,z-region.roadPoint.z);
             if(poiDistance<34||poiDistance>125)continue;
+            if(this.river?.contains(x,z,32))continue;
             const collision=selected.some(other=>Math.hypot(x-other.x,z-other.z)<58);
             if(collision)continue;
             let clear=true;
