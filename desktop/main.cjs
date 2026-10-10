@@ -1,7 +1,7 @@
 'use strict';
 
 // CORSACARS desktop: a packaged Windows game using local code, not a site shortcut.
-const { app, BrowserWindow, protocol } = require('electron');
+const { app, BrowserWindow, protocol, shell } = require('electron');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
 const { setupUpdates } = require('./updates.cjs');
@@ -76,7 +76,14 @@ function createWindow() {
   });
   gameWindow.setMenuBarVisibility(false);
   gameWindow.once('ready-to-show', () => gameWindow?.show());
-  gameWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  gameWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // Only the official, fixed release page may open in the system browser.
+    // Never allow arbitrary renderer links to spawn external applications.
+    if (url === 'https://github.com/martimleao30-cpu/CORSACARS/releases/latest') {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
   gameWindow.webContents.on('will-navigate', (event, url) => {
     if (!url.startsWith(SCHEME + '://game/')) event.preventDefault();
   });
