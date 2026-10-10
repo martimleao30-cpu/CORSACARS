@@ -113,7 +113,7 @@ export function buildRoadProfileGeometry(scene,road,terrainY,junctions=[]){
   const paved=[];
   // Right-side hard shoulders flank both directions of the simulated
   // four-lane section. Also provide EN hard shoulders on national routes.
-  if(['highway','national'].includes(
+  if(['highway','national','ring'].includes(
     road.id==='nacional'?'national':road.category)){
     for(const side of [-1,1])
       paved.push(unionMesh(scene,road,terrainY,side,
