@@ -53,7 +53,33 @@ jobs:
       - name: Instalar dependencias
         run: npm install --no-audit --no-fund
       - name: Testar o updater, fisica e navegacao
-        run: npm test
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP "corsacars-npm-test.log"
+          npm test *>&1 | Tee-Object -FilePath $log
+          $testExit = $LASTEXITCODE
+          if ($testExit -ne 0) {
+            Write-Host "::error::A suite npm test falhou com codigo $testExit. Consultar o relatorio de testes."
+            $tail = (Get-Content $log -Tail 100) -join "`n"
+            @(
+              "## Testes Windows falharam"
+              ""
+              "Foi detetado um erro antes da compilacao do instalador."
+              ""
+              "```text"
+              $tail
+              "```"
+            ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            exit $testExit
+          }
+      - name: Anexar log de testes quando a compilacao falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CORSACARS-Windows-Test-Failure
+          path: ${{ runner.temp }}/corsacars-npm-test.log
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Compilar o jogo Windows, verificando ficheiros locais
         run: |
           npm run desktop:build
