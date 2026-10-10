@@ -507,7 +507,8 @@ export class DrivingWorld {
     this.ambient.intensity=state.ambientIntensity;
     this.ambient.color.copy(state.ambientColor);
     this.ambient.groundColor.set(this.weather==='rain'?0x59616a:0x6c6758);
-    this.bulbMaterial.emissiveIntensity=state.daylight<.13?1.9:.06;
+    // ModernRoadLighting owns LED emission and turns it on only at night.
+    // Atmosphere updates must never re-illuminate street lamps by day.
     this.stars.visible=state.sunHeight<-.1&&this.weather==='clear';
   }
 
