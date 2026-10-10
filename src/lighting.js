@@ -59,13 +59,15 @@ export class IndirectLighting {
 
   update(hour, weather, quality) {
     const daylight = Math.max(0, Math.sin(((hour - 6) / 24) * Math.PI * 2));
-    if (this.available) {
-      this.scene.environmentIntensity = (0.08 + 0.75 * daylight) *
-        (weather === 'rain' ? 0.65 : 1);
-    }
-    if (this.probe) {
-      this.probe.intensity = quality === 'low' ? 0 :
-        (0.035 + daylight * 0.22) * (weather === 'rain' ? 0.7 : 1);
-    }
+    const rain=typeof weather==='object'?(weather?.rain||0):
+      weather==='storm'?1:weather==='rain'?1:0;
+    const clouds=typeof weather==='object'?(weather?.clouds||0):
+      weather==='cloudy'?.72:0;
+    const obscuration=Math.max(0.42,1-.30*clouds-.26*rain);
+    if (this.available)
+      this.scene.environmentIntensity=(.08+.75*daylight)*obscuration;
+    if (this.probe)
+      this.probe.intensity=quality==='low'?0:
+        (.035+daylight*.22)*Math.max(.48,obscuration);
   }
 }
