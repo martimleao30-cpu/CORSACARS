@@ -19,71 +19,73 @@ function canvasTexture(canvas, color = false) {
   return wrap(texture, 1, 1, color);
 }
 
-export function createAsphaltMaterial(quality = 'high') {
-  const size = quality === 'ultra' ? 1024 : quality === 'low' ? 256 : 512;
-  const diffuse = document.createElement('canvas');
-  const normal = document.createElement('canvas');
-  const roughness = document.createElement('canvas');
-  for (const canvas of [diffuse, normal, roughness]) {
-    canvas.width = canvas.height = size;
-  }
-  const rng = randomGenerator(98789);
-  const height = new Float32Array(size * size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const grain = rng();
-      const aggregate = Math.sin(x * 0.29 + Math.cos(y * 0.13)) *
-        Math.cos(y * 0.27 + Math.sin(x * 0.12));
-      const crackA = Math.abs(Math.sin(x * 0.034 + Math.sin(y * 0.021) * 0.7));
-      const crackB = Math.abs(Math.sin(y * 0.037 + Math.cos(x * 0.031) * 0.6));
-      const crack = (crackA < 0.012 && y > 38 && y < 194) ||
-        (crackB < 0.009 && x > 90 && x < 208);
-      height[y * size + x] = (grain - 0.5) * 0.35 + aggregate * 0.15 - (crack ? 0.5 : 0);
+const asphaltCache = new Map();
+
+// Reuse the same procedural PBR textures between routes instead of regenerating
+// 3 canvases per road. Each road still gets its own material for wetness control.
+export function createAsphaltMaterial(quality = 'high', variant = 'aged') {
+  if (!['fresh','aged','worn'].includes(variant)) variant='aged';
+  const key=quality+':'+variant;
+  let maps=asphaltCache.get(key);
+  if(!maps){
+    const size = quality === 'ultra' ? 1024 : quality === 'low' ? 256 : 512;
+    const diffuse=document.createElement('canvas');
+    const normal=document.createElement('canvas');
+    const roughness=document.createElement('canvas');
+    for(const canvas of [diffuse,normal,roughness])canvas.width=canvas.height=size;
+    const rng=randomGenerator(98789+(['fresh','aged','worn'].indexOf(variant)*317));
+    const heights=new Float32Array(size*size);
+    const scale=256/size;
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const px=x*scale,py=y*scale;
+      const granular=(rng()-.5)*.49;
+      const aggregate=Math.sin(px*.31+Math.cos(py*.12))*
+        Math.cos(py*.27+Math.sin(px*.11))*.15;
+      const broad=Math.sin(px*.035+Math.sin(py*.023)*.7)*
+        Math.cos(py*.04+Math.sin(px*.027))*.20;
+      const crackA=Math.abs(Math.sin(px*.044+Math.sin(py*.025)*.95));
+      const crackB=Math.abs(Math.sin(py*.061+Math.cos(px*.045)*.8));
+      const damaged=variant==='worn' ? 1 : variant==='aged' ? .65 : .2;
+      const cracked=(crackA<.014&&py>16&&py<232)||
+        (crackB<.009&&px>31&&px<215);
+      heights[y*size+x]=granular+aggregate+broad-(cracked?.64*damaged:0);
     }
-  }
-  const diffuseCtx = diffuse.getContext('2d');
-  const normalCtx = normal.getContext('2d');
-  const roughCtx = roughness.getContext('2d');
-  const d = diffuseCtx.createImageData(size, size);
-  const n = normalCtx.createImageData(size, size);
-  const r = roughCtx.createImageData(size, size);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const i = y * size + x, j = i * 4;
-      const h = height[i];
-      const value = Math.max(16, Math.min(125, 67 + h * 52));
-      d.data[j] = value;
-      d.data[j + 1] = value + 2;
-      d.data[j + 2] = value + 4;
-      d.data[j + 3] = 255;
-      const dx = height[y * size + (x + 1) % size] -
-        height[y * size + (x + size - 1) % size];
-      const dy = height[((y + 1) % size) * size + x] -
-        height[((y + size - 1) % size) * size + x];
-      const inv = 1 / Math.hypot(dx * 1.6, dy * 1.6, 1);
-      n.data[j] = Math.round(127.5 * (1 - dx * 1.6 * inv));
-      n.data[j + 1] = Math.round(127.5 * (1 - dy * 1.6 * inv));
-      n.data[j + 2] = Math.round(127.5 * (1 + inv));
-      n.data[j + 3] = 255;
-      const rough = Math.round(205 + Math.max(-25, Math.min(25, h * 23)));
-      r.data[j] = r.data[j + 1] = r.data[j + 2] = rough;
-      r.data[j + 3] = 255;
+    const d=diffuse.getContext('2d').createImageData(size,size);
+    const n=normal.getContext('2d').createImageData(size,size);
+    const r=roughness.getContext('2d').createImageData(size,size);
+    const baseline=variant==='fresh'?64:variant==='aged'?76:86;
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const i=y*size+x,j=i*4,h=heights[i];
+      const value=Math.max(22,Math.min(142,baseline+h*57));
+      d.data[j]=value;d.data[j+1]=value+1;d.data[j+2]=value+3;d.data[j+3]=255;
+      const dx=heights[y*size+(x+1)%size]-heights[y*size+(x+size-1)%size];
+      const dy=heights[((y+1)%size)*size+x]-heights[((y+size-1)%size)*size+x];
+      const inv=1/Math.hypot(dx*1.6,dy*1.6,1);
+      n.data[j]=Math.round(127.5*(1-dx*1.6*inv));
+      n.data[j+1]=Math.round(127.5*(1-dy*1.6*inv));
+      n.data[j+2]=Math.round(127.5*(1+inv));n.data[j+3]=255;
+      const roughValue=Math.round(variant==='fresh'?175+h*20:205+h*25);
+      r.data[j]=r.data[j+1]=r.data[j+2]=Math.max(125,Math.min(245,roughValue));
+      r.data[j+3]=255;
     }
+    diffuse.getContext('2d').putImageData(d,0,0);
+    normal.getContext('2d').putImageData(n,0,0);
+    roughness.getContext('2d').putImageData(r,0,0);
+    maps={map:canvasTexture(diffuse,true),
+      normalMap:canvasTexture(normal),roughnessMap:canvasTexture(roughness)};
+    for(const texture of Object.values(maps))texture.userData.corsaShared=true;
+    asphaltCache.set(key,maps);
   }
-  diffuseCtx.putImageData(d, 0, 0);
-  normalCtx.putImageData(n, 0, 0);
-  roughCtx.putImageData(r, 0, 0);
-  const material = new THREE.MeshPhysicalMaterial({
-    color: 0xf2f2f2,
-    map: canvasTexture(diffuse, true),
-    normalMap: canvasTexture(normal),
-    roughnessMap: canvasTexture(roughness),
-    roughness: 0.97,
-    metalness: 0.015,
-    clearcoat: 0,
-    clearcoatRoughness: 0.2
+  const material=new THREE.MeshPhysicalMaterial({
+    color:0xf2f2f2,
+    ...maps,vertexColors:true,
+    roughness:variant==='fresh'?.91:variant==='aged'?.96:.99,
+    metalness:.012,clearcoat:0,clearcoatRoughness:.25,
+    side:THREE.DoubleSide
   });
-  material.normalScale.set(0.38, 0.38);
+  material.normalScale.set(.55,.55);
+  material.userData.roadAsphalt=true;
+  material.userData.variant=variant;
   return material;
 }
 

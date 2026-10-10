@@ -2,6 +2,24 @@
 
 **CORSACARS** é um projeto de jogo de automóveis 3D independente, disponível em **aplicação Windows (.exe) e navegador** com [Three.js](https://threejs.org/) e [cannon-es](https://pmndrs.github.io/cannon-es/). **Não utiliza Unity** e não partilha quaisquer ficheiros com o projeto Minecraft.
 
+## Estradas realistas 3D — atualização de pavimentos
+As sete vias existentes mantêm as ligações e os colisores cannon-es. A estrada circular
+e as seis ligações regionais usam agora secções 3D com ligeiro abaulamento central
+(camber), espessura visível nas laterais e coordenadas UV por metros percorridos,
+para evitar texturas esticadas. O contacto dos pneus continua a ser calculado
+sobre a malha física do pavimento, não sobre uma simples imagem.
+
+O asfalto PBR é gerado localmente com variação de grão, fissuras, mapas de
+normais e rugosidade e três estados (novo, envelhecido, desgastado).
+Os mapas são partilhados entre vias para reduzir memória e custo de geração;
+cada via conserva controlo próprio do aspeto molhado. Existem remendos,
+marcas de pneus e poeira de berma com instancing e máscaras de transparência.
+As estradas regionais têm bermas de gravilha acompanhando o terreno.
+
+Os detalhes são aproximações procedurais, não fotogrametria nem asfalto
+cinematicamente perfeito. Os testes de geometria e materiais correm em
+`npm test`. A aparência e os FPS ainda precisam de validação na GPU real.
+
 ## Mundo aberto e dinâmica automóvel — primeira região 0.7
 
 A atualização do pedido **Física Realista e Mundo Aberto 2.0** foi iniciada com uma região explorável e uma base de física mais sofisticada. Não significa que todos os requisitos do documento estejam terminados.

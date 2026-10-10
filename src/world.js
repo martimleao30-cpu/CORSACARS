@@ -5,6 +5,7 @@ import { WorldDetails } from './world-details.js';
 import { RoadNetwork } from './road-network.js';
 import { WorldSectors } from './world-sectors.js';
 import { DrivingTestArea } from './driving-test-area.js';
+import {createRoadBed,addRoadSides,addRoadWear} from './road-upgrades.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -157,39 +158,28 @@ export class DrivingWorld {
       true, 'centripetal', 0.4
     );
     const sampleCount = 420;
-    const positions = [], normals = [], uvs = [], indices = [];
     for (let i = 0; i <= sampleCount; i++) {
-      const u = i / sampleCount;
-      const center = curve.getPointAt(u);
-      const tangent = curve.getTangentAt(u).normalize();
-      const side = new THREE.Vector3(-tangent.z, 0, tangent.x);
-      const left = center.clone().addScaledVector(side, this.roadWidth / 2);
-      const right = center.clone().addScaledVector(side, -this.roadWidth / 2);
-      left.y = groundHeight(left.x, left.z) + 0.19;
-      right.y = groundHeight(right.x, right.z) + 0.19;
-      const roadCenter = left.clone().add(right).multiplyScalar(0.5);
-      this.roadPoints.push({ center: roadCenter, tangent, side, left, right });
-      for (const point of [left, right]) {
-        positions.push(point.x, point.y, point.z);
-        normals.push(0, 1, 0);
-      }
-      uvs.push(0, u * 180, 1, u * 180);
-      if (i !== sampleCount) {
-        const j = i * 2;
-        indices.push(j, j + 2, j + 1, j + 1, j + 2, j + 3);
-      }
+      const u=i/sampleCount;
+      const center=curve.getPointAt(u);
+      const tangent=curve.getTangentAt(u).normalize();
+      const side=new THREE.Vector3(-tangent.z,0,tangent.x);
+      const left=center.clone().addScaledVector(side,this.roadWidth/2);
+      const right=center.clone().addScaledVector(side,-this.roadWidth/2);
+      left.y=groundHeight(left.x,left.z)+.205;
+      right.y=groundHeight(right.x,right.z)+.205;
+      const roadCenter=left.clone().add(right).multiplyScalar(.5);
+      this.roadPoints.push({center:roadCenter,tangent,side,left,right});
     }
-    const roadGeometry = new THREE.BufferGeometry();
-    roadGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    roadGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-    roadGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-    roadGeometry.setIndex(indices);
-    roadGeometry.computeVertexNormals();
-    this.roadMaterial = createAsphaltMaterial(this.quality);
-    const roadMesh = new THREE.Mesh(roadGeometry, this.roadMaterial);
-    roadMesh.receiveShadow = true;
+    const bed=createRoadBed(this.roadPoints,this.roadWidth,groundHeight,29);
+    this.roadMaterial=createAsphaltMaterial(this.quality,'aged');
+    const roadMesh=new THREE.Mesh(bed.top,this.roadMaterial);
+    roadMesh.name='Estrada Circular · Pavimento 3D';
+    roadMesh.receiveShadow=true;
     this.scene.add(roadMesh);
-    meshCollider(this.physics, roadGeometry, this.asphaltMaterial);
+    this.roadSides=addRoadSides(this.scene,bed.sides,'Estrada Circular');
+    this.roadWear=addRoadWear(this.scene,this.roadPoints,this.roadWidth,
+      groundHeight,this.quality,29);
+    meshCollider(this.physics,bed.top,this.asphaltMaterial);
 
     const stripeGeo = new THREE.BoxGeometry(0.16, 0.027, 3.5);
     const lineGeo = new THREE.BoxGeometry(0.13, 0.027, 7);
@@ -517,6 +507,7 @@ export class DrivingWorld {
       this.roadMaterial.roughness = .97 - .47 * wetness;
       this.roadMaterial.color.setRGB(1 - .25 * wetness, 1 - .23 * wetness, 1 - .19 * wetness);
     }
+    this.network?.setWetness(wetness);
     this.updateAtmosphere();
     if (vehiclePosition) {
       this.sectors.update(vehiclePosition,performance.now()/1000);

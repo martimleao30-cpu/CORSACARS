@@ -66,7 +66,8 @@ export class AssetUpgrade {
         this.world.roadMaterial.color.set(this.world.weather === 'rain'
           ? 0xb5bfc9 : 0xffffff);
         this.world.roadMaterial.needsUpdate = true;
-        if (oldTexture) oldTexture.dispose();
+        // The local procedural texture can be shared by several road materials.
+        if (oldTexture && !oldTexture.userData?.corsaShared) oldTexture.dispose();
         this.textureLoaded = true;
       }
     } catch (e) {

@@ -29,6 +29,11 @@ for(const road of network.roads){
   if(road.id==='circular')continue;
   assert.equal(road.points[0].x,ring[road.from].center.x);
   assert.ok(road.mesh.geometry.index.count>30);
+  assert.equal(road.mesh.geometry.getAttribute('position').count,
+    road.points.length*7,'Road cross-section must be actual 3D geometry');
+  assert.ok(road.sides.geometry.index.count>0,'Visible roadbed side walls required');
+  assert.equal(road.shoulders.length,2,'Both road shoulders must exist');
+  if(road.surface==='dry')assert.ok(road.wear.skids.count>0);
   const middle=road.points[Math.floor(road.points.length*.57)];
   const queried=network.query(middle.x,middle.z,'clear');
   assert.notEqual(queried.surface,'grass','Road should be drivable: '+road.id);
@@ -37,6 +42,9 @@ for(const road of network.roads){
   }
 }
 assert.equal(network.query(4000,4000).surface,'grass');
+network.setWetness(1);
+assert.ok(network.materials.get('nacional').clearcoat>.7,
+  'Rain should wet regional road materials, not just circular road');
 const testRoad=network.roads.find(r=>r.id==='provas');
 assert.ok(testRoad,'Physics test area must join the road network');
 const testPosition=testRoad.points[Math.floor(testRoad.points.length*.64)];

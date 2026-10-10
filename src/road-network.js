@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {createAsphaltMaterial,createGravelMaterial} from './materials.js';
+import {createRoadBed,addRoadSides,addRoadWear,addRoadShoulders} from './road-upgrades.js';
 
 // First expandable playable region: each link begins and ends on the legacy
 // ring. Keeping the old road preserves saved spawn positions and old sessions.
@@ -26,13 +27,13 @@ export const REGIONAL_LINKS = Object.freeze([
     via:[[125,-470],[-65,-620],[-260,-650],[-440,-550],[-415,-375]]}
 ]);
 
-function materialFor(surface,quality) {
+function materialFor(surface,quality,routeId='') {
   if(surface==='gravel'||surface==='dirt'){
     const mat=createGravelMaterial();
     if(surface==='dirt')mat.color.set(0xbca17d);
     return mat;
   }
-  return createAsphaltMaterial(quality);
+  return createAsphaltMaterial(quality,routeId==='autoestrada'||routeId==='provas'?'fresh':routeId==='montanha'?'worn':'aged');
 }
 function terrainRoadCurve(p,geometryHeight) {
   const point=p.clone();
@@ -69,40 +70,28 @@ export class RoadNetwork {
       ];
       const curve=new THREE.CatmullRomCurve3(corners,false,'centripetal',.4);
       const count=route.id==='montanha'?175:route.id==='rural'?140:130;
-      const points=[],vertices=[],uv=[],indices=[];
+      const points=[];
       for(let i=0;i<=count;i++){
-        const u=i/count;
-        const p=terrainRoadCurve(curve.getPoint(u),this.terrainY);
-        const t=curve.getTangent(u).normalize();
-        const side=new THREE.Vector3(-t.z,0,t.x).normalize();
-        points.push(p);
-        for(const sign of [1,-1]){
-          const edge=p.clone().addScaledVector(side,route.width*.5*sign);
-          // Follow actual terrain at each edge to prevent floating roads.
-          edge.y=this.terrainY(edge.x,edge.z)+.21;
-          vertices.push(edge.x,edge.y,edge.z);
-        }
-        uv.push(0,u*90,1,u*90);
-        if(i<count){
-          const v=i*2;
-          indices.push(v,v+2,v+1,v+1,v+2,v+3);
-        }
+        points.push(terrainRoadCurve(curve.getPoint(i/count),this.terrainY));
       }
-      const geometry=new THREE.BufferGeometry();
-      geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
-      geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
-      geometry.setIndex(indices);
-      geometry.computeVertexNormals();
-      const mat=materialFor(route.surface,this.quality);
-      mat.side=THREE.DoubleSide;
-      const road=new THREE.Mesh(geometry,mat);
+      const bed=createRoadBed(points,route.width,this.terrainY,route.from);
+      const mat=materialFor(route.surface,this.quality,route.id);
+      const road=new THREE.Mesh(bed.top,mat);
       road.name=route.name;
       road.receiveShadow=true;
       this.scene.add(road);
+      const sides=addRoadSides(this.scene,bed.sides,route.name);
+      const shoulderMaterial=createGravelMaterial();
+      const shoulders=addRoadShoulders(this.scene,points,route.width,
+        this.terrainY,shoulderMaterial);
+      const wear=route.surface==='dry'?
+        addRoadWear(this.scene,points,route.width,this.terrainY,this.quality,route.to):null;
+      const vertices=Array.from(bed.top.getAttribute('position').array);
+      const indices=Array.from(bed.top.index.array);
       const collider=new CANNON.Body({mass:0,material:new CANNON.Material(route.surface)});
       collider.addShape(new CANNON.Trimesh(vertices,indices));
       this.physics.addBody(collider);
-      this.roads.push({...route,points,mesh:road,body:collider});
+      this.roads.push({...route,points,mesh:road,body:collider,sides,shoulders,wear});
       this.materials.set(route.id,mat);
       if(route.surface==='dry') {
         const stripe=new THREE.InstancedMesh(new THREE.BoxGeometry(.11,.025,3.2),
@@ -117,6 +106,17 @@ export class RoadNetwork {
         }
         stripe.count=n;stripe.instanceMatrix.needsUpdate=true;this.scene.add(stripe);
       }
+    }
+  }
+
+  setWetness(wetness) {
+    const w=Math.max(0,Math.min(1,wetness));
+    for(const material of this.materials.values()){
+      if(!material.userData.roadAsphalt)continue;
+      material.clearcoat=.06+.8*w;
+      material.clearcoatRoughness=.25-.12*w;
+      material.roughness=(material.userData.variant==='fresh'?.91:.97)-.42*w;
+      material.color.setRGB(1-.24*w,1-.23*w,1-.20*w);
     }
   }
 
