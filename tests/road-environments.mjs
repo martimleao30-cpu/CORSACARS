@@ -41,6 +41,7 @@ assert.ok(environment.statistics.manholes>0 && environment.statistics.drains>0);
 assert.ok(environment.statistics.parkingSpaces>0);
 assert.ok(environment.statistics.highwayBarriers>0);
 assert.ok(environment.statistics.mountainBarriers>0);
+assert.ok(environment.statistics.mountainMarkers>10,'Mountain reflectors should exist');
 const wBeams=environment.objects.filter(m=>m.name==='Barreira de proteção');
 const posts=environment.objects.filter(m=>m.name==='Barreira metálica · suportes');
 const spacers=environment.objects.filter(m=>m.name==='Barreira metálica · afastadores');
