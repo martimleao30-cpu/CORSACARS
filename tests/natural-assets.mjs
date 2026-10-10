@@ -2,9 +2,20 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
   createNaturalShrubGeometry,createNaturalFlowerGeometry,
-  createWeatheredRockGeometry,UrbanFacadeBatch
+  createWeatheredRockGeometry,UrbanFacadeBatch,createWeatheredWallMaterial
 } from '../src/natural-assets.js';
 
+globalThis.document={createElement(){
+  return {width:192,height:192,getContext(){return {
+    createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
+    putImageData(){}
+  };}};
+}};
+const wall=createWeatheredWallMaterial();
+assert.equal(wall.userData.corsaWallFinish,true);
+assert.ok(wall.map?.isCanvasTexture && wall.bumpMap===wall.map,
+  'Buildings should have fine-grain weathered plaster and relief');
+wall.map.dispose();wall.dispose();
 const shrub=createNaturalShrubGeometry('medium');
 const shrubLo=createNaturalShrubGeometry('low');
 assert.equal(shrub.userData.corsaNatural,'leafy-shrub');

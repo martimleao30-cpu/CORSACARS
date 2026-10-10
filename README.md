@@ -334,3 +334,7 @@ Os colisores dos prédios não foram modificados. O objetivo é retirar o aspeto
 cartoon sem prometer fotorrealismo de jogos AAA: edifícios procedurais ainda
 não substituem fotogrametria, bibliotecas PBR fotográficas e arte profissional.
 Testar em `node tests/natural-assets.mjs` e `npm test`.
+
+As paredes dos edifícios urbanos também utilizam agora textura local de
+reboco/betão com relevo suave (bump) e tons menos saturados. A textura é
+partilhada entre edifícios do mesmo acabamento, em vez de criada por prédio.

@@ -123,6 +123,41 @@ export function createWeatheredRockGeometry(detail=2){
   return geometry;
 }
 
+// Reusable fine-grained plaster/concrete PBR. Its texture is intentionally
+// low-contrast and neutral: broad geometry supplies building shape, granular
+// albedo and bump break up toy-like flat colour without strong tile patterns.
+export function createWeatheredWallMaterial(tint=0xa5a6a2){
+  const size=192,canvas=document.createElement('canvas');
+  canvas.width=canvas.height=size;
+  const context=canvas.getContext('2d');
+  const pixels=context.createImageData(size,size);
+  const random=seeded(73016);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const i=(y*size+x)*4;
+    const grain=(random()-.5)*24;
+    const streak=7*Math.sin(x*.083+Math.cos(y*.037))*
+      Math.cos(y*.051-x*.021);
+    const weather=(y/size)*9+(x%53<2?-6:0);
+    const value=Math.max(120,Math.min(239,190+grain+streak-weather));
+    pixels.data[i]=value;
+    pixels.data[i+1]=value-2;
+    pixels.data[i+2]=value-5;
+    pixels.data[i+3]=255;
+  }
+  context.putImageData(pixels,0,0);
+  const texture=new THREE.CanvasTexture(canvas);
+  texture.colorSpace=THREE.SRGBColorSpace;
+  texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
+  texture.repeat.set(2,2);
+  texture.anisotropy=4;
+  const mat=new THREE.MeshStandardMaterial({
+    color:tint,map:texture,bumpMap:texture,bumpScale:.055,
+    roughness:.94,metalness:0
+  });
+  mat.userData.corsaWallFinish=true;
+  return mat;
+}
+
 // A shared façade kit: 3D framed windows with individual glazing, projecting
 // window sills, doors and roof parapets. Physics colliders remain on the
 // original building shells; these additions are purely visual.

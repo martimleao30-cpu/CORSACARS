@@ -10,7 +10,7 @@ import {RoadEnvironment} from './road-environments.js';
 import {ForestSystem} from './forest-system.js';
 import {RoadSignage} from './road-signage.js';
 import {RainStreaks} from './atmosphere-effects.js';
-import {createWeatheredRockGeometry,UrbanFacadeBatch} from './natural-assets.js';
+import {createWeatheredRockGeometry,UrbanFacadeBatch,createWeatheredWallMaterial} from './natural-assets.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -51,7 +51,8 @@ function meshCollider(world, geometry, frictionMaterial) {
   return body;
 }
 function groupBox(parent, x, y, z, width, height, depth, color, metalness = 0) {
-  const obj = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material(color, 0.8, metalness));
+  const obj = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth),
+    color?.isMaterial ? color : material(color, 0.8, metalness));
   obj.position.set(x, y + height / 2, z);
   obj.castShadow = true;
   obj.receiveShadow = true;
@@ -307,7 +308,8 @@ export class DrivingWorld {
     // Rock transforms remain independent of the new forest batches.
     const dummy = new THREE.Object3D();
 
-    const colors = [0xa7a49d, 0x999e9a, 0xb4aca2, 0x8d908a, 0xa5a59c];
+    const colors = [0xb5b3ac, 0xa7aaa5, 0xc0b6ad, 0x969b98, 0xacaeaa];
+    const wallMaterials=colors.map(createWeatheredWallMaterial);
     const facade=new UrbanFacadeBatch(this.scene);
     for (let i = 0; i < 48; i++) {
       const x = 65 + (i % 8) * 28 + random() * 9;
@@ -318,7 +320,7 @@ export class DrivingWorld {
       const height = 9 + Math.floor(random() * 6) * 7;
       const width = 14 + random() * 8, depth = 15 + random() * 9;
       const baseY = groundHeight(x, z) - 0.12;
-      groupBox(this.scene, x, baseY, z, width, height, depth, colors[i % colors.length]);
+      groupBox(this.scene, x, baseY, z, width, height, depth, wallMaterials[i % wallMaterials.length]);
       facade.building({x,z,baseY,width,height,depth,seed:i});
       const body = new CANNON.Body({ mass: 0 });
       body.addShape(new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, depth / 2)));
