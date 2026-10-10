@@ -8,7 +8,7 @@ const validStyle = ['glass','digital','analog','racing','minimal','custom'];
 const DEFAULT_BINDINGS=Object.freeze({
   accelerate:'w',brake:'s',left:'a',right:'d',handbrake:' ',camera:'c'
 });
-const RESERVED_KEYS=new Set(['q','e','m','r','n','k','x','z','f','tab']);
+const RESERVED_KEYS=new Set(['q','e','m','r','n','k','x','z','f','p','tab']);
 export function safeBindings(saved){
   const source=saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{};
   const result={},used=new Set();
@@ -574,7 +574,7 @@ export class PremiumInterface {
       event.preventDefault();event.stopImmediatePropagation();
       const key=event.key.toLowerCase();
       const binding=recording;recording=null;
-      const reserved=['q','e','m','r','n','k','x','z','f','tab'];
+      const reserved=['q','e','m','r','n','k','x','z','f','p','tab'];
       if(key==='escape'){refresh();return;}
       if(!/^[a-z0-9 ]$/.test(key)||reserved.includes(key)||
           Object.entries(cfg.bindings).some(([name,assigned])=>name!==binding&&assigned===key)) {
