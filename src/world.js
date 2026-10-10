@@ -58,6 +58,28 @@ function meshCollider(world, geometry, frictionMaterial) {
   world.addBody(body);
   return body;
 }
+// A dedicated heightfield is far more reliable for off-road wheels than one
+// enormous Trimesh. Read the *rendered* vertices so contact matches the grass.
+export function createTerrainCollider(physics, geometry, frictionMaterial) {
+  const {width,height,widthSegments,heightSegments}=geometry.parameters;
+  const step=width/widthSegments;
+  if(Math.abs(step-height/heightSegments)>1e-6)
+    throw new Error('Terrain heightfield requires square grid cells');
+  const cols=widthSegments+1,rows=heightSegments+1;
+  const vertices=geometry.getAttribute('position');
+  // Three PlaneGeometry row 0 is -Z after rotateX(-PI/2). Cannon heightfields
+  // are +Z-up locally; their +Y becomes world -Z under the same rotation.
+  const heights=Array.from({length:cols},(_,x)=>
+    Array.from({length:rows},(_,z)=>vertices.getY((rows-1-z)*cols+x)));
+  const shape=new CANNON.Heightfield(heights,{elementSize:step});
+  const body=new CANNON.Body({mass:0,material:frictionMaterial});
+  body.addShape(shape);
+  body.position.set(-width*.5,0,height*.5);
+  body.quaternion.setFromEuler(-Math.PI/2,0,0);
+  physics.addBody(body);
+  return body;
+}
+
 function groupBox(parent, x, y, z, width, height, depth, color, metalness = 0) {
   const obj = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth),
     color?.isMaterial ? color : material(color, 0.8, metalness));
@@ -190,7 +212,7 @@ export class DrivingWorld {
     const surface = new THREE.Mesh(geometry, createTerrainMaterial());
     surface.receiveShadow = true;
     this.scene.add(surface);
-    meshCollider(this.physics, geometry, this.terrainMaterial);
+    this.terrainBody=createTerrainCollider(this.physics, geometry, this.terrainMaterial);
   }
 
   buildRoad() {
