@@ -240,7 +240,7 @@ export class RoadsideClearance{
     });
   }
   plantAllowed(x,z,kind='grass',radius=0){
-    if(this.river?.contains(x,z,radius+2.2)){
+    if(this.river?.contains(x,z,radius+19)){
       this.placed.rejectedPlants++;return false;
     }
     const margin={grass:2.8,flower:3.8,shrub:5.5,tree:9.5,
