@@ -44,6 +44,11 @@ const wires=scene.children.find(o=>
 assert.equal(wires.geometry.getAttribute('position').count,
   plan.spans.length*3*5*2,
   'Three visibly curved cables for each supported electrical span');
+const positions=wires.geometry.getAttribute('position');
+const first=plan.spans[0],linearHeight=
+  first.a.y+7.88+(first.b.y-first.a.y)*.4;
+assert.ok(positions.getY(4)<linearHeight-.30,
+  'Cable must sag realistically below its straight support-to-support line');
 assert.ok(scene.children.some(o=>o.name==='Isoladores elétricos de cerâmica'));
 assert.equal(power.statistics.coverage,plan.ratio);
 power.dispose();
