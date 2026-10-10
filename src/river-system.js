@@ -152,14 +152,20 @@ export class RiverSystem {
     return hits;
   }
   buildWater(){
-    const pos=[],uv=[],indices=[],bank=[];
+    const pos=[],uv=[],indices=[],bank=[],speeds=[];
     for(let i=0;i<this.points.length;i++){
       const p=this.points[i];
+      const ahead=this.points[Math.min(i+1,this.points.length-1)];
+      const behind=this.points[Math.max(0,i-1)];
+      const distance=Math.hypot(ahead.x-behind.x,ahead.z-behind.z)||1;
+      const slope=Math.max(0,(behind.y-ahead.y)/distance);
+      const flow=clamp(.76+slope*10,.72,2.3);
       for(let j=0;j<=8;j++){
         const v=j/8,side=(v*2-1)*p.width;
         pos.push(p.x+p.nx*side,p.y+.08,p.z+p.nz*side);
         uv.push(v,i/8);
         bank.push(Math.abs(v*2-1));
+        speeds.push(flow);
       }
       if(i>=this.points.length-1)continue;
       for(let j=0;j<8;j++){
@@ -171,6 +177,7 @@ export class RiverSystem {
     geometry.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
     geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
     geometry.setAttribute('bank',new THREE.Float32BufferAttribute(bank,1));
+    geometry.setAttribute('flowSpeed',new THREE.Float32BufferAttribute(speeds,1));
     geometry.setIndex(indices);geometry.computeVertexNormals();
     geometry.computeBoundingSphere();this.geometries.push(geometry);
     const material=new THREE.ShaderMaterial({
@@ -179,14 +186,16 @@ export class RiverSystem {
       vertexShader:`
         uniform float uTime;
         attribute float bank;
+        attribute float flowSpeed;
         varying vec2 vUV;
         varying float vBank;
+        varying float vSpeed;
         varying vec3 vWorld;
         void main(){
-          vUV=uv;vBank=bank;
+          vUV=uv;vBank=bank;vSpeed=flowSpeed;
           vec3 p=position;
-          float wave=sin(uv.y*1.65-uTime*2.8+uv.x*16.0)*.045+
-            sin(uv.y*2.7-uTime*4.1-uv.x*23.0)*.023;
+          float wave=sin(uv.y*1.65-uTime*2.8*vSpeed+uv.x*16.0)*.045+
+            sin(uv.y*2.7-uTime*4.1*vSpeed-uv.x*23.0)*.023;
           p.y+=wave*(1.0-bank*.35);
           vec4 world=modelMatrix*vec4(p,1.0);
           vWorld=world.xyz;
@@ -198,11 +207,12 @@ export class RiverSystem {
         uniform vec3 uSun;
         varying vec2 vUV;
         varying float vBank;
+        varying float vSpeed;
         varying vec3 vWorld;
         void main(){
           vec2 uv=vec2(vUV.x*4.0,vUV.y);
-          float ripple1=sin(uv.y*4.1-uTime*3.5+sin(uv.x*9.0)*1.2);
-          float ripple2=sin(uv.y*7.2-uTime*5.0+uv.x*20.0);
+          float ripple1=sin(uv.y*4.1-uTime*3.5*vSpeed+sin(uv.x*9.0)*1.2);
+          float ripple2=sin(uv.y*7.2-uTime*5.0*vSpeed+uv.x*20.0);
           float ripples=ripple1*.48+ripple2*.24;
           vec3 normal=normalize(vec3(
             .09*cos(uv.x*12.0+uTime*.8),
@@ -218,7 +228,7 @@ export class RiverSystem {
             viewDir)),50.0);
           water+=vec3(.85,.91,.87)*sparkle*.85;
           float flowFoam=smoothstep(.67,.93,abs(ripple1*.8+ripple2*.3))*
-            (.04+.09*uRain);
+            (.04+.09*uRain+.10*smoothstep(1.3,2.2,vSpeed));
           flowFoam+=smoothstep(.70,.98,vBank)*.13;
           water=mix(water,vec3(.83,.91,.89),clamp(flowFoam,0.0,.4));
           gl_FragColor=vec4(water,.94);
