@@ -17,6 +17,7 @@ import {ModernRoadLighting} from './modern-road-lighting.js';
 import {buildRoadProfileGeometry} from './road-profile-geometry.js';
 import {RegionalRailway} from './regional-railway.js';
 import {RiverSystem} from './river-system.js';
+import {HighwayDrainage} from './highway-drainage.js';
 import {WildGroundcover} from './wild-groundcover.js';
 import {RainStreaks} from './atmosphere-effects.js';
 import {WeatherSystem} from './weather-system.js';
@@ -166,6 +167,8 @@ export class DrivingWorld {
     this.sectors.clearance=this.roadside;
     this.railway=new RegionalRailway(this.scene,this.physics,groundHeight,
       this.roadside,this.quality,this.river);
+    this.highwayDrainage=new HighwayDrainage(this.scene,this.network,
+      groundHeight,this.river);
     this.buildRoadside();
     this.trimRingRoadsideAtJunctions();
     this.roadEnvironment=new RoadEnvironment(this.scene,this.physics,this.network,
@@ -556,6 +559,7 @@ export class DrivingWorld {
       this.roadMaterial.color.setRGB(1 - .25 * wetness, 1 - .23 * wetness, 1 - .19 * wetness);
     }
     this.network?.setWetness(wetness);
+    this.highwayDrainage?.update(dt,this.weatherState.rain,wetness,paused);
     this.roadEnvironment?.update(dt,paused);
     this.railway?.update(dt,paused);
     this.river?.update(dt,paused,this.weatherState.rain>.32,this.atmosphere?.sunDirection);
