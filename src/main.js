@@ -462,6 +462,9 @@ function createDiagnostics(){
       'Alertas principais: '+
         Object.entries(world.mapAudit?.counts||{}).slice(0,4)
           .map(([name,count])=>name+'='+count).join(' · '),
+      ...((world.mapAudit?.issues||[]).slice(0,3).map(issue=>
+        'Mapa '+issue.kind+': X '+Math.round(issue.x)+
+        ' / Z '+Math.round(issue.z)+' ('+issue.roadId+')')),
       'Árvores: '+(world.forest?.statistics.active||0)+' visíveis / '+
         (world.forest?.statistics.planted||0)+' colocadas',
       'LOD árvores 0/1/2/3: '+(world.forest?.statistics.lod||[0,0,0,0]).join('/')
