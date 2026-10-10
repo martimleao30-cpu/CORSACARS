@@ -52,6 +52,31 @@ assert.equal(profileEN.paved.length,2);
 assert.equal(profileEN.median,null);
 assert.equal(national.body.shapes.length,2);
 assert.ok(profileEN.paved.every(m=>m.geometry.userData.roadShoulderWidth===2.5));
+// A junction must cut BOTH the visible asphalt shoulder and its Cannon
+// collider, not leave an invisible slab under the joining road.
+const crossingRoad=mockRoad('autoestrada',19);
+const joining=mockRoad('rampa-entrada',3.75);
+const junction={x:0,z:90,ux:0,uz:1,
+  halfU:16,halfV:23,primary:crossingRoad,secondary:joining};
+const cutProfile=buildRoadProfileGeometry(scene,crossingRoad,()=>0,[junction]);
+for(let side=0;side<2;side++){
+  const geometry=cutProfile.paved[side].geometry;
+  const positions=geometry.getAttribute('position'),indices=geometry.index;
+  for(let k=0;k<indices.count;k+=3){
+    const cx=(positions.getX(indices.getX(k))+
+      positions.getX(indices.getX(k+1))+
+      positions.getX(indices.getX(k+2)))/3;
+    const cz=(positions.getZ(indices.getX(k))+
+      positions.getZ(indices.getX(k+1))+
+      positions.getZ(indices.getX(k+2)))/3;
+    assert.ok(Math.abs(cx)>=junction.halfV-.0001||
+      Math.abs(cz-90)>=junction.halfU-.0001,
+      'No paved-shoulder triangle may lie inside a junction');
+  }
+  const collider=crossingRoad.body.shapes[side];
+  assert.equal(collider.indices.length,geometry.index.count,
+    'Paved shoulder collision must use the exact clipped visual triangles');
+}
 const farm=mockRoad('terra',4);
 const profileFarm=buildRoadProfileGeometry(scene,farm,()=>0,[]);
 assert.equal(profileFarm.paved.length,0);
