@@ -31,11 +31,11 @@ const env=new RoadEnvironment(scene,physics,network,()=>0,'low',mask);
 const architecture=env.infrastructure,stats=architecture.stats;
 assert.ok(stats.stops>=1,'Accessible glass-and-steel bus shelters should exist');
 const stops=architecture.groups.filter(g=>g.name.startsWith('Paragem de autocarro'));
-assert.ok(stops.length>=1);
+assert.ok(stops.length>=2,'There should be stops for actual urban and rural settlements');
 for(const stop of stops){
   assert.ok(Number.isFinite(stop.position.x)&&Number.isFinite(stop.position.z),
     'Bus stop position must be finite, not a Vector3 multiplied by a number');
-  assert.ok(['town','aldeia'].includes(stop.userData.servesPOI),
+  assert.ok(['town','aldeia','aldeia-sul','aldeia-leste'].includes(stop.userData.servesPOI),
     'Stop must serve a named settlement, not arbitrary roadside space');
   assert.ok(Number.isFinite(stop.userData.poiDistance)&&
     stop.userData.poiDistance>=27&&stop.userData.poiDistance<=127,
@@ -43,6 +43,10 @@ for(const stop of stops){
       poi:stop.userData.servesPOI,d:stop.userData.poiDistance,
       position:stop.position.toArray()
     }));
+  assert.equal(stop.userData.pedestrianAccess,true,
+    'A shelter should have terrain-following pedestrian access');
+  assert.ok(stop.children.filter(x=>x.name==='Acesso pedonal · paragem').length>=4,
+    'Stop must be connected to the edge of its road');
   const settlement=sectors.regions.find(r=>r.id===stop.userData.servesPOI);
   assert.ok(settlement&&stop.userData.roadId===settlement.road);
 }

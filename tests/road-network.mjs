@@ -21,8 +21,8 @@ for(let i=0;i<=420;i++){
   ring.push({center:new THREE.Vector3(Math.cos(angle)*400,.2,Math.sin(angle)*400)});
 }
 const network=new RoadNetwork(scene,physics,()=>0,ring,13.5,'low');
-assert.equal(REGIONAL_LINKS.length,10);
-assert.equal(network.roads.length,14);
+assert.equal(REGIONAL_LINKS.length,11);
+assert.equal(network.roads.length,REGIONAL_LINKS.length+4);
 assert.equal(physics.bodies.length,network.roads.length-1,'All new roads need real collision bodies');
 assert.ok(network.cells.size>30,'Surface lookups should use spatial hashing');
 for(const road of network.roads){
@@ -47,7 +47,7 @@ for(const road of network.roads){
   }
 }
 assert.equal(network.query(4000,4000).surface,'grass');
-for(const id of ['serra-norte','planicie-sul','vale-leste']){
+for(const id of ['serra-norte','planicie-sul','vale-leste','campos-oeste']){
   const road=network.roads.find(r=>r.id===id);
   assert.ok(road&&road.points.length>=220,'New outer map road missing: '+id);
   assert.ok(road.points.some(p=>Math.max(Math.abs(p.x),Math.abs(p.z))>1050),
@@ -59,6 +59,15 @@ assert.equal(network.connectors.length,3,'Town side road plus motorway on/off ra
 assert.ok(network.junctions.length>=3,'At-grade X/T crossings must be detected');
 assert.ok(network.junctions.some(j=>j.secondary.id==='rua-lateral'),
   'Side street must join its parent without duplicated triangles');
+// Junction surface classification must agree with the one intact asphalt
+// deck, not a geometrically clipped secondary crossing.
+for(const join of network.junctions.filter(j=>j.kind==='cross'||j.kind==='oblique').slice(0,5)){
+  const sampled=network.query(join.x,join.z);
+  assert.equal(sampled.road,join.primary.name,
+    'Road grip must come from the visible primary carriageway at '+join.kind);
+  const wet=network.query(join.x,join.z,'rain');
+  if(join.primary.surface==='dry')assert.equal(wet.surface,'wet');
+}
 for(const junction of network.junctions){
   assert.ok(junction.halfU>1&&junction.halfV>1);
   assert.ok(junction.angle>.25||junction.kind==='endpoint',
@@ -82,7 +91,7 @@ const testTrack=new DrivingTestArea(scene,physics,network,()=>0);
 assert.equal(testTrack.samples.length,7,'Physical driving test markers should exist');
 assert.equal(testTrack.obstacleBodies.length,4,'Speed bump and slalom need solid colliders');
 const sectors=new WorldSectors(scene,physics,network,()=>0);
-assert.equal(sectors.regions.length,8);
+assert.equal(sectors.regions.length,11);
 const spot=sectors.regions[0];
 const initial=physics.bodies.length;
 sectors.update(spot.point,3);
