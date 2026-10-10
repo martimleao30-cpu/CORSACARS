@@ -88,6 +88,7 @@ export class RoadNetwork {
     this.roads=[{id:'circular',name:'Estrada Circular',category:'ring',surface:'dry',
       width:ringWidth,profile:roadProfile({id:'circular'}),points:ringPoints.map(p=>p.center)}];
     this.cells=new Map();
+    this.busBayCells=new Map();
     this.materials=new Map();
     for(const route of REGIONAL_LINKS){
       if(Math.abs(route.width-officialRoadWidth(route))>1e-6)
@@ -298,6 +299,23 @@ export class RoadNetwork {
     }
   }
 
+  setBusBays(bays=[]){
+    this.busBays=bays;
+    this.busBayCells.clear();
+    const size=this.cellSize||65;
+    for(const bay of bays){
+      // 22m station length + up to 4m shoulder plus wide curve approach.
+      const range=33;
+      for(let ix=Math.floor((bay.x-range)/size);
+        ix<=Math.floor((bay.x+range)/size);ix++)
+        for(let iz=Math.floor((bay.z-range)/size);
+          iz<=Math.floor((bay.z+range)/size);iz++){
+          const key=ix+','+iz;
+          if(!this.busBayCells.has(key))this.busBayCells.set(key,[]);
+          this.busBayCells.get(key).push(bay);
+        }
+    }
+  }
   query(x,z,weather='clear'){
     // The road remains slippery after the rain stops, while puddles dry.
     // Visible asphalt wetness and tyre grip must agree.
@@ -322,7 +340,7 @@ export class RoadNetwork {
     // A BUS pullout is paved and driveable, not gravel merely because it
     // lies outside the original road width. Match the tapered bay geometry
     // so tyres get asphalt traction through entry and exit.
-    for(const bay of this.busBays||[]){
+    for(const bay of this.busBayCells.get(key)||[]){
       const dx=x-bay.x,dz=z-bay.z;
       const along=dx*bay.tangent.x+dz*bay.tangent.z;
       if(Math.abs(along)>22)continue;
