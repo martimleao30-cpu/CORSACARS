@@ -66,9 +66,9 @@ jobs:
               ""
               "Foi detetado um erro antes da compilacao do instalador."
               ""
-              "```text"
+              '```text'
               $tail
-              "```"
+              '```'
             ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
             exit $testExit
           }
