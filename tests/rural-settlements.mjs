@@ -24,8 +24,30 @@ for(const kind of ['farmstead','hamlet']){
     assert.ok(result.stats.hayBales>=10);
     assert.ok(result.stats.fenceSections>=3);
     assert.ok(result.root.children.some(obj=>obj.name==='Trator agrícola · carroçaria'));
+    assert.equal(result.stats.cows,3);
+    assert.equal(result.stats.sheep,5);
+    assert.ok(result.stats.swallows>=5);
+    assert.equal(result.root.children.filter(obj=>
+      obj.name==='Vaca de quinta · gado').length,3);
+    assert.equal(result.root.children.filter(obj=>
+      obj.name==='Ovelha · rebanho').length,5);
+    const birds=result.root.children.filter(obj=>
+      obj.name==='Andorinha · corpo aerodinâmico');
+    const initialPosition=birds[0].position.clone();
+    const initialWing=birds[0].userData.wings.left.rotation.z;
+    result.wildlife.update(2.3);
+    assert.ok(birds[0].position.distanceTo(initialPosition)>1.0,
+      'Andorinhas devem mover-se em voo livre entre fotogramas');
+    assert.notEqual(birds[0].userData.wings.left.rotation.z,initialWing,
+      'As asas devem bater em vez de ficar fixas');
+    const animalPositions=[...result.root.children].filter(obj=>
+      obj.name==='Vaca de quinta · gado'||obj.name==='Ovelha · rebanho');
+    assert.ok(animalPositions.every(obj=>obj.position.x>70),
+      'O gado não pode invadir a faixa de rodagem');
   }else{
     assert.ok(result.root.children.some(obj=>obj.name==='Largo da aldeia · calçada'));
+    assert.equal(result.stats.cows,0);
+    assert.ok(result.stats.swallows>=5);
   }
 }
 assert.ok(bodies.every(body=>Number.isFinite(body.position.x)&&
