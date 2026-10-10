@@ -148,7 +148,7 @@ export class GraphicsPipeline {
       this.renderer.toneMappingExposure,targetExposure,1.35,dt);
     this.indirect?.update(this.world.hour,this.world.weather,this.quality);
     this.frameCount++;
-    const frequency=this.quality==='ultra'?25:65;
+    const frequency=this.quality==='ultra'?4:10;
     if(active&&this.reflectionEnabled&&this.frameCount%frequency===0){
       this.reflectionCamera.position.copy(this.vehicle.model.position)
         .add(new THREE.Vector3(0,.6,0));
