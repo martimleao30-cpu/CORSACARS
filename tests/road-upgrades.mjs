@@ -11,7 +11,7 @@ globalThis.document={
     }};
   }
 };
-const {createRoadBed,ROAD_SECTION,roadDeckHeight,addRoadWear,addRoadShoulders,addRoadSides}=
+const {createRoadBed,ROAD_SECTION,roadDeckHeight,addRoadWear,addRoadShoulders,addRoadSides,addRoadDrainage}=
   await import('../src/road-upgrades.js');
 const {createAsphaltMaterial,createGravelMaterial}=await import('../src/materials.js');
 const points=[
@@ -75,5 +75,19 @@ for(const shoulder of shoulders){
   assert.notEqual(colors.getY(0),colors.getY(3),
     'Outer verge must blend gravel into natural soil/grass');
 }
-assert.equal(scene.children.length,6);
+const drainage=addRoadDrainage(scene,points,width,ground,'low');
+assert.equal(drainage.length,2,'Natural swales must appear on both road sides');
+for(const ditch of drainage){
+  const g=ditch.geometry;
+  assert.equal(g.userData.corsaDrainage,true);
+  assert.equal(g.getAttribute('position').count,points.length*6);
+  assert.equal(g.getAttribute('color').count,points.length*6);
+  assert.ok(g.index.count>0,'Ditch and talud must be continuous');
+  const pos=g.getAttribute('position');
+  for(let i=0;i<pos.count;i++){
+    assert.ok(pos.getY(i)>=ground(pos.getX(i),pos.getZ(i)),
+      'Road ditch must not leave visible gaps below existing ground collision');
+  }
+}
+assert.equal(scene.children.length,8);
 console.log('PASS: 3D road deck and sides, real-distance UVs, PBR aging, reuse, tire marks, patches and shoulders.');
