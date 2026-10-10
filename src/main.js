@@ -381,7 +381,6 @@ function applyQuality() {
   roadDust.quality=settings.quality;
   renderer.shadowMap.needsUpdate = true;
   graphics.setQuality(settings.quality, settings);
-  graphics.configureEffects?.(settings);
   assets.setQuality(settings.quality);
   resize();
 }
