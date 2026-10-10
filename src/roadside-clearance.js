@@ -113,8 +113,11 @@ export class RoadsideClearance{
         const d=(p.x-region.roadPoint.x)**2+(p.z-region.roadPoint.z)**2;
         if(d<best){best=d;nearest=i;}
       }
-      const sides=region.kind==='town'?[region.sideSign,-region.sideSign]:
-        [region.sideSign];
+      // A village driveway already occupies region.sideSign; the bus
+      // shelter belongs on the opposite roadside, where shelter() builds it.
+      // Keep both directions for the town's higher passenger demand.
+      const sides=region.kind==='town'
+        ? [region.sideSign,-region.sideSign] : [-region.sideSign];
       for(const side of sides){
         const stepOrder=[13,16,19,22,25,28,31,35,39,44,49];
         let found=null;
