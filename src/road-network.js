@@ -284,6 +284,24 @@ export class RoadNetwork {
         return {surface:type,road:road.name,distance:Math.abs(v)};
       }
     }
+    // A BUS pullout is paved and driveable, not gravel merely because it
+    // lies outside the original road width. Match the tapered bay geometry
+    // so tyres get asphalt traction through entry and exit.
+    for(const bay of this.busBays||[]){
+      const dx=x-bay.x,dz=z-bay.z;
+      const along=dx*bay.tangent.x+dz*bay.tangent.z;
+      if(Math.abs(along)>22)continue;
+      const outward=dx*bay.outward.x+dz*bay.outward.z;
+      const lateral=bay.offset+outward;
+      const t=Math.max(0,Math.min(1,(22-Math.abs(along))/10));
+      const smooth=t*t*(3-2*t);
+      const inside=bay.road.width*.5-.16;
+      const outside=inside+.12+3.65*smooth;
+      if(lateral>=inside&&lateral<=outside){
+        return {surface:weather==='rain'?'wet':'dry',road:bay.road.name,
+          distance:lateral,busBay:true};
+      }
+    }
     for(const link of candidates){
       const distanceSq=sqDistanceToSegment(x,z,link.a,link.b);
       if(distanceSq<min) {min=distanceSq;road=link.road;closestSegment=link;}
