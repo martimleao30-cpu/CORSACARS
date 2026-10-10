@@ -69,9 +69,24 @@ export class PremiumInterface {
       id:'rail-'+s.id,name:s.name,kind:'railway-station',
       point:s.point,roadPoint:s.point
     }));
+    const view=this.api.world.river?.waterfallViewpoint;
+    this.waterfallDestinations=[];
+    if(view){
+      let closest=null,distance=Infinity;
+      for(const road of this.api.world.network.roads)
+        for(const point of road.points){
+          const d=(point.x-view.x)**2+(point.z-view.z)**2;
+          if(d<distance){distance=d;closest=point;}
+        }
+      this.waterfallDestinations.push({
+        id:'cascata-ribeira-leste',name:'Cascata da Ribeira Leste',
+        kind:'waterfall',point:view,roadPoint:closest||view
+      });
+    }
     this.navigation=new NavigationHUD($('gpsCanvas'),
       this.api.world.network,
-      [...this.api.world.sectors.regions,...this.railDestinations],$('gpsStatus'));
+      [...this.api.world.sectors.regions,...this.railDestinations,
+        ...this.waterfallDestinations],$('gpsStatus'));
     this.bindPages();
     this.setHud(this.prefs);
     this.bindDragging();
@@ -699,10 +714,12 @@ export class PremiumInterface {
       ctx.strokeStyle='#6b7778';ctx.lineWidth=2.2;ctx.setLineDash([5,4]);
       ctx.stroke();ctx.setLineDash([]);
     }
-    const sites=[...(this.api.world.sectors?.regions||[]),...this.railDestinations];
+    const sites=[...(this.api.world.sectors?.regions||[]),
+      ...this.railDestinations,...this.waterfallDestinations];
     for(const site of sites) {
       const [x,y]=project(site.point);
-      ctx.fillStyle=site.kind==='railway-station'?'#93e1f5':'#f7d28b';
+      ctx.fillStyle=site.kind==='railway-station'?'#93e1f5':
+        site.kind==='waterfall'?'#5be0ef':'#f7d28b';
       ctx.beginPath();ctx.arc(x,y,site.kind==='railway-station'?5.1:3.8,0,Math.PI*2);ctx.fill();
       ctx.fillStyle='#eeeae0';ctx.font='9px sans-serif';
       ctx.fillText(site.name.slice(0,22),Math.min(w-100,x+6),y-4);
