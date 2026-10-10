@@ -40,7 +40,9 @@ for(const channel of drainage.channels){
       'Concrete drainage must stop around bridge/junction zones');
   }
   assert.equal(channel.water.visible,false,'Dry channels show no flowing water');
-  assert.equal(channel.water.geometry.index.count,channel.segmentCount*6);
+  assert.equal(channel.water.geometry.index.count,
+    channel.segmentCount*6/7,
+    'One moving water strip accompanies seven concrete profile strips');
 }
 drainage.update(.016,0,0);
 assert.ok(drainage.level===0,'No water should spawn without rainfall');
