@@ -26,7 +26,17 @@ page.on('console', message => {
 });
 try {
   await page.goto('http://127.0.0.1:8080', { waitUntil: 'domcontentloaded' });
-  await page.locator('#loading').waitFor({ state: 'hidden', timeout: 45000 });
+  await page.locator('#loading').waitFor({ state: 'hidden', timeout: 45000 })
+    .catch(async error=>{
+      const diagnostic=await page.evaluate(()=>({
+        ready:document.readyState,
+        loading:document.querySelector('#loading')?.textContent?.slice(0,400),
+        main:document.querySelector('#game')?.getAttribute('width')
+      })).catch(e=>({error:e.message}));
+      throw new Error('Falha no arranque WebGL: '+error.message+
+        '\nErros JavaScript: '+JSON.stringify(browserErrors)+
+        '\nEstado da página: '+JSON.stringify(diagnostic));
+    });
   assert.equal(await page.locator('#startButton').isVisible(), true);
   const hasWebGL = await page.evaluate(() =>
     Boolean(document.querySelector('#game').getContext('webgl2')));
