@@ -52,6 +52,16 @@ for(const road of network.roads){
       assert.equal(ribbon.geometry.userData.corsaDrainage,true);
     }
   }
+  if(road.category==='dirt'){
+    assert.equal(road.mesh.material.userData.corsaDirtRoad,true,
+      'Unpaved route must use detailed ground-specific maps');
+    assert.ok(road.mesh.material.map.image.width>=512,
+      'Unpaved road must use at least 512px albedo');
+    assert.ok(road.mesh.material.normalMap&&road.mesh.material.roughnessMap,
+      'Detailed earth requires normal and roughness textures');
+    const uv=(road.sourceGeometry||road.mesh.geometry).getAttribute('uv');
+    assert.ok(uv.getY(7)>.01,'Unpaved road texture must tile along distance');
+  }
   if(road.category==='mountain'){
     assert.equal(road.mesh.material.userData.mountainDetail,true,
       'Mountain roads must have their own improved texture detail');
