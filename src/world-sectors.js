@@ -49,6 +49,7 @@ export class WorldSectors {
     this.lastUpdate=-Infinity;
     this.wildlifeTime=0;
     this.lastWildlifeElapsed=null;
+    this.preloaded=false;
     for(const definition of DESCRIPTORS){
       const road=network.roads.find(r=>r.id===definition.road);
       if(!road)continue;
@@ -64,6 +65,16 @@ export class WorldSectors {
       this.regions.push({...definition,point:xy,roadPoint:p.clone(),
         tangent,side,sideSign:definition.side,roadWidth:road.width});
     }
+  }
+
+  preloadAll(onProgress=()=>{}){
+    this.preloaded=true;
+    for(let i=0;i<this.regions.length;i++){
+      const region=this.regions[i];
+      if(!this.active.has(region.id))this.load(region);
+      onProgress(i+1,this.regions.length,region.name);
+    }
+    return this.active.size;
   }
 
   load(region) {
@@ -173,8 +184,10 @@ export class WorldSectors {
     const nearSq=530*530,farSq=680*680;
     for(const region of this.regions){
       const dist=region.point.distanceToSquared(carPosition);
-      if(dist<nearSq&&!this.active.has(region.id))this.load(region);
-      if(dist>farSq&&this.active.has(region.id))this.unload(region.id);
+      if(!this.preloaded){
+        if(dist<nearSq&&!this.active.has(region.id))this.load(region);
+        if(dist>farSq&&this.active.has(region.id))this.unload(region.id);
+      }
       const service=this.active.get(region.id)?.group.userData.service;
       if(service){
         const on=hour<6.4||hour>18.7;
