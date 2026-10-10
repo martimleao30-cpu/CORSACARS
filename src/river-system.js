@@ -334,11 +334,20 @@ export class RiverSystem {
         const x=hit.x+side.x*(width*.5+.61),z=hit.z+side.z*(width*.5+.61);
         add('Ponte · guarda metálica lateral',x,deckY+.66,z,
           .17,1.05,length-.65,yaw,steel);
-        const pillarHeight=Math.max(.7,deckY-near.waterY-.35);
         for(const advance of [-1,1]){
           const x2=x+hit.direction.x*advance*(length*.36);
           const z2=z+hit.direction.z*advance*(length*.36);
-          add('Ponte · apoio no leito rochoso',x2,deckY-pillarHeight*.5-.33,z2,
+          const local=this.lookup(x2,z2);
+          const naturalGround=this.terrainY(x2,z2);
+          const channelBed=local&&local.distance<local.width+8.5
+            ?local.waterY-1.55:naturalGround;
+          // These footings reach the terrain AFTER river excavation. The
+          // old supports ended around the water surface, visibly floating.
+          const baseY=Math.min(naturalGround,channelBed)-.18;
+          const underside=deckY-.72;
+          const pillarHeight=Math.max(.7,underside-baseY);
+          add('Ponte · apoio no leito rochoso',
+            x2,baseY+pillarHeight*.5,z2,
             .72,pillarHeight,1.0,yaw,concrete);
         }
         const collider=new CANNON.Body({mass:0,material:new CANNON.Material('bridge-rail')});
