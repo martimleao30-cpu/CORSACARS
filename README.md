@@ -581,3 +581,12 @@ A subdivisão do terreno aumenta proporcionalmente com os 4,1 km, evitando
 perder precisão por vértice em zonas de encosta. Estas mudanças implicam
 mais geometria carregada, mas não multiplicam as chamadas de desenho por
 estrada. Os testes medem também a distância máxima entre secções.
+
+### Vegetação nas zonas exteriores
+
+Na extensão de 4,1 km, a densidade e a área de distribuição das árvores e da
+vegetação baixa foram expandidas até quase ao limite do terreno. As plantas
+continuam a evitar vias públicas, acessos e a ferrovia, e conservam a
+renderização instanciada com LOD e distância de visibilidade. A densidade
+pode ser reduzida nas definições caso haja perda de FPS em placas gráficas
+menos potentes.

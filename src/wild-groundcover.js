@@ -14,11 +14,11 @@ export class WildGroundcover{
   build(){
     const random=rng(20261018),size=145;
     const max={
-      low:{shrub:520,flower:460,grass:1600},
-      medium:{shrub:1000,flower:850,grass:2800},
-      high:{shrub:1650,flower:1200,grass:4350},
-      ultra:{shrub:2350,flower:1800,grass:6500}
-    }[this.quality]||{shrub:1650,flower:1200,grass:4350};
+      low:{shrub:680,flower:600,grass:1950},
+      medium:{shrub:1280,flower:1050,grass:3450},
+      high:{shrub:2080,flower:1510,grass:5400},
+      ultra:{shrub:2910,flower:2130,grass:7700}
+    }[this.quality]||{shrub:2080,flower:1510,grass:5400};
     const shrubGeo=createNaturalShrubGeometry('low');
     const flowerGeo=createNaturalFlowerGeometry();
     const grassGeo=createMeadowTuftGeometry(this.quality==='low'?'low':'medium');
@@ -46,7 +46,7 @@ export class WildGroundcover{
     for(const kind of Object.keys(max)){
       let planted=0;
       for(let i=0;i<max[kind]*12&&planted<max[kind];i++){
-        const x=(random()-.5)*3050,z=(random()-.5)*3050;
+        const x=(random()-.5)*3900,z=(random()-.5)*3900;
         const macro=Math.sin(x*.009+Math.cos(z*.011))*Math.cos(z*.011);
         const local=Math.sin(x*.037-z*.015)*Math.cos(z*.039+x*.014);
         const density=.49+.30*macro+.11*local;

@@ -326,7 +326,7 @@ export class ForestSystem {
   generate(seed){
     const random=rng(seed);
     const extent=optionsExtent(this.quality);
-    const max={low:840,medium:1330,high:2030,ultra:2820}[this.quality]||2030;
+    const max={low:1080,medium:1660,high:2570,ultra:3450}[this.quality]||2570;
     let planted=0;
     // Sample the entire map: the old nested loops filled the westernmost
     // columns first and stopped at the cap, leaving eastern zones barren.
@@ -496,4 +496,4 @@ export class ForestSystem {
     this.chunks.clear();this.prototypes.clear();
   }
 }
-function optionsExtent(quality){return quality==='low'?1120:quality==='medium'?1220:1400;}
+function optionsExtent(quality){return quality==='low'?1540:quality==='medium'?1730:1920;}
