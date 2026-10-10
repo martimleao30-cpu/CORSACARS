@@ -232,3 +232,21 @@ button:focus-visible,select:focus-visible,input:focus-visible{
 @media(prefers-reduced-motion:reduce){
  .entry-continue,.screen button,.screen-content,.screen .panel{animation:none;transition:none}
 }
+
+/* PC-style progress display while loading the complete road world ahead of play. */
+#loading{z-index:60;gap:13px;background:
+  radial-gradient(ellipse at 74% 30%,rgba(48,68,77,.20),transparent 52%),
+  linear-gradient(145deg,#080f18,#0b1621 62%,#101b27);}
+#loading .loading-mark{font-size:clamp(58px,8vw,98px);}
+#loadingStage{font-size:11px;font-weight:750;letter-spacing:.13em;
+  color:#e1e8ed;max-width:min(700px,90vw);margin:8px auto 0;
+  min-height:2.5em;line-height:1.6;}
+.world-loading-track{width:min(470px,80vw);height:5px;margin:3px auto 0;
+  border:1px solid rgba(235,239,245,.25);
+  background:rgba(180,189,203,.10);overflow:hidden;}
+.world-loading-fill{height:100%;width:0%;
+  background:linear-gradient(90deg,#948477,#f1e4cd);
+  transition:width .17s ease-out;}
+.world-loading-hint{max-width:min(640px,90vw);
+  margin:5px auto 0;color:#8699a7;letter-spacing:.14em;
+  font-size:9px;line-height:1.8;}
