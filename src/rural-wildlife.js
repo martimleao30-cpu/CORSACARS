@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
 
 // Wildlife belongs to a real loaded farm sector. Detailed, reusable 3D
 // geometry is shared within each flock and is released with the farm sector.
@@ -35,7 +36,7 @@ export function createSwallowModel(resources){
   root.userData.wings={left,right};
   return root;
 }
-export function buildRuralWildlife(root,region,terrain,quality='high'){
+export function buildRuralWildlife(root,region,terrain,quality='high',physics=null,bodies=null){
   const geometries={
     sphere:new THREE.SphereGeometry(1,10,8),
     cylinder:new THREE.CylinderGeometry(1,1,1,7),
@@ -62,6 +63,18 @@ export function buildRuralWildlife(root,region,terrain,quality='high'){
       terrain(x,z)-root.position.y,along);
   };
   const cows=[],sheep=[],birds=[];
+  let animalColliders=0;
+  const animalCollider=(out,along,y,width,height,depth,yaw)=>{
+    if(!physics||!bodies)return;
+    const x=region.roadPoint.x+outward.x*out+frame.x*along;
+    const z=region.roadPoint.z+outward.z*out+frame.z*along;
+    const body=new CANNON.Body({mass:0});
+    body.addShape(new CANNON.Box(new CANNON.Vec3(width*.5,height*.5,depth*.5)));
+    body.position.set(x,terrain(x,z)+y,z);
+    body.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0),
+      Math.atan2(frame.x,frame.z)+yaw);
+    physics.addBody(body);bodies.push(body);animalColliders++;
+  };
   const farm=region.kind==='farm'||region.kind==='farmstead';
   function createCow(out,along,variant){
     const model=new THREE.Group();model.name='Vaca de quinta · gado';
@@ -69,9 +82,9 @@ export function buildRuralWildlife(root,region,terrain,quality='high'){
     model.rotation.y=[.5,-.65,1.15][variant%3];
     root.add(model);
     const bodyMat=variant%2?mat.cowLight:mat.cow;
-    add(model,'Tronco anatómico',geometries.sphere,bodyMat,0,1.11,0,1.05,.58,.51);
-    add(model,'Manchas do pelo',geometries.sphere,mat.patches,-.50,1.33,.19,.25,.12,.18);
-    for(const x of [-.73,.73])for(const z of [-.31,.31]){
+    add(model,'Tronco anatómico',geometries.sphere,bodyMat,0,1.11,0,.52,.58,1.05);
+    add(model,'Manchas do pelo',geometries.sphere,mat.patches,-.42,1.33,.18,.14,.22,.40);
+    for(const x of [-.34,.34])for(const z of [-.70,.70]){
       add(model,'Pata bovina',geometries.cylinder,bodyMat,x,.48,z,.14,.86,.15);
       add(model,'Casco',geometries.sphere,mat.hooves,x,.10,z,.18,.13,.20);
     }
@@ -85,20 +98,21 @@ export function buildRuralWildlife(root,region,terrain,quality='high'){
       add(head,'Olho',geometries.sphere,mat.eye,sign*.26,.11,.81,.042,.041,.038);
     }
     model.add(head);
-    const tail=add(model,'Cauda',geometries.cylinder,bodyMat,0,1.02,-.71,.04,.73,.05);
+    const tail=add(model,'Cauda',geometries.cylinder,bodyMat,0,1.02,-1.01,.04,.73,.05);
     tail.rotation.x=-.36;
+    animalCollider(out,along,1.11,1.04,1.16,2.10,model.rotation.y);
     cows.push({head,tail,phase:variant*1.9});
   }
   function createSheep(out,along,index){
     const model=new THREE.Group();model.name='Ovelha · rebanho';
     model.position.copy(location(out,along));
     model.rotation.y=index*.9;root.add(model);
-    add(model,'Corpo de lã',geometries.sphere,mat.sheep,0,.78,0,.69,.43,.46);
+    add(model,'Corpo de lã',geometries.sphere,mat.sheep,0,.78,0,.46,.43,.69);
     for(const [x,y,z] of [[-.40,.97,-.22],[.35,1.01,-.16],
       [0,1.10,.18],[-.34,.69,.18],[.36,.77,.20]]){
       add(model,'Volume de lã',geometries.sphere,mat.sheep,x,y,z,.30,.27,.30);
     }
-    for(const x of [-.43,.43])for(const z of [-.27,.27])
+    for(const x of [-.27,.27])for(const z of [-.43,.43])
       add(model,'Pata de ovelha',geometries.cylinder,mat.sheepFace,
         x,.29,z,.083,.50,.075);
     const head=new THREE.Group();head.position.set(0,.83,.52);
@@ -107,6 +121,7 @@ export function buildRuralWildlife(root,region,terrain,quality='high'){
     for(const x of [-.17,.17])
       add(head,'Olho de ovelha',geometries.sphere,mat.eye,x,.09,.36,.032,.035,.04);
     model.add(head);
+    animalCollider(out,along,.78,.90,.86,1.38,model.rotation.y);
     sheep.push({head,phase:index*1.7});
   }
   if(farm){
@@ -156,5 +171,5 @@ export function buildRuralWildlife(root,region,terrain,quality='high'){
   };
   update(0);
   return {update,stats:{cows:cows.length,sheep:sheep.length,
-    swallows:birds.length},root,geometries,materials:mat};
+    swallows:birds.length,animalColliders},root,geometries,materials:mat};
 }
