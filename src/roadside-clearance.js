@@ -240,6 +240,9 @@ export class RoadsideClearance{
     });
   }
   plantAllowed(x,z,kind='grass',radius=0){
+    if(this.river?.contains(x,z,radius+2.2)){
+      this.placed.rejectedPlants++;return false;
+    }
     const margin={grass:2.8,flower:3.8,shrub:5.5,tree:9.5,
       roadsideShrub:3.5,rock:1.5}[kind]??4;
     if(this.insideService(x,z,radius+1)){
@@ -262,7 +265,8 @@ export class RoadsideClearance{
   }
   fenceAllowed(x,z,road,margin=1){
     const other=this.roadProximity(x,z,road);
-    const blocked=this.insideBusBay(x,z,margin)||
+    const blocked=this.river?.contains(x,z,margin+1)||
+      this.insideBusBay(x,z,margin)||
       this.insideService(x,z,margin+1)||
       (other.road&&other.edge<4.8+margin)||
       this.nearJunction(x,z,margin+1.3)||
