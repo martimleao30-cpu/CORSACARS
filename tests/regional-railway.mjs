@@ -43,6 +43,25 @@ assert.ok(rail.statistics.railSegments>=650);
 assert.ok(rail.statistics.ballastStones>1000,
   'Ballast should include scattered individual aggregate');
 assert.ok(rail.statistics.catenaryMasts>55,'Regional line requires overhead supply masts');
+const beams=rail.group.children.filter(o=>
+  o.name==='Viaduto · viga contínua de betão');
+const caps=rail.group.children.filter(o=>
+  o.name==='Viaduto · travessa de apoio');
+const piers=rail.group.children.filter(o=>
+  o.name==='Viaduto · pilar estrutural');
+const bases=rail.group.children.filter(o=>
+  o.name==='Viaduto · sapata de fundação');
+assert.equal(beams.length,rail.statistics.bridgeDeckSegments);
+assert.equal(caps.length,rail.statistics.bridges);
+assert.equal(piers.length,2*caps.length,
+  'Elevated railway support must use paired structural legs');
+assert.equal(bases.length,piers.length,
+  'Railway piers must have terrain-grounded foundations');
+assert.ok(beams.length>0,
+  'Elevated track should use connected viaduct girders, not floating rail');
+for(const base of bases)
+  assert.ok(Math.abs(base.position.y-terrain(base.position.x,base.position.z))<.6,
+    'Viaduct foundation must meet the terrain');
 const rails=rail.group.children.filter(m=>m.name==='Carril ferroviário perfilado · bitola 1435 mm');
 assert.equal(rails.length,2,'Both proper steel rails must remain visible');
 assert.ok(rail.group.children.some(m=>m.name==='Leito contínuo de balastro · taludes e drenagem'));
