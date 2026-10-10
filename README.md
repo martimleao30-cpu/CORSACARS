@@ -546,3 +546,13 @@ exclusões, a sinalização e a remoção correta de corpos físicos.
 Na auditoria corrigiram-se as placas que mostravam `500 m km/h` em vez de
 `500 m` e a ausência de limpeza de texturas/geometrias na destruição dos
 ambientes rodoviários, que provocava acumulação de memória GPU.
+
+### Auditoria de estabilidade e segurança
+
+Foram também corrigidos: valores inválidos e conteúdo HTML inesperado em
+atalhos restaurados do armazenamento local; limpeza de materiais de pontos de
+interesse quando estes são descarregados; descarte duplicado da mesma geometria
+mediante recolha em conjuntos. Os testes `tests/keybindings.mjs` e
+`tests/sector-lifecycle.mjs` verificam normalização, limpeza gráfica e
+colisões libertadas. A geometria das estradas e os limites físicos do BMW
+continuam cobertos pela suite de regressão.

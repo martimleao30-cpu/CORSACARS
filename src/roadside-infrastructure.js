@@ -255,7 +255,11 @@ export class RoadsideInfrastructure{
   }
   build(){
     for(const road of this.network.roads){
-      if(road.category==='urban'){
+      if(road.id==='circular'){
+        this.direction(road,.14,1,['VILA NOVA','ESTAÇÃO CENTRAL']);
+        this.direction(road,.61,-1,['CIRCULAR','SERRA ALTA']);
+        this.markers(road,'ring',17);
+      }else if(road.category==='urban'){
         for(const [at,side] of [[.24,-1],[.76,1]])
           this.shelter(road,at,side);
         this.direction(road,.41,1,['CENTRO DA VILA','ESTAÇÃO FERROVIÁRIA']);

@@ -28,8 +28,12 @@ for(const region of sector.regions){
     }
   });
   assert.ok(geometries.size>3);
+  let disposed=0;
+  const chosen=[...geometries][0];
+  chosen.addEventListener('dispose',()=>{disposed++;});
   sector.unload(region.id);
   assert.equal(physics.bodies.length,initial,'Unload must not leak POI collision');
+  assert.equal(disposed,1,'POI geometry must release WebGL buffers');
   assert.ok([...geometries].every(g=>g.getAttribute('position')?.array),
     'Geometry objects remain inspectable despite GPU dispose');
 }
