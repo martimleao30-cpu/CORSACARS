@@ -62,6 +62,9 @@ export class RiverSystem {
     const fallStart=Math.round(sampleCount*.215);
     const fallEnd=fallStart+Math.max(5,Math.round(sampleCount*.005));
     this.waterfall={start:fallStart,end:fallEnd,drop:3.7};
+    const upperLip=softened[fallStart];
+    const lowerPool=upperLip-this.waterfall.drop;
+    const downstreamShift=lowerPool-softened[fallEnd];
     this.points=horizontal.map((p,i)=>{
       const before=horizontal[Math.max(0,i-1)];
       const after=horizontal[Math.min(sampleCount,i+1)];
@@ -69,7 +72,10 @@ export class RiverSystem {
       const len=Math.hypot(dx,dz)||1;
       const width=8.5+2.7*Math.sin(i*.033)+1.0*Math.sin(i*.13);
       const fallProgress=smooth((i-fallStart)/(fallEnd-fallStart));
-      return {x:p.x,z:p.z,y:softened[i]-3.7*fallProgress,
+      const riverLevel=i<fallStart?softened[i]:
+        i<=fallEnd?THREE.MathUtils.lerp(upperLip,lowerPool,fallProgress):
+        softened[i]+downstreamShift;
+      return {x:p.x,z:p.z,y:riverLevel,
         width:Math.max(6.5,width),nx:-dz/len,nz:dx/len};
     });
     this.bucketSize=42;this.buckets=new Map();
