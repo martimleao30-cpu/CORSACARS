@@ -95,6 +95,100 @@ export class RoadsideClearance{
         });
       }
     }
+    this.busBays=this.planBusBays();
+  }
+  // Reserve a pull-out beside a REAL town or hamlet. Nothing is placed at an
+  // arbitrary percentage of the map: the nearest drivable route, nearby
+  // settlement, crossings, driveways and the required 48m length all matter.
+  planBusBays(){
+    const selected=[];
+    for(const region of this.regions){
+      if(region.kind!=='town'&&region.kind!=='hamlet')continue;
+      const road=this.network.roads.find(r=>r.id===region.road);
+      if(!road||!['urban','rural','mountain'].includes(road.category))continue;
+      let nearest=0,best=Infinity;
+      for(let i=0;i<road.points.length;i++){
+        const p=road.points[i].center||road.points[i];
+        const d=(p.x-region.roadPoint.x)**2+(p.z-region.roadPoint.z)**2;
+        if(d<best){best=d;nearest=i;}
+      }
+      const sides=region.kind==='town'?[region.sideSign,-region.sideSign]:
+        [region.sideSign];
+      for(const side of sides){
+        const stepOrder=[13,16,19,22,25,28,31,35,39,44,49];
+        let found=null;
+        for(const lead of [side===region.sideSign?-1:1,side===region.sideSign?1:-1]){
+          for(const steps of stepOrder){
+            const index=nearest+lead*steps;
+            if(index<10||index>road.points.length-11)continue;
+            const tangent=this.roadTangent(road,index);
+            const center=road.points[index].center||road.points[index];
+            const outward={x:-tangent.z*side,z:tangent.x*side};
+            const offset=road.width*.5+9.7;
+            const x=center.x+outward.x*offset,z=center.z+outward.z*offset;
+            const poiDistance=Math.hypot(x-region.roadPoint.x,z-region.roadPoint.z);
+            if(poiDistance<34||poiDistance>135)continue;
+            const collision=selected.some(other=>Math.hypot(x-other.x,z-other.z)<58);
+            if(collision)continue;
+            let clear=true;
+            // Sample the full entrance, parking, exit and passenger pavement.
+            for(const delta of [-24,-16,-8,0,8,16,24]){
+              const sample=this.alongRoad(road,index,delta);
+              const px=sample.x+outward.x*(road.width*.5+4);
+              const pz=sample.z+outward.z*(road.width*.5+4);
+              if(this.nearJunction(px,pz,2)||
+                 this.nearAccess(px,pz,2)||
+                 this.insideService(px,pz,3)||
+                 this.roadProximity(px,pz,road).edge<4.1){
+                clear=false;break;
+              }
+            }
+            if(!clear||this.nearJunction(x,z,4)||
+               this.nearAccess(x,z,4)||this.insideService(x,z,4)||
+               this.roadProximity(x,z,road).edge<5)continue;
+            found={roadId:road.id,regionId:region.id,road,side,index,
+              x,z,y:0,tangent,outward,poiDistance,offset};
+            break;
+          }
+          if(found)break;
+        }
+        if(found)selected.push(found);
+      }
+    }
+    return selected;
+  }
+  roadTangent(road,index){
+    const points=road.points;
+    const a=points[Math.max(0,index-1)].center||points[Math.max(0,index-1)];
+    const b=points[Math.min(points.length-1,index+1)].center||
+      points[Math.min(points.length-1,index+1)];
+    const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz)||1;
+    return {x:dx/len,z:dz/len};
+  }
+  alongRoad(road,index,distance){
+    const points=road.points;
+    let remaining=Math.abs(distance),i=index,sgn=Math.sign(distance)||1;
+    while(remaining>0&&i+sgn>=0&&i+sgn<points.length){
+      const a=points[i].center||points[i],b=points[i+sgn].center||points[i+sgn];
+      const length=Math.hypot(b.x-a.x,b.z-a.z);
+      if(length>=remaining){
+        const t=length?remaining/length:0;
+        return {x:a.x+(b.x-a.x)*t,z:a.z+(b.z-a.z)*t};
+      }
+      remaining-=length;i+=sgn;
+    }
+    const p=points[i].center||points[i];
+    return {x:p.x,z:p.z};
+  }
+  insideBusBay(x,z,margin=0){
+    return this.busBays?.some(bay=>{
+      const dx=x-bay.x,dz=z-bay.z;
+      const along=dx*bay.tangent.x+dz*bay.tangent.z;
+      const across=dx*bay.outward.x+dz*bay.outward.z;
+      // The paved apron extends towards the road, whilst the shelter stays
+      // farther out. Keep the rail/fence support corridor clear.
+      return Math.abs(along)<25+margin&&across>-8-margin&&across<3+margin;
+    })||false;
   }
   addJunction(x,z,radius){
     const existing=this.junctions.find(j=>Math.hypot(j.x-x,j.z-z)<13);
@@ -147,6 +241,9 @@ export class RoadsideClearance{
     if(this.insideService(x,z,radius+1)){
       this.placed.rejectedPlants++;return false;
     }
+    if(this.insideBusBay(x,z,radius+.3)){
+      this.placed.rejectedPlants++;return false;
+    }
     const boundary=this.roadProximity(x,z);
     if(boundary.road&&boundary.edge<margin+radius){
       this.placed.rejectedPlants++;return false;
@@ -161,7 +258,8 @@ export class RoadsideClearance{
   }
   fenceAllowed(x,z,road,margin=1){
     const other=this.roadProximity(x,z,road);
-    const blocked=this.insideService(x,z,margin+1)||
+    const blocked=this.insideBusBay(x,z,margin)||
+      this.insideService(x,z,margin+1)||
       (other.road&&other.edge<4.8+margin)||
       this.nearJunction(x,z,margin+1.3)||
       this.nearAccess(x,z,margin+2);
