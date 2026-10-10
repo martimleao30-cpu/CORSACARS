@@ -45,12 +45,32 @@ export class RiverSystem {
       RIVER_WAYPOINTS.map(([x,z])=>new THREE.Vector3(x,0,z)),
       false,'centripetal',.45);
     const sampleCount=quality==='ultra'?1100:quality==='low'?420:780;
-    this.points=route.getSpacedPoints(sampleCount).map((p,i)=>{
-      const tangent=route.getTangentAt(i/sampleCount);
-      const len=Math.hypot(tangent.x,tangent.z)||1;
+    // Spaced points are arc-length sampled; getTangentAt(i/N) is NOT
+    // sampled by arc length and can twist riverbanks into the water.
+    const horizontal=route.getSpacedPoints(sampleCount);
+    const originalHeights=horizontal.map(p=>terrainY(p.x,p.z)-1.3);
+    const softened=originalHeights.map((value,i)=>{
+      let weighted=0,weights=0;
+      for(let d=-7;d<=7;d++){
+        const j=clamp(i+d,0,sampleCount),weight=8-Math.abs(d);
+        weighted+=originalHeights[j]*weight;weights+=weight;
+      }
+      return weighted/weights;
+    });
+    // A real fixed drop across the upper valley, followed by a lower
+    // riverbed. Keep its position fixed in arc-length, irrespective of LOD.
+    const fallStart=Math.round(sampleCount*.215);
+    const fallEnd=fallStart+Math.max(5,Math.round(sampleCount*.005));
+    this.waterfall={start:fallStart,end:fallEnd,drop:3.7};
+    this.points=horizontal.map((p,i)=>{
+      const before=horizontal[Math.max(0,i-1)];
+      const after=horizontal[Math.min(sampleCount,i+1)];
+      const dx=after.x-before.x,dz=after.z-before.z;
+      const len=Math.hypot(dx,dz)||1;
       const width=8.5+2.7*Math.sin(i*.033)+1.0*Math.sin(i*.13);
-      return {x:p.x,z:p.z,y:terrainY(p.x,p.z)-1.3,
-        width:Math.max(6.5,width),nx:-tangent.z/len,nz:tangent.x/len};
+      const fallProgress=smooth((i-fallStart)/(fallEnd-fallStart));
+      return {x:p.x,z:p.z,y:softened[i]-3.7*fallProgress,
+        width:Math.max(6.5,width),nx:-dz/len,nz:dx/len};
     });
     this.bucketSize=42;this.buckets=new Map();
     for(let i=0;i<this.points.length-1;i++){
@@ -66,9 +86,12 @@ export class RiverSystem {
     }
     this.crossings=this.findCrossings();
     this.buildWater();
+    this.buildWaterfall();
+    this.buildBanks();
     this.buildRocks();
     this.buildBridges();
     this.statistics={
+      waterfallDropM:this.waterfall.drop,
       riverLengthM:Math.round(route.getLength()),
       bridgeCount:this.crossings.length,
       boulders:this.rocks,
@@ -250,6 +273,140 @@ export class RiverSystem {
     mesh.renderOrder=1;
     this.group.add(mesh);this.waterMesh=mesh;
   }
+  buildWaterfall(){
+    const {start,end,drop}=this.waterfall;
+    const upper=this.points[start],lower=this.points[end];
+    const halfWidth=Math.min(upper.width,lower.width)*.94;
+    const pos=[],uv=[],indices=[];
+    const layers=30,across=22;
+    // Flowing waterfall curtain between the upper lip and the lower pool.
+    // It is geographical geometry, not a vertical billboard above the river.
+    for(let j=0;j<=layers;j++){
+      const t=j/layers;
+      const x=THREE.MathUtils.lerp(upper.x,lower.x,t);
+      const z=THREE.MathUtils.lerp(upper.z,lower.z,t);
+      const lip=THREE.MathUtils.lerp(upper.y,lower.y,t);
+      for(let k=0;k<=across;k++){
+        const u=k/across,lateral=(u*2-1)*halfWidth;
+        const turbulence=Math.sin(u*19+t*23)*.085*(1-t)+
+          Math.sin(u*44-t*31)*.05;
+        pos.push(x+upper.nx*lateral+lower.nz*turbulence,
+          lip+.05+Math.sin(t*Math.PI)*.20,
+          z+upper.nz*lateral-upper.nx*turbulence);
+        uv.push(u,t);
+      }
+      if(j===layers)continue;
+      for(let k=0;k<across;k++){
+        const a=j*(across+1)+k,b=a+across+1;
+        indices.push(a,b,a+1,a+1,b,b+1);
+      }
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+    geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+    geometry.setIndex(indices);geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();this.geometries.push(geometry);
+    const material=new THREE.ShaderMaterial({
+      uniforms:{uTime:{value:0},uRain:{value:0}},
+      vertexShader:`
+      varying vec2 vUv;uniform float uTime;
+      void main(){
+        vUv=uv;
+        vec3 p=position;
+        p.y+=sin(uv.x*40.0+uTime*7.0-uv.y*34.0)*.035;
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);
+      }`,
+      fragmentShader:`
+      varying vec2 vUv;uniform float uTime;uniform float uRain;
+      void main(){
+        float streak=sin(vUv.x*120.0+sin(vUv.y*24.0-uTime*5.0)*3.0);
+        float foam=pow(abs(streak),3.0)*.19;
+        float spray=smoothstep(.70,1.0,vUv.y)*.18;
+        vec3 teal=vec3(.14,.39,.43);
+        vec3 whitewater=vec3(.84,.94,.93);
+        vec3 color=mix(teal,whitewater,.45+foam+spray+uRain*.08);
+        gl_FragColor=vec4(color,.90);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+      transparent:true,side:THREE.DoubleSide,depthWrite:false
+    });
+    this.materials.push(material);
+    this.waterfallMaterial=material;
+    this.waterfallMesh=new THREE.Mesh(geometry,material);
+    this.waterfallMesh.name='Cascata da Ribeira Leste · queda de água dinâmica';
+    this.waterfallMesh.renderOrder=2;
+    this.group.add(this.waterfallMesh);
+    // Low-cost animated turbulent foam at the base of the fall.
+    const poolGeo=new THREE.PlaneGeometry(halfWidth*2.1,9,22,4);
+    poolGeo.rotateX(-Math.PI/2);this.geometries.push(poolGeo);
+    const poolMat=new THREE.ShaderMaterial({
+      uniforms:{uTime:{value:0},uRain:{value:0}},
+      vertexShader:`
+      varying vec2 vUv;
+      void main(){vUv=uv;
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+      fragmentShader:`
+      varying vec2 vUv;uniform float uTime;uniform float uRain;
+      void main(){
+        vec2 q=vUv*vec2(13.0,5.0);
+        float ripples=sin(length(q-vec2(6.5,2.5))*4.4-uTime*3.5);
+        float foam=smoothstep(.1,.9,ripples);
+        float edge=smoothstep(0.0,.15,vUv.x)*(1.0-smoothstep(.85,1.0,vUv.x));
+        edge*=smoothstep(0.0,.12,vUv.y)*(1.0-smoothstep(.82,1.0,vUv.y));
+        gl_FragColor=vec4(vec3(.83,.92,.91),edge*(.36+.40*foam+uRain*.12));
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+      transparent:true,side:THREE.DoubleSide,depthWrite:false
+    });
+    this.materials.push(poolMat);this.waterfallFoamMaterial=poolMat;
+    const pool=new THREE.Mesh(poolGeo,poolMat);
+    pool.name='Cascata · espuma e remoinhos no poço';
+    const tangent=new THREE.Vector3(lower.x-upper.x,0,lower.z-upper.z).normalize();
+    pool.position.set(lower.x+tangent.x*4,lower.y+.15,
+      lower.z+tangent.z*4);
+    pool.rotation.y=Math.atan2(tangent.x,tangent.z);
+    pool.renderOrder=3;this.group.add(pool);this.waterfallPool=pool;
+    this.statistics.waterfallDropM=drop;
+  }
+  buildBanks(){
+    const positions=[],colors=[],indices=[];
+    const bankMaterial=new THREE.MeshStandardMaterial({
+      vertexColors:true,roughness:.97,metalness:0,side:THREE.DoubleSide
+    });
+    this.materials.push(bankMaterial);
+    for(const side of [-1,1]){
+      const offset=positions.length/3;
+      for(const p of this.points){
+        for(const t of [0,1]){
+          const distance=p.width+(t?16:1.6);
+          const x=p.x+p.nx*distance*side,z=p.z+p.nz*distance*side;
+          const terrain=this.terrainY(x,z);
+          // Inner gravel bed stays below the water surface; outer bank
+          // returns to existing undisturbed ground elevation.
+          const y=t?terrain-.035:Math.min(terrain,p.y-.17);
+          positions.push(x,y,z);
+          const c=new THREE.Color(t?0x64705d:0x7b8074);
+          colors.push(c.r,c.g,c.b);
+        }
+      }
+      for(let i=0;i<this.points.length-1;i++){
+        const a=offset+i*2,b=a+2;
+        indices.push(a,b,a+1,a+1,b,b+1);
+      }
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    geo.setIndex(indices);geo.computeVertexNormals();
+    geo.computeBoundingSphere();this.geometries.push(geo);
+    const mesh=new THREE.Mesh(geo,bankMaterial);
+    mesh.name='Margens do rio · taludes naturais em ambas as encostas';
+    mesh.receiveShadow=true;this.group.add(mesh);
+    this.bankMesh=mesh;
+  }
+
   buildRocks(){
     const random=seedRandom(96355);
     const density=this.quality==='low'?.10:this.quality==='ultra'?.40:.24;
@@ -361,6 +518,10 @@ export class RiverSystem {
   update(dt,paused=false,rain=false,sun=null){
     if(!paused)this.time+=Math.max(0,Math.min(dt,.08));
     this.waterMaterial.uniforms.uTime.value=this.time;
+    this.waterfallMaterial.uniforms.uTime.value=this.time;
+    this.waterfallFoamMaterial.uniforms.uTime.value=this.time;
+    this.waterfallMaterial.uniforms.uRain.value=rain?1:0;
+    this.waterfallFoamMaterial.uniforms.uRain.value=rain?1:0;
     this.waterMaterial.uniforms.uRain.value=rain?1:0;
     if(sun)this.waterMaterial.uniforms.uSun.value.copy(sun).normalize();
   }
