@@ -59,17 +59,25 @@ export class AssetUpgrade {
       const url = ASPHALT_BASE +
         resolution + '/asphalt_02/asphalt_02_diff_' + resolution + '.jpg';
       const albedo = await fetchTexture(url, true);
-      if (this.world.roadMaterial) {
-        const oldTexture = this.world.roadMaterial.map;
-        albedo.repeat.set(1, 2);
-        this.world.roadMaterial.map = albedo;
-        this.world.roadMaterial.color.set(this.world.weather === 'rain'
-          ? 0xb5bfc9 : 0xffffff);
-        this.world.roadMaterial.needsUpdate = true;
-        // The local procedural texture can be shared by several road materials.
-        if (oldTexture && !oldTexture.userData?.corsaShared) oldTexture.dispose();
-        this.textureLoaded = true;
+      const roadMaterials=new Set([
+        this.world.roadMaterial,
+        ...(this.world.network?.materials?.values()||[])
+      ].filter(material=>material?.userData?.roadAsphalt));
+      if(!roadMaterials.size){albedo.dispose();return;}
+      albedo.repeat.set(1,2);
+      // Previously ONLY the circular road received the photographic map.
+      // Share one calibrated albedo on ALL paved sections and connectors.
+      for(const material of roadMaterials){
+        material.map=albedo;
+        material.color.set(this.world.weather==='rain'?0xb5bfc9:0xffffff);
+        material.needsUpdate=true;
       }
+      // Dispose the previous remote map once, never the shared procedural
+      // fallback maps kept in the texture cache.
+      if(this.asphaltTexture&&this.asphaltTexture!==albedo)
+        this.asphaltTexture.dispose();
+      this.asphaltTexture=albedo;
+      this.textureLoaded=true;
     } catch (e) {
       console.warn('[CORSACARS] Textura fotográfica indisponível; asfalto original ativo.', e);
     }
