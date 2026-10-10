@@ -39,5 +39,17 @@ for(let k=0;k<index.count;k+=3){
 }
 assert.ok(triangles>0);
 assert.ok(clipped.getAttribute('uv'),'Texture coordinates preserved');
+
+// T junction with a secondary road ending in the carriageway, rather than
+// mathematically crossing its centreline, must still get a single owner.
+const ring=road('circular','ring',13.5,[[-40,.2,0],[40,.2,0]]);
+const branch=road('access','rural',7,[[1,.2,-24],[1,.2,-2]]);
+const joins=findAtGradeJunctions([ring,branch]);
+assert.ok(joins.some(j=>j.secondary===branch&&j.kind==='endpoint'),
+  'A T junction ending on the main carriageway must be clipped');
+const point=joins.find(j=>j.kind==='endpoint');
+assert.equal(point.primary,ring);
+assert.ok(point.halfU>0&&point.halfV>=ring.width*.5);
+
 geo.dispose();clipped.dispose();
 console.log('PASS: single-owner T/X junctions, grade separation and exact surface clipping.');

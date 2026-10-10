@@ -131,13 +131,35 @@ export class RoadEnvironment {
     this.statistics.sidewalks++;
   }
 
+  // Sidewalk runs cannot span road joins or driveways. Split geometry AND its
+  // Cannon collider into safe intervals, rather than hiding a visible curb.
+  pavementRuns(road,side,start,end){
+    let first=-1;
+    for(let i=start;i<=end+1;i++){
+      const inside=i<=end;
+      let free=false;
+      if(inside){
+        const p=position(road,i,side*(road.width*.5+1.8),this.terrainY);
+        free=!this.clearance||(!this.clearance.nearJunction(p.x,p.z,2.5)&&
+          !this.clearance.nearAccess(p.x,p.z,2.8)&&
+          !this.clearance.insideService(p.x,p.z,3)&&
+          this.clearance.roadProximity(p.x,p.z,road).edge>=3.8);
+      }
+      if(free&&first<0)first=i;
+      if(!free&&first>=0){
+        if(i-first>=3)this.pavement(road,side,first,i-1);
+        first=-1;
+      }
+    }
+  }
+
   urban(road){
     const n=road.points.length-1;
     // Gaps at junction / parking entrance make these paved areas accessible.
     if(road.id==='nacional'){
       for(const side of [-1,1]){
-        this.pavement(road,side,9,62);
-        this.pavement(road,side,78,n-9);
+        this.pavementRuns(road,side,9,62);
+        this.pavementRuns(road,side,78,n-9);
       }
     }
     const manholes=[],drains=[],parking=[],parkTics=[];

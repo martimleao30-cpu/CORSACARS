@@ -71,6 +71,48 @@ export function findAtGradeJunctions(roads){
       });
     }
   }
+  // Route endpoints may terminate directly in a ring/highway centreline
+  // without crossing it. A strict segment intersection misses these T joins,
+  // leaving a second asphalt cap and collider on the main carriageway.
+  for(const road of roads){
+    if(road.id==='circular'||road.points.length<2)continue;
+    if(road.id==='provas')continue;
+    const ends=[0,road.points.length-1];
+    for(const end of ends){
+      const point=center(road.points[end]);
+      const near=center(road.points[end===0?1:end-1]);
+      const sx=point.x-near.x,sz=point.z-near.z;
+      const slen=Math.hypot(sx,sz)||1;
+      const candidates=[];
+      for(const main of roads){
+        if(main===road||roadPriority(main)<=roadPriority(road))continue;
+        for(let i=0;i<main.points.length-1;i++){
+          const a=center(main.points[i]),b=center(main.points[i+1]);
+          const vx=b.x-a.x,vz=b.z-a.z,len2=vx*vx+vz*vz;
+          if(len2<.0001)continue;
+          const t=Math.max(0,Math.min(1,((point.x-a.x)*vx+(point.z-a.z)*vz)/len2));
+          const x=a.x+t*vx,z=a.z+t*vz;
+          const d=Math.hypot(point.x-x,point.z-z);
+          const y=a.y+t*(b.y-a.y);
+          if(d>main.width*.5+.65||Math.abs(point.y-y)>1.2)continue;
+          const seglen=Math.sqrt(len2),angle=Math.abs((sx*vz-sz*vx)/(slen*seglen));
+          candidates.push({main,x,z,y,d,angle,
+            ux:vx/seglen,uz:vz/seglen});
+        }
+      }
+      candidates.sort((a,b)=>a.d-b.d);
+      const c=candidates[0];
+      if(!c||result.some(j=>j.secondary===road&&j.primary===c.main&&
+        Math.hypot(j.x-c.x,j.z-c.z)<Math.max(10,c.main.width)))continue;
+      result.push({
+        x:c.x,z:c.z,y:c.y,primary:c.main,secondary:road,
+        ux:c.ux,uz:c.uz,
+        halfU:Math.min(22,road.width*.8/Math.max(.34,c.angle)+1.8),
+        halfV:c.main.width*.5+.08,
+        angle:c.angle,kind:'endpoint'
+      });
+    }
+  }
   return result;
 }
 
@@ -171,6 +213,40 @@ export function clipGeometryAtJunctions(geometry,cuts){
     removedTriangles:removed,clippedTriangles:clipped};
   return result;
 }
+// Remove roadwear decals whose instanced quads extend into another road's
+// junction. Otherwise opaque tyre skids and gravel appear on top of asphalt
+// after the underlying triangles have been clipped.
+export function trimRoadWearAtJunctions(wear,cuts){
+  if(!wear||!cuts?.length)return 0;
+  const matrix=new THREE.Matrix4(),at=new THREE.Vector3(),
+    rotation=new THREE.Quaternion(),size=new THREE.Vector3();
+  let trimmed=0;
+  for(const mesh of [wear.patches,wear.skids,wear.dirt]){
+    if(!mesh?.isInstancedMesh)continue;
+    let changed=false;
+    for(let i=0;i<mesh.count;i++){
+      mesh.getMatrixAt(i,matrix);
+      matrix.decompose(at,rotation,size);
+      const radius=Math.max(Math.abs(size.x),Math.abs(size.z))*.5+.4;
+      if(cuts.some(cut=>{
+        const dx=at.x-cut.x,dz=at.z-cut.z;
+        const u=dx*cut.ux+dz*cut.uz;
+        const v=-dx*cut.uz+dz*cut.ux;
+        return Math.abs(u)<cut.halfU+radius&&
+          Math.abs(v)<cut.halfV+radius;
+      })){
+        matrix.makeScale(.000001,.000001,.000001);
+        mesh.setMatrixAt(i,matrix);
+        changed=true;trimmed++;
+      }
+    }
+    if(changed){
+      mesh.instanceMatrix.needsUpdate=true;
+      mesh.computeBoundingSphere();
+    }
+  }
+  return trimmed;
+}
 export function resolveRoadJunctions(network,physics){
   const junctions=findAtGradeJunctions(network.roads);
   network.junctions=junctions;
@@ -203,6 +279,7 @@ export function resolveRoadJunctions(network,physics){
     physics.addBody(replacement);
     road.body=replacement;
     road.junctionCuts=cuts;
+    road.trimmedWear=trimRoadWearAtJunctions(road.wear,cuts);
   }
   return junctions;
 }
