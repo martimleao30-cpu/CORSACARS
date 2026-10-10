@@ -376,6 +376,14 @@ export class RoadNetwork {
     if(shoulder&&distance<=road.width*.5+shoulder){
       return {surface:slippery?'wet':'dry',road:road.name,distance,shoulder:true};
     }
+    // Collidable motorway gutter sits just outside the hard shoulder.
+    // Wheel contact must agree with the concrete geometry even in rain.
+    if(road.id==='autoestrada'&&
+      distance>=road.width*.5+shoulder+1.75&&
+      distance<=road.width*.5+shoulder+4.55){
+      return {surface:slippery?'wet':'dry',
+        road:road.name,distance,drainage:true};
+    }
     if(distance<=road.width*.5+shoulder+3.1){
       return {surface:'gravel',road:road.name,distance};
     }
