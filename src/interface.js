@@ -97,16 +97,22 @@ export class PremiumInterface {
       <section id="garageScreen" class="screen hidden" aria-label="Garagem">
         <div class="darken"></div><div class="panel premium-panel">
           <div class="eyebrow">CORSACARS / GARAGEM</div><h2>GARAGEM<span>.</span></h2>
-          <span class="tag">1 VEÍCULO DISPONÍVEL</span>
-          <p class="secondary-info">Concept Coupé — veículo de testes. O carro pode ser visto em 3D no cenário, atrás deste painel. A cor modifica a carroçaria do modelo original.</p>
+          <span class="tag">2 VEÍCULOS DISPONÍVEIS</span>
+          <label>VEÍCULO <select id="garageModel">
+            <option value="coupe">Concept Coupé · protótipo</option>
+            <option value="m4">BMW M4 Competition M xDrive · 2025</option>
+          </select></label>
+          <p class="secondary-info" id="garageDescription">Concept Coupé — veículo de testes com tração traseira.</p>
           <div class="vehicle-info">
-            <div><small>MASSA SIMULADA</small><strong>1370 kg</strong></div>
-            <div><small>BINÁRIO DE REFERÊNCIA</small><strong>345 Nm</strong></div>
-            <div><small>TRAÇÃO</small><strong>RWD</strong></div>
-            <div><small>CAIXA</small><strong>6 relações</strong></div>
+            <div><small>MASSA SIMULADA</small><strong id="garageMass">1370 kg</strong></div>
+            <div><small>BINÁRIO DE REFERÊNCIA</small><strong id="garageTorque">345 Nm</strong></div>
+            <div><small>TRAÇÃO</small><strong id="garageDrive">RWD</strong></div>
+            <div><small>CAIXA</small><strong id="garageGears">6 relações</strong></div>
+            <div><small>VELOCIDADE MÁXIMA</small><strong id="garageVmax">—</strong></div>
+            <div><small>0–100 KM/H OFICIAL</small><strong id="garageSprint">—</strong></div>
           </div>
-          <label>Cor do automóvel de teste <input id="garagePaint" type="color" value="#29445d"></label>
-          <p class="minor">O modelo 3D externo mantém as suas texturas originais; a personalização da pintura aplica-se à carroçaria base.</p>
+          <label>Cor da carroçaria <input id="garagePaint" type="color" value="#29445d"></label>
+          <p class="minor">O M4 usa uma carroçaria 3D criada para o jogo, não um modelo oficial BMW. Os valores de desempenho são referências; a aceleração real no jogo depende da física.</p>
           <button class="primary" id="garageSelect">USAR ESTE CARRO <span>✓</span></button>
           <button class="outline ui-back" data-ui-back>VOLTAR <span>←</span></button>
         </div>
@@ -309,8 +315,14 @@ export class PremiumInterface {
       this.api.toast('GPS · EXPLORAÇÃO LIVRE');
       this.drawMap();
     });
+    $('garageModel').addEventListener('change',()=>this.updateGarage());
     $('garageSelect').addEventListener('click',()=>{
-      this.api.toast('CONCEPT COUPÉ SELECIONADO');
+      const id=$('garageModel').value;
+      if(!this.api.vehicle.setCarModel(id))return;
+      this.api.settings.selectedVehicle=id;
+      this.api.vehicle.setPaintColor(this.api.settings.paint||'#29445d');
+      this.api.persistSettings();
+      this.api.toast(id==='m4'?'BMW M4 COMPETITION · 530 CV · AWD':'CONCEPT COUPÉ SELECIONADO');
       this.back();
     });
     $('garagePaint').addEventListener('input',e=>{
@@ -415,6 +427,19 @@ export class PremiumInterface {
     });
   }
 
+  updateGarage(){
+    const m4=$('garageModel').value==='m4';
+    $('garageDescription').textContent=m4?
+      'BMW M4 Competition M xDrive 2025 · seis cilindros 3.0 biturbo, 530 cv, 650 Nm, M Steptronic 8 e AWD.':
+      'Concept Coupé · protótipo de testes com seis relações e tração traseira.';
+    $('garageMass').textContent=m4?'1850 kg':'1370 kg';
+    $('garageTorque').textContent=m4?'650 Nm':'345 Nm';
+    $('garageDrive').textContent=m4?'AWD':'RWD';
+    $('garageGears').textContent=m4?'8 relações':'6 relações';
+    $('garageVmax').textContent=m4?'250 km/h':'Sem limitador';
+    $('garageSprint').textContent=m4?'3,5 s (BMW)':'Não divulgado';
+  }
+
   open(page) {
     this.api.showPanel(page);
     if(page==='hudEditorScreen'){
@@ -424,7 +449,11 @@ export class PremiumInterface {
       document.querySelector('.speed-dial').classList.add('drag-ready');
       $('hud').classList.add('editing');
     }
-    if(page==='garageScreen') $('garagePaint').value=this.api.settings.paint||'#29445d';
+    if(page==='garageScreen'){
+      $('garagePaint').value=this.api.settings.paint||'#29445d';
+      $('garageModel').value=this.api.vehicle.specId;
+      this.updateGarage();
+    }
     if(page==='mapScreen'){
       $('gpsDestination').value=this.navigation.destinationId||'';
       this.drawMap();

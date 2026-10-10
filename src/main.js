@@ -26,6 +26,7 @@ function restoreSettings() {
       model: saved.model !== false,
       autoQuality: saved.autoQuality === true,
       paint: /^#[0-9a-f]{6}$/i.test(saved.paint) ? saved.paint : '#29445d',
+      selectedVehicle:saved.selectedVehicle==='m4'?'m4':'coupe',
       bindings: saved.bindings && typeof saved.bindings==='object' ? saved.bindings : undefined,
       ...Object.fromEntries(['renderScale','antiAlias','shadowQuality','drawDistance','vegetation','textureQuality','bloom','engineVolume','steeringSensitivity','gamepadDeadzone','menuAccent','tyreCompound','absEnabled','tcsEnabled','escEnabled','analogCurve','invertSteering','gearboxMode'].filter(k => saved[k] !== undefined).map(k => [k,saved[k]]))
     };
@@ -57,6 +58,7 @@ physics.solver.iterations = 12;
 physics.broadphase = new CANNON.SAPBroadphase(physics);
 const world = new DrivingWorld(scene, physics, settings.quality);
 const car = new PlayerVehicle(physics, scene, world.spawn);
+car.setCarModel(settings.selectedVehicle||'coupe');
 const roadDust = new RoadDust(scene, settings.quality);
 const graphics = new GraphicsPipeline(renderer, scene, camera, car, world);
 graphics.setQuality(settings.quality, settings);

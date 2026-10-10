@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { makeCarPaint, makeAutomotiveGlass } from './materials.js';
+import {createBMWM4Visual} from './bmw-m4-visual.js';
 import {CAR_SPECS,tyreGrip,contactSlip,ackermannAngles,torqueAtRpm,
   aerodynamicDrag,brakingAssist,tractionAssist,normalizedTyreForce} from './vehicle-dynamics.js';
 
@@ -38,6 +39,7 @@ export class PlayerVehicle {
     this.speedKmh = 0;
     this.steering = 0;
     this.throttleSmooth = 0;
+    this.specId='coupe';
     this.spec = CAR_SPECS.coupe;
     this.mass = this.spec.massKg;
     this.tyreCompound = 'road';
@@ -95,6 +97,11 @@ export class PlayerVehicle {
     }
     this.vehicle.addToWorld(this.physics);
     this.buildModel();
+    const m4=createBMWM4Visual();
+    this.bmwModel=m4.root;
+    this.bmwPaint=m4.paint;
+    this.bmwModel.visible=false;
+    this.model.add(this.bmwModel);
     this.reset();
   }
 
@@ -304,9 +311,35 @@ export class PlayerVehicle {
     this.updateVisuals();
   }
 
+  setCarModel(id='coupe') {
+    if(!Object.hasOwn(CAR_SPECS,id))return false;
+    const spec=CAR_SPECS[id];
+    this.specId=id;this.spec=spec;this.mass=spec.massKg;
+    this.chassis.mass=spec.massKg;
+    this.chassis.updateMassProperties();
+    const x=spec.trackM*.5,z=spec.wheelbaseM*.5;
+    for(let i=0;i<this.vehicle.wheelInfos.length;i++){
+      const wheel=this.vehicle.wheelInfos[i];
+      wheel.chassisConnectionPointLocal.set(i%2===0?-x:x,-.18,i<2?z:-z);
+      wheel.radius=spec.wheelRadiusM;
+      wheel.suspensionStiffness=i<2?spec.springFront:spec.springRear;
+      wheel.dampingCompression=spec.dampingCompression;
+      wheel.dampingRelaxation=spec.dampingRelaxation;
+      this.wheelModels[i].scale.setScalar(spec.wheelRadiusM/WHEEL_RADIUS);
+    }
+    this.bmwModel.visible=id==='m4';
+    this.manual=false;this.gear=1;this.reverse=false;
+    this.rpm=spec.idleRpm;
+    this.reset();
+    this.setVisualDetail(this.model.position);
+    return true;
+  }
+
   setPaintColor(hex) {
-    if(/^#[0-9a-f]{6}$/i.test(hex) && this.paintMaterial)
-      this.paintMaterial.color.set(hex);
+    if(/^#[0-9a-f]{6}$/i.test(hex)){
+      if(this.paintMaterial)this.paintMaterial.color.set(hex);
+      if(this.bmwPaint)this.bmwPaint.color.set(hex);
+    }
   }
 
     setImportedCar(model) {
@@ -347,7 +380,8 @@ export class PlayerVehicle {
 
   setVisualDetail(cameraPosition) {
     const d2 = this.model.position.distanceToSquared(cameraPosition);
-    const highQualityVisible = Boolean(this.importedCar && this.useHighDetail && d2 < 100 * 100);
+    const highQualityVisible = Boolean(this.specId!=='m4'&&this.importedCar &&
+      this.useHighDetail && d2 < 100 * 100);
     if (this.importedCar) this.importedCar.visible = highQualityVisible;
     for (const obj of this.model.children) {
       if (obj === this.importedCar || obj.isLight || obj.isObject3D && obj.type === 'Object3D' && !obj.isMesh &&
@@ -361,6 +395,11 @@ export class PlayerVehicle {
     this.detailLevel = d2 < 65 * 65;
     for (const tread of this.tireTreads) tread.visible = this.detailLevel;
     if (!highQualityVisible) this.fineDetails.visible = this.detailLevel;
+    const m4=this.specId==='m4';
+    for(const obj of this.model.children){
+      if(obj===this.bmwModel)obj.visible=m4;
+      else if(m4&&!obj.isLight)obj.visible=false;
+    }
   }
 
   drawInstruments(force = false) {
@@ -527,7 +566,8 @@ export class PlayerVehicle {
       throttle*torque*Math.abs(ratio)*spec.finalDrive*spec.drivetrainEfficiency/
       spec.wheelRadiusM)*this.clutchEngagement;
     const forceDirection=ratio<0 ? 1 : -1;
-    const force=this.rpm>=spec.redlineRpm&&throttle>.01?0:
+    const atLimiter=spec.maxSpeedKmh&&this.speedKmh>=spec.maxSpeedKmh-.5;
+    const force=(this.rpm>=spec.redlineRpm&&throttle>.01)||atLimiter?0:
       forceDirection*wheelForce/driven.length;
     for(let i=0;i<4;i++){
       const grip=gripFactors[i];
@@ -567,6 +607,11 @@ export class PlayerVehicle {
     }
     const downforce=spec.downforceCoefficient*vehicleSpeed*vehicleSpeed;
     this.chassis.applyForce(new CANNON.Vec3(0,-downforce,0),new CANNON.Vec3(0,0,0));
+    // Homologated electronic limit applies to rigid-body velocity too.
+    if(spec.maxSpeedKmh&&this.chassis.velocity.length()>spec.maxSpeedKmh/3.6){
+      const factor=(spec.maxSpeedKmh/3.6)/this.chassis.velocity.length();
+      this.chassis.velocity.scale(factor,this.chassis.velocity);
+    }
     this.brakeActive=braking>.08||Boolean(controls.handbrake);
     const mostCommon=wheelSurface.reduce((best,item,_,all)=>
       all.filter(x=>x===item).length>all.filter(x=>x===best).length?item:best,'grass');
@@ -633,6 +678,7 @@ export class PlayerVehicle {
 
   getTelemetry() {
     return {
+      model:this.specId,maxSpeedKmh:this.spec.maxSpeedKmh||null,
       speed: Math.round(this.speedKmh),
       rpm: Math.round(this.rpm),
       gear: this.getGearLabel(),

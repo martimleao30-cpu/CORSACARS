@@ -14,6 +14,20 @@ export const CAR_SPECS = Object.freeze({
     downforceCoefficient: 0.045, springFront: 38, springRear: 34,
     dampingCompression: 4.5, dampingRelaxation: 2.9,
     antiRollStiffness: 1400
+  }),
+  m4: Object.freeze({
+    massKg:1850,frontWeightFraction:.53,centerOfMassHeightM:.53,
+    wheelbaseM:2.857,trackM:1.617,wheelRadiusM:.36,
+    inertiaScale:1.02,drivetrain:'AWD',finalDrive:3.154,
+    gearRatios:[5.0,3.20,2.14,1.72,1.31,1.0,.82,.64],
+    reverseRatio:3.47,shiftTimeS:.18,idleRpm:800,redlineRpm:7200,
+    peakTorqueNm:650,peakPowerKW:390,referenceZeroTo100S:3.5,maxSpeedKmh:250,
+    engineType:'twin-turbo',drivetrainEfficiency:.87,
+    dragCoefficient:.34,frontalAreaM2:2.29,airDensityKgM3:1.225,
+    rollingResistance:.014,brakeTorqueFrontNm:3050,brakeTorqueRearNm:2000,
+    downforceCoefficient:.085,springFront:45,springRear:43,
+    dampingCompression:5.15,dampingRelaxation:3.3,
+    antiRollStiffness:1850
   })
 });
 
@@ -34,6 +48,12 @@ export const TYRES = Object.freeze({
 export const clamp = (v, min, max) => Math.max(min,Math.min(max,Number.isFinite(v)?v:0));
 
 export function torqueAtRpm(rpm, spec=CAR_SPECS.coupe) {
+  if(spec.engineType==='twin-turbo'){
+    const low=clamp((rpm-spec.idleRpm)/Math.max(1,2750-spec.idleRpm),0,1);
+    const spool=low*low*(3-2*low);
+    const high=clamp((rpm-5730)/(spec.redlineRpm-5730),0,1);
+    return spec.peakTorqueNm*(.58+.42*spool)*(1-.20*high);
+  }
   const t=clamp((rpm-spec.idleRpm)/(spec.redlineRpm-spec.idleRpm),0,1);
   // Broad naturally aspirated torque curve: low-end and redline taper.
   const curve=t<.18?.64+1.5*t:t<.63?.91+.16*(t-.18):1.0-.95*(t-.63);
