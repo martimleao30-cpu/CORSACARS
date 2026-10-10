@@ -399,7 +399,7 @@ export class DrivingWorld {
       seed:20261010,
       terrainY:groundHeight,
       distanceToRoad:(x,z)=>this.distanceToRoad(x,z),
-      isNearRoad:(x,z)=>this.river.contains(x,z,15)||
+      isNearRoad:(x,z)=>this.river.contains(x,z,23)||
         !this.roadside.plantAllowed(x,z,'tree',2)||
         this.railway.nearestTrack(x,z)<11
     });
