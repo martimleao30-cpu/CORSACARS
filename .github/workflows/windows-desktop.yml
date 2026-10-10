@@ -63,10 +63,38 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Confirmar instalador e metadados das atualizacoes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "0.7.${{ github.run_number }}"
+          $manifest = "release/latest.yml"
+          if (!(Test-Path $manifest)) {
+            throw "latest.yml nao foi gerado: a aplicacao Windows nao consegue atualizar."
+          }
+          $metadata = Get-Content $manifest -Raw
+          if ($metadata -notmatch [regex]::Escape($version)) {
+            throw "latest.yml nao corresponde a versao $version."
+          }
+          $release = gh release view "v$version" --json assets | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or !$release) {
+            throw "GitHub Release v$version nao foi publicada."
+          }
+          $names = @($release.assets | ForEach-Object { $_.name })
+          if ($names -notcontains "latest.yml") {
+            throw "Release v$version sem latest.yml: updater Windows ficaria sem versao."
+          }
+          if ($names -notcontains "CORSACARS-Setup-$version-x64.exe") {
+            throw "Release v$version sem instalador Windows."
+          }
+          Write-Host "Atualizacao Windows publicada: v$version."
       - name: Guardar copia do instalador nos artifacts
         uses: actions/upload-artifact@v4
         with:
           name: CORSACARS-Windows-Installer
-          path: release/*Setup*.exe
+          path: |
+            release/*Setup*.exe
+            release/latest.yml
           if-no-files-found: error
           retention-days: 30
