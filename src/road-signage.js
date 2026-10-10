@@ -246,7 +246,7 @@ export class RoadSignage {
       this.add(createLineGeometry(sampler,{style:centerStyle,lateral:lateralCenter,
         start,end,width:highway?.18:.125,dash:3.8,gap:5.2,spacing:.34}),
         road.name+' · '+(centerStyle==='double'?'Linhas duplas':'Linha descontínua'),
-        highway?'yellow':'white');
+        'white');
       this.statistics[centerStyle]++;
     }
     if(highway){
