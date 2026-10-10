@@ -303,55 +303,68 @@ export class RoadSignage {
     this.samplers.set(road.id,sampler);
     this.statistics.roadCount++;
     const highway=road.category==='highway';
-    const mountain=road.category==='mountain';
-    const rural=road.category==='rural';
     const connector=road.category==='highway-ramp';
-    const centerStyle=highway||mountain||rural?'double':'dashed';
-    const lateralCenter=0;
     const length=sampler.total;
     const edge=w*.5-.45;
     const skipEnd=Math.min(length*.05,4.5);
     const start=skipEnd,end=length-skipEnd;
     if(end<=start)return;
-    // Solid edge lines on BOTH edges. No free-floating BoxGeometry marks.
+    const gaps=junctionPaintGaps(sampler,this.network.junctions||[]);
+    const clean=(at,margin=0)=>!gaps.some(([a,b])=>at>=a-margin&&at<=b+margin);
+    // Interruption on both joined decks keeps painted lines from running
+    // through the middle of an intersection or pointing into the wrong lane.
     for(const offset of [-edge,edge]){
       this.add(createLineGeometry(sampler,{style:'continuous',lateral:offset,
-        width:.13,start,end}),road.name+' · Linha lateral contínua');
+        width:.13,start,end,excluded:gaps}),
+        road.name+' · Linha lateral contínua');
       this.statistics.continuous++;
     }
-    if(connector){
-      this.add(createLineGeometry(sampler,{style:'dashed',lateral:0,
-        start,end,dash:2.2,gap:4.8,width:.13}),
-        road.name+' · Linha descontínua');
+    if(!highway&&!connector){
+      const center=roadCenterMarking(road,sampler,gaps);
+      const solid=center.solid;
+      const outside=paintIntervals(length,start,end,gaps);
+      // The ordinary centre is dashed. Where a genuine sharp bend occurs,
+      // remove dash paint first and place one clean unbroken prohibition line.
+      this.add(createLineGeometry(sampler,{style:center.style,lateral:0,
+        start,end,dash:3.8,gap:5.2,width:.125,
+        excluded:[...gaps,...solid]}),
+        road.name+' · Linha central descontínua');
       this.statistics.dashed++;
-    }else{
-      this.add(createLineGeometry(sampler,{style:centerStyle,lateral:lateralCenter,
-        start,end,width:highway?.18:.125,dash:3.8,gap:5.2,spacing:.34}),
-        road.name+' · '+(centerStyle==='double'?'Linhas duplas':'Linha descontínua'),
-        'white');
-      this.statistics[centerStyle]++;
+      for(const [a,b]of solid){
+        for(const [lo,hi]of paintIntervals(length,a,b,gaps)){
+          if(hi-lo<3)continue;
+          this.add(createLineGeometry(sampler,{style:'continuous',
+            lateral:0,width:.14,start:Math.max(start,lo),
+            end:Math.min(end,hi)}),
+            road.name+' · Linha contínua de curva perigosa');
+          this.statistics.continuous++;
+        }
+      }
+      void outside;
     }
     if(highway){
+      // Centreline belongs to the median barrier. Mark real lane divisions
+      // only; never paint a fictional double line under the central rail.
       for(const lateral of [-w*.25,w*.25]){
         this.add(createLineGeometry(sampler,{style:'dashed',lateral,
-          width:.13,start,end,dash:5.6,gap:7.4}),
-          road.name+' · Linha de faixa descontínua');
+          width:.13,start,end,dash:5.6,gap:7.4,excluded:gaps}),
+          road.name+' · Linha entre vias');
         this.statistics.dashed++;
       }
     }
     const crosswalks=crosswalkIndices(road);
     for(const k of crosswalks){
-      this.add(createCrosswalkGeometry(sampler,sampler.chain[k]),
+      const at=sampler.chain[k];
+      if(!clean(at,3.5))continue;
+      this.add(createCrosswalkGeometry(sampler,at),
         road.name+' · Passadeira pintada');
     }
-    // Properly aligned direction arrows painted on approach to an intersection,
-    // and lane arrows on the motorway. All vertices touch the current deck.
     if(road.category==='urban'){
       for(const idx of crosswalks){
         const center=sampler.chain[idx];
         for(const side of [-1,1]){
           const d=center-(side===-1?24:37);
-          if(d>8&&d<length-8){
+          if(d>8&&d<length-8&&clean(d,7)){
             const lateral=side*w*.23;
             this.add(createArrowGeometry(sampler,d,lateral,
               side===-1?'straight':'right'),road.name+' · Seta direcional');
@@ -360,6 +373,7 @@ export class RoadSignage {
       }
     }else if(highway||connector){
       for(let d=28;d<length-16;d+=Math.max(85,length/4)){
+        if(!clean(d,8))continue;
         const lanes=highway?[-w*.36,w*.36]:[0];
         for(const lateral of lanes)this.add(createArrowGeometry(sampler,d,lateral,
           connector?'right':'straight'),road.name+' · Seta de orientação');
