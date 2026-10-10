@@ -188,6 +188,7 @@ export class RegionalRailway{
       stones:material(0xffffff,.98,0),insulator:material(0x73776f,.54,.18),
       wire:new THREE.LineBasicMaterial({color:0x747e80}),
       concrete:material(0xaeb2b1,.9),
+      embankment:material(0xffffff,.99,0,{side:THREE.DoubleSide,vertexColors:true}),
       structure:material(0x747a7c,.68,.37),paint:material(0xe9e5d5,.91),
       glass:material(0x334955,.24,.32,{transparent:true,opacity:.74}),
       roof:material(0x333d48,.48,.25),body:material(0xe5e7df,.55,.28),
@@ -203,7 +204,8 @@ export class RegionalRailway{
       trainCars:this.trainCars.length,sleepers:this.sleeperCount,bridges:this.bridgeSupports,
       railSegments:this.line.points.length-1,
       ballastStones:this.ballastStones,catenaryMasts:this.catenaryMasts,
-      bridgeDeckSegments:this.bridgeDeckSegments};
+      bridgeDeckSegments:this.bridgeDeckSegments,
+      embankmentSections:this.embankmentSections};
   }
   createBox(name,position,dimensions,mat,parent=this.group,collide=false){
     const geo=new THREE.BoxGeometry(...dimensions);
@@ -279,8 +281,63 @@ export class RegionalRailway{
     stones.castShadow=false;stones.receiveShadow=true;
     this.group.add(stones);this.ballastStones=stoneCount;
 
+    this.buildEmbankments();
     this.buildViaductSupports();
     this.buildCatenary();
+  }
+  // For the long stretches below viaduct height, connect the ballast to
+  // real ground with a trapezoidal earth-and-stone formation. Otherwise the
+  // 0.6–3m difference to irregular hills looks like track suspended in air.
+  // Never fill a grade-separated road crossing with earth.
+  buildEmbankments(){
+    const positions=[],colors=[],indices=[],valid=[];
+    const steps=this.line.points.length;
+    const stone=new THREE.Color(0x8f8879),soil=new THREE.Color(0x726c5b);
+    const widths=[-1,-.66,-.32,.32,.66,1];
+    for(let i=0;i<steps;i++){
+      const p=this.line.points[i];
+      const a=this.line.points[Math.max(0,i-1)];
+      const b=this.line.points[Math.min(steps-1,i+1)];
+      const dir=new THREE.Vector3(b.x-a.x,0,b.z-a.z);
+      if(dir.lengthSq()<.00001)dir.set(0,0,1);
+      dir.normalize();
+      const side=new THREE.Vector3(-dir.z,0,dir.x);
+      const ground=this.terrainY(p.x,p.z);
+      const rise=p.y-ground;
+      const edge=this.roadside?.roadProximity(p.x,p.z).edge??Infinity;
+      valid.push(rise<=3.65&&edge>12);
+      const half=2.25+Math.min(7,Math.max(.45,rise*1.7));
+      for(const u of widths){
+        const distance=Math.abs(u)*half;
+        const x=p.x+side.x*u*half,z=p.z+side.z*u*half;
+        const earth=this.terrainY(x,z)+.025;
+        const top=p.y-.58;
+        const t=THREE.MathUtils.smoothstep(distance,2.10,half);
+        const y=THREE.MathUtils.lerp(top,earth,t);
+        positions.push(x,y,z);
+        const tint=stone.clone().lerp(soil,t*.75);
+        colors.push(tint.r,tint.g,tint.b);
+      }
+      if(i===0||!valid[i]||!valid[i-1])continue;
+      const previous=(i-1)*widths.length,current=i*widths.length;
+      for(let j=0;j<widths.length-1;j++){
+        indices.push(previous+j,current+j,previous+j+1,
+          previous+j+1,current+j,current+j+1);
+      }
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    geo.userData.corsaRailway='terrain-founded-embankment';
+    this.geometry.push(geo);
+    const mesh=new THREE.Mesh(geo,this.materials.embankment);
+    mesh.name='Talude ferroviário · aterro ligado ao terreno';
+    mesh.receiveShadow=true;
+    this.group.add(mesh);
+    this.embankmentSections=Math.round(indices.length/30);
   }
   // A viaduct is a continuous load-bearing span, not pillars scattered
   // randomly on a high railway. Only elevated portions receive longitudinal
@@ -294,11 +351,11 @@ export class RegionalRailway{
       const roadEdge=this.roadside?.roadProximity(point.point.x,point.point.z).edge??Infinity;
       return {...point,ground,height,roadEdge};
     };
-    const span=9,pierSpacing=27;
+    const span=9,pierSpacing=18;
     this.bridgeSupports=0;this.bridgeDeckSegments=0;
     for(let d=0;d<total-span;d+=span){
       const a=profile(d),b=profile(d+span);
-      if(Math.min(a.height,b.height)<3.0)continue;
+      if(Math.max(a.height,b.height)<2.65)continue;
       const mid=profile(d+span*.5);
       const length=a.point.distanceTo(b.point);
       const horizontal=Math.hypot(b.point.x-a.point.x,b.point.z-a.point.z);
@@ -322,7 +379,7 @@ export class RegionalRailway{
     }
     for(let d=pierSpacing*.5;d<total;d+=pierSpacing){
       const p=profile(d);
-      if(p.height<3.4||p.roadEdge<12)continue;
+      if(p.height<2.85||p.roadEdge<12)continue;
       const height=p.height-.95;
       const yaw=Math.atan2(p.dir.x,p.dir.z);
       const top=p.point.y-.73;
@@ -332,11 +389,11 @@ export class RegionalRailway{
         const columnHeight=Math.max(.4,top-base-.24);
         const footing=this.createBox('Viaduto · sapata de fundação',
           new THREE.Vector3(foot.x,base+.09,foot.z),
-          [1.16,.35,1.35],this.materials.concrete);
+          [1.5,.42,1.65],this.materials.concrete);
         footing.rotation.y=yaw;
         const column=this.createBox('Viaduto · pilar estrutural',
           new THREE.Vector3(foot.x,base+.28+columnHeight*.5,foot.z),
-          [.57,columnHeight,.76],this.materials.concrete);
+          [.78,columnHeight,.87],this.materials.concrete);
         column.rotation.y=yaw;
       }
       const crosshead=this.createBox('Viaduto · travessa de apoio',
