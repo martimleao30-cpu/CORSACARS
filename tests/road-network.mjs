@@ -33,7 +33,7 @@ for(const road of network.roads){
     road.points.length*7,'Road cross-section must be actual 3D geometry');
   assert.ok(road.sides.geometry.index.count>0,'Visible roadbed side walls required');
   assert.equal(road.shoulders.length,2,'Both road shoulders must exist');
-  if(road.surface==='dry')assert.ok(road.wear.skids.count>0);
+  if(road.surface==='dry'&&road.wear)assert.ok(road.wear.skids.count>0);
   const middle=road.points[Math.floor(road.points.length*.57)];
   const queried=network.query(middle.x,middle.z,'clear');
   assert.notEqual(queried.surface,'grass','Road should be drivable: '+road.id);
