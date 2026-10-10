@@ -6,6 +6,7 @@ import { RoadNetwork } from './road-network.js';
 import {clipGeometryAtJunctions,trimRoadWearAtJunctions} from './road-junctions.js';
 import { WorldSectors } from './world-sectors.js';
 import {RoadsideClearance} from './roadside-clearance.js';
+import {auditMap} from './map-audit.js';
 import { DrivingTestArea } from './driving-test-area.js';
 import {createRoadBed,addRoadSides,addRoadWear,addRoadShoulders,roadsideTerrainDelta} from './road-upgrades.js';
 import {RoadEnvironment} from './road-environments.js';
@@ -141,6 +142,7 @@ export class DrivingWorld {
     this.network.roads[0].body=this.roadBody;
     this.ringProfileGeometry=buildRoadProfileGeometry(this.scene,
       this.network.roads[0],groundHeight,this.network.junctions);
+    this.network.roads[0].profileGeometry=this.ringProfileGeometry;
     this.fitTerrainToRoads();
     // A continuous geographical river carves the SAME visual/physical
     // heightfield. Roads remain intact and receive supported bridge spans
@@ -177,6 +179,12 @@ export class DrivingWorld {
       groundHeight, this.quality, null, this.roadside);
     this.buildRain();
     this.updateAtmosphere();
+    this.mapAudit=auditMap({
+      network:this.network,terrainY:groundHeight,river:this.river,
+      railway:this.railway,forest:this.forest,signage:this.roadSignage
+    });
+    if(!this.mapAudit.ok)
+      console.warn('[CORSACARS] Auditoria do mapa:',this.mapAudit.counts);
   }
 
   buildSun() {
