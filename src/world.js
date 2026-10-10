@@ -69,12 +69,25 @@ export function createTerrainCollider(physics, geometry, frictionMaterial) {
   const vertices=geometry.getAttribute('position');
   // Three PlaneGeometry row 0 is -Z after rotateX(-PI/2). Cannon heightfields
   // are +Z-up locally; their +Y becomes world -Z under the same rotation.
+  const at=(x,z)=>vertices.getY((rows-1-z)*cols+x);
+  // RaycastVehicle can miss a heightfield exactly on the boundaries of its
+  // triangular pillars. Shift the physics lattice by a few centimetres and
+  // interpolate new heights at the translated sample points. The geometry
+  // remains aligned with the visible ground rather than floating above it.
+  const shift=Math.min(.125,step*.075);
+  const fraction=shift/step;
   const heights=Array.from({length:cols},(_,x)=>
-    Array.from({length:rows},(_,z)=>vertices.getY((rows-1-z)*cols+x)));
+    Array.from({length:rows},(_,z)=>{
+      const nx=Math.min(cols-1,x+1),nz=Math.min(rows-1,z+1);
+      const xMix=x===nx?0:fraction,zMix=z===nz?0:fraction;
+      const lower=at(x,z)*(1-xMix)+at(nx,z)*xMix;
+      const upper=at(x,nz)*(1-xMix)+at(nx,nz)*xMix;
+      return lower*(1-zMix)+upper*zMix;
+    }));
   const shape=new CANNON.Heightfield(heights,{elementSize:step});
   const body=new CANNON.Body({mass:0,material:frictionMaterial});
   body.addShape(shape);
-  body.position.set(-width*.5,0,height*.5);
+  body.position.set(-width*.5+shift,0,height*.5-shift);
   body.quaternion.setFromEuler(-Math.PI/2,0,0);
   physics.addBody(body);
   return body;
