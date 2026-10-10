@@ -141,6 +141,7 @@ export class NavigationHUD{
     this.network=network;this.regions=regions;
     this.status=status;
     this.graph=buildNavigationGraph(network);
+    this.cachedRoads=network.roads.map(road=>({road,points:road.points.map(vector),stride:Math.max(1,Math.floor(road.points.length/20))}));
     this.destinationId=null;
     this.targetNode=-1;this.currentNode=-1;
     this.route=null;this.lastUpdate=0;
@@ -215,13 +216,10 @@ export class NavigationHUD{
       ctx.lineWidth=width;ctx.strokeStyle=color;
       ctx.shadowColor=color;ctx.shadowBlur=glow;ctx.stroke();ctx.shadowBlur=0;
     };
-    for(const road of this.network.roads){
-      const samples=road.points.map(vector);
-      // Fast range reject by closest point (very remote roads not visible).
-      if(!samples.some((p,i)=>i%Math.max(1,Math.floor(samples.length/20))===0&&
-        roadXY(p,position)<270))continue;
-      drawLine(samples,Math.max(2.3,road.width*.27),'rgba(238,248,249,.32)');
-      drawLine(samples,.75,'rgba(255,255,255,.49)');
+    for(const {road,points,stride} of this.cachedRoads){
+      if(!points.some((p,i)=>i%stride===0&&roadXY(p,position)<270))continue;
+      drawLine(points,Math.max(2.3,road.width*.27),'rgba(238,248,249,.32)');
+      drawLine(points,.75,'rgba(255,255,255,.49)');
     }
     if(this.route?.points.length>1){
       const points=[position,...this.route.points];
