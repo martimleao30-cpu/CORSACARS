@@ -4,6 +4,7 @@ import {createAsphaltMaterial,createGravelMaterial,createDirtRoadMaterial} from 
 import {createRoadBed,addRoadSides,addRoadWear,addRoadShoulders,addRoadDrainage} from './road-upgrades.js';
 import {resolveRoadJunctions} from './road-junctions.js';
 import {roadProfile,officialRoadWidth} from './road-standards.js';
+import {buildRoadProfileGeometry} from './road-profile-geometry.js';
 
 // First expandable playable region: each link begins and ends on the legacy
 // ring. Keeping the old road preserves saved spawn positions and old sessions.
@@ -95,6 +96,7 @@ export class RoadNetwork {
     this.buildLinks(ringPoints);
     this.buildConnectors(ringPoints);
     this.resolveJunctions();
+    this.buildProfiles();
     this.buildSurfaceIndex();
   }
 
@@ -160,7 +162,9 @@ export class RoadNetwork {
       const sides=addRoadSides(this.scene,bed.sides,route.name);
       const shoulderMaterial=createGravelMaterial();
       const shoulders=addRoadShoulders(this.scene,points,route.width,
-        this.terrainY,shoulderMaterial);
+        this.terrainY,shoulderMaterial,
+        ['autoestrada','nacional'].includes(route.id)?
+          roadProfile(route).outerShoulder:0);
       const drainage=['rural','mountain'].includes(route.category)
         ? addRoadDrainage(this.scene,points,route.width,this.terrainY,this.quality):[];
       const wear=route.surface==='dry'?
@@ -255,6 +259,14 @@ export class RoadNetwork {
     }
   }
 
+  buildProfiles(){
+    for(const road of this.roads){
+      if(!road.mesh)continue; // Circle is built by World, not in tests.
+      road.profileGeometry=buildRoadProfileGeometry(
+        this.scene,road,this.terrainY,this.junctions);
+    }
+  }
+
   buildSurfaceIndex(){
     // Grid accelerator avoids scanning 1000+ road segments at every fixed tick.
     const cellSize=65;
@@ -341,7 +353,12 @@ export class RoadNetwork {
       }
       return {surface:type,road:road.name,distance};
     }
-    if(distance<=road.width*.5+3.1){
+    const shoulder=['autoestrada','nacional'].includes(road.id)
+      ?roadProfile(road).outerShoulder:0;
+    if(shoulder&&distance<=road.width*.5+shoulder){
+      return {surface:slippery?'wet':'dry',road:road.name,distance,shoulder:true};
+    }
+    if(distance<=road.width*.5+shoulder+3.1){
       return {surface:'gravel',road:road.name,distance};
     }
     return {surface:'grass',road:null,distance};
