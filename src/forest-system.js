@@ -413,6 +413,17 @@ export class ForestSystem {
     return group;
   }
 
+  setQuality(quality){
+    if(!['low','medium','high','ultra'].includes(quality))return;
+    this.quality=quality;
+    // Existing GPU batches remain allocated; quality only changes distance
+    // thresholds and the policy for casting dynamic foliage shadows.
+    for(const chunk of this.chunks.values())for(const [lod,group] of chunk.cache){
+      for(const mesh of group.children)mesh.castShadow=quality!=='low'&&lod<=1;
+    }
+    this.elapsedSinceCull=100;
+  }
+
   setDensity(ratio){
     this.density=cap(Number(ratio)||1,.2,1);
     // Chunks retain their original instances; their bounded density is applied

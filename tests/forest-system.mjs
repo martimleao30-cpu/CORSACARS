@@ -62,6 +62,9 @@ const atPause=forest.wind.time.value;
 forest.update(camera,.3,'rain',true);
 assert.equal(forest.wind.time.value,atPause,'Forest must freeze when paused');
 forest.setDensity(.35);
+forest.setQuality('low');
+assert.equal(forest.quality,'low','Quality must adjust LOD policy without rebuilding trees');
+assert.ok(nearMeshes.every(m=>m.castShadow===false),'Low preset must disable tree shadow casting');
 assert.ok(nearMeshes.some(m=>m.count<m.instanceMatrix.count),
   'Density slider should hide instances instead of reallocating');
 camera.position.set(9000,30,9000);

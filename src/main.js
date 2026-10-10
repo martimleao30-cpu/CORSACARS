@@ -374,6 +374,7 @@ function applyQuality() {
   camera.far=Math.max(500,Math.min(1900,Number(settings.drawDistance)||1500));
   camera.updateProjectionMatrix();
   world.setVegetationDensity?.(Number(settings.vegetation)||1);
+  world.forest?.setQuality(settings.quality);
   roadDust.quality=settings.quality;
   renderer.shadowMap.needsUpdate = true;
   graphics.setQuality(settings.quality, settings);
@@ -439,7 +440,10 @@ function createDiagnostics(){
       'FPS estimados: '+performanceMonitor.current.fps,
       'Render: '+renderer.info.render.calls+' draw calls · '+renderer.info.render.triangles+' tri',
       'Memória GPU aprox.: '+renderer.info.memory.textures+' texturas / '+renderer.info.memory.geometries+' geometrias',
-      'Estradas da região: '+roadCount
+      'Estradas da região: '+roadCount,
+      'Árvores: '+(world.forest?.statistics.active||0)+' visíveis / '+
+        (world.forest?.statistics.planted||0)+' colocadas',
+      'LOD árvores 0/1/2/3: '+(world.forest?.statistics.lod||[0,0,0,0]).join('/')
     ].join('\n');
   }};
 }
