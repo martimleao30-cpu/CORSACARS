@@ -5,7 +5,7 @@ const renderer={info:{memory:{textures:17,geometries:53},
   render:{calls:100,triangles:98000}}};
 const perf=new FrameProfiler(renderer);
 for(let i=0;i<100;i++)
-  perf.record({frame:i%20===0?36:27.9,
+  perf.record({frame:i%10===0?36:27.9,
     cpu:12,physics:5,world:3,effects:1,render:2});
 let state=perf.snapshot();
 assert.equal(state.cpu,12);
