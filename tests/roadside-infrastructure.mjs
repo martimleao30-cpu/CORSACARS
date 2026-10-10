@@ -33,6 +33,8 @@ assert.ok(stats.stops>=1,'Accessible glass-and-steel bus shelters should exist')
 const stops=architecture.groups.filter(g=>g.name.startsWith('Paragem de autocarro'));
 assert.ok(stops.length>=1);
 for(const stop of stops){
+  assert.ok(Number.isFinite(stop.position.x)&&Number.isFinite(stop.position.z),
+    'Bus stop position must be finite, not a Vector3 multiplied by a number');
   assert.ok(['town','aldeia'].includes(stop.userData.servesPOI),
     'Stop must serve a named settlement, not arbitrary roadside space');
   assert.ok(Number.isFinite(stop.userData.poiDistance)&&

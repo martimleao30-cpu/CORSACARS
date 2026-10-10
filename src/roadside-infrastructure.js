@@ -43,6 +43,8 @@ export class RoadsideInfrastructure{
   }
   candidate(road,index,side,offset){
     const t=this.tangent(road,index),p=road.points[index];
+    if(!Number.isFinite(side)||Math.abs(side)!==1)throw new Error(
+      'Roadside side must be a numeric +1 or -1, not a direction Vector3');
     const x=p.x-t.z*side*offset,z=p.z+t.x*side*offset;
     return {x,z,y:this.terrainY(x,z),yaw:Math.atan2(t.x,t.z),
       tangent:t,index,side,road};
@@ -139,6 +141,7 @@ export class RoadsideInfrastructure{
       if(d<best){best=d;nearest=i;}
     }
     const stepOrder=[7,9,11,13,15,18,21,24,28,32];
+    if(!Number.isFinite(side)||Math.abs(side)!==1)return null;
     for(const direction of [lead,-lead]){
       for(const steps of stepOrder){
         const i=nearest+steps*direction;
@@ -298,8 +301,8 @@ export class RoadsideInfrastructure{
         const settlement=(this.clearance?.regions||[]).find(r=>
           r.kind==='town'&&r.road===road.id);
         if(settlement){
-          this.shelter(road,settlement,settlement.side,-1);
-          this.shelter(road,settlement,-settlement.side,1);
+          this.shelter(road,settlement,settlement.sideSign,-1);
+          this.shelter(road,settlement,-settlement.sideSign,1);
         }
         this.direction(road,.41,1,['CENTRO DA VILA','ESTAÇÃO FERROVIÁRIA']);
         this.direction(road,.87,-1,['CIRCULAR','PARQUE / COMÉRCIO']);
@@ -315,7 +318,7 @@ export class RoadsideInfrastructure{
       }else if(road.category==='mountain'){
         const village=(this.clearance?.regions||[]).find(r=>
           r.kind==='hamlet'&&r.road===road.id);
-        if(village)this.shelter(road,village,-village.side,-1);
+        if(village)this.shelter(road,village,-village.sideSign,-1);
         this.kiosk(road,.52,-1,'SERRA ALTA');
         this.direction(road,.24,1,['MIRADOURO','ATENÇÃO: CURVAS']);
         this.markers(road,'mountain',8);

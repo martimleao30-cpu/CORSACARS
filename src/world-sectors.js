@@ -57,7 +57,7 @@ export class WorldSectors {
       const xy=p.clone().addScaledVector(side,road.width*.5+15);
       xy.y=groundHeight(xy.x,xy.z);
       this.regions.push({...definition,point:xy,roadPoint:p.clone(),
-        tangent,side,roadWidth:road.width});
+        tangent,side,sideSign:definition.side,roadWidth:road.width});
     }
   }
 
