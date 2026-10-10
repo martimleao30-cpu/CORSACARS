@@ -38,6 +38,8 @@ assert.ok(environment.statistics.parkingSpaces>0);
 assert.ok(environment.statistics.highwayBarriers>0);
 assert.ok(environment.statistics.mountainBarriers>0);
 assert.ok(environment.statistics.roadSigns>=5);
+assert.ok(environment.statistics.speedSigns>=4,'Round maximum-speed signs required');
+assert.ok(environment.statistics.dangerSigns>=4,'Triangular hazard signs required');
 assert.ok(environment.statistics.stones>0 && environment.statistics.dirtRuts>0);
 assert.ok(environment.statistics.ruralVegetation>0,'Rural roadside plants must be placed along its own route');
 assert.equal(environment.statistics.physicalJunctions,3);
@@ -46,9 +48,16 @@ assert.ok(environment.trafficLights.length>=4,'Working traffic lights required')
 environment.update(.1);
 assert.ok(environment.trafficLights[0].lamps[2].emissiveIntensity>1,
   'Initial green stage');
+assert.ok(environment.trafficLights.some(signal=>signal.state==='red'),
+  'Conflicting approach must initially be red');
 for(let i=0;i<120;i++)environment.update(.1);
 assert.ok(environment.trafficLights[0].lamps[0].emissiveIntensity>1,
   'Red stage must replace green after timed cycle');
+for(let i=0;i<42;i++)environment.update(.1);
+assert.ok(environment.trafficLights.some(signal=>signal.side>0&&signal.state==='green'),
+  'Opposite direction must receive green during its phase');
+assert.ok(!environment.trafficLights.some(signal=>signal.side<0&&signal.state==='green'),
+  'Opposing signals must not show simultaneous green');
 const before=physics.bodies.length;
 environment.dispose();
 assert.equal(physics.bodies.length,physicalRoadBodies,

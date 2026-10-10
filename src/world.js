@@ -8,6 +8,7 @@ import { DrivingTestArea } from './driving-test-area.js';
 import {createRoadBed,addRoadSides,addRoadWear} from './road-upgrades.js';
 import {RoadEnvironment} from './road-environments.js';
 import {ForestSystem} from './forest-system.js';
+import {RoadSignage} from './road-signage.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -70,9 +71,11 @@ export class DrivingWorld {
     this.buildRoad();
     this.network = new RoadNetwork(this.scene,this.physics,groundHeight,
       this.roadPoints,this.roadWidth,this.quality);
+    this.network.roads[0].mesh=this.roadMesh;
     this.buildRoadside();
     this.roadEnvironment=new RoadEnvironment(this.scene,this.physics,this.network,
       groundHeight,this.quality);
+    this.roadSignage=new RoadSignage(this.scene,this.network,this.quality);
     this.testArea=new DrivingTestArea(this.scene,this.physics,this.network,groundHeight);
     const testRoad=this.network.roads.find(r=>r.id==='provas');
     if(testRoad) {
@@ -185,40 +188,8 @@ export class DrivingWorld {
       groundHeight,this.quality,29);
     meshCollider(this.physics,bed.top,this.asphaltMaterial);
 
-    const stripeGeo = new THREE.BoxGeometry(0.16, 0.027, 3.5);
-    const lineGeo = new THREE.BoxGeometry(0.13, 0.027, 7);
-    const dashed = new THREE.InstancedMesh(stripeGeo, material(0xeed9a9, 0.95), 75);
-    const solid = new THREE.InstancedMesh(lineGeo, material(0xcfd4d0, 0.95), 2 * sampleCount);
-    const holder = new THREE.Object3D();
-    let d = 0, s = 0;
-    for (let i = 0; i < sampleCount; i++) {
-      const point = this.roadPoints[i];
-      const next = this.roadPoints[i + 1];
-      const distance = point.center.distanceTo(next.center);
-      const yaw = Math.atan2(point.tangent.x, point.tangent.z);
-      if (i % 6 === 0 && d < 75) {
-        holder.position.copy(point.center);
-        holder.position.y += 0.055;
-        holder.rotation.set(0, yaw, 0);
-        holder.scale.set(1, 1, 1);
-        holder.updateMatrix();
-        dashed.setMatrixAt(d++, holder.matrix);
-      }
-      for (const lateral of [-this.roadWidth / 2 + 0.46, this.roadWidth / 2 - 0.46]) {
-        holder.position.copy(point.center).addScaledVector(point.side, lateral);
-        holder.position.y = groundHeight(holder.position.x, holder.position.z) + 0.23;
-        holder.rotation.set(0, yaw, 0);
-        holder.scale.set(1, 1, Math.max(0.1, distance / 7 + 0.025));
-        holder.updateMatrix();
-        solid.setMatrixAt(s++, holder.matrix);
-      }
-    }
-    dashed.count = d;
-    solid.count = s;
-    dashed.instanceMatrix.needsUpdate = true;
-    solid.instanceMatrix.needsUpdate = true;
-    dashed.receiveShadow = solid.receiveShadow = true;
-    this.scene.add(dashed, solid);
+    // Surface-conforming road lines are built by RoadSignage after the network.
+    this.roadMesh=roadMesh;
     this.spawn = this.roadPoints[5];
   }
 

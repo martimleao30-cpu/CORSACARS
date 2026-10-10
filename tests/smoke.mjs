@@ -61,6 +61,7 @@ assert.match(details,/uCorsaWind/);
 assert.match(world,/details\?\.update/);
 assert.match(world,/createTerrainMaterial/);
 assert.match(world,/ForestSystem/);
+assert.match(world,/new RoadSignage/);
 assert.match(main,/world\.updateForest/);
 assert.match(vehicle,/contactShadow/);
 assert.match(vehicle,/tireTreads/);

@@ -43,6 +43,7 @@ export class RoadEnvironment {
     this.objects=[];this.bodies=[];this.trafficLights=[];
     this.statistics={urban:0,highway:0,mountain:0,rural:0,dirt:0,
       sidewalks:0,crosswalks:0,parkingSpaces:0,manholes:0,drains:0,ruralVegetation:0,
+      speedSigns:0,dangerSigns:0,
       highwayBarriers:0,mountainBarriers:0,roadSigns:0,stones:0,
       dirtRuts:0,physicalJunctions:network.connectors?.length||0};
     for(const road of network.roads){
@@ -82,16 +83,6 @@ export class RoadEnvironment {
     return this.add(mesh,name);
   }
 
-  markings(road,indices,laterals,color=materials.white,length=2,width=.14){
-    const placements=[];
-    for(const i of indices)for(const lateral of laterals){
-      if(i<1||i>=road.points.length-1)continue;
-      const p=position(road,i,lateral,this.terrainY,.035);
-      placements.push({...p,sx:width,sy:.017,sz:length});
-    }
-    return this.instances('Marcas · '+road.name,
-      new THREE.BoxGeometry(1,1,1),color,placements);
-  }
 
   // Pavement is thick, connected to the terrain and has real Cannon triangles.
   pavement(road,side,start,end){
@@ -132,20 +123,15 @@ export class RoadEnvironment {
         this.pavement(road,side,78,n-9);
       }
     }
-    const zebra=[],manholes=[],drains=[],parking=[],parkTics=[];
+    const manholes=[],drains=[],parking=[],parkTics=[];
     const crossings=road.id==='nacional'?[26,68,106]:[Math.floor(n*.48)];
     for(const k of crossings){
       if(k>=n-2)continue;
-      for(let v=-road.width*.43;v<=road.width*.43;v+=.85){
-        const p=position(road,k,v,this.terrainY,.047);
-        zebra.push({...p,sx:.52,sy:.016,sz:2.5});
-      }
+      // The physical crosswalk paint is now generated from the road deck.
       this.statistics.crosswalks++;
       this.trafficLight(road,k,-1);
       this.trafficLight(road,k,1);
     }
-    this.instances('Passadeiras · '+road.name,new THREE.BoxGeometry(1,1,1),
-      materials.white,zebra);
     for(let i=18;i<n-15;i+=18){
       const p=position(road,i,road.width*.16,this.terrainY,.052);
       manholes.push({...p});
@@ -178,6 +164,8 @@ export class RoadEnvironment {
     }
     this.sign(road,clamp(Math.round(n*.31),3,n-3),road.width*.5+4.2,
       'ZONA URBANA','50');
+    this.speedSign(road,clamp(Math.round(n*.22),3,n-3),road.width*.5+3.4,50);
+    this.dangerSign(road,clamp(Math.round(n*.18),3,n-3),-road.width*.5-3.6,'PASSADEIRA');
   }
 
   trafficLight(road,index,side){
@@ -229,6 +217,71 @@ export class RoadEnvironment {
     this.statistics.roadSigns++;
   }
 
+
+  // Portuguese-style circular maximum speed limits, including the actual
+  // speed number rather than merely a blue informational billboard.
+  speedSign(road,index,offset,limit){
+    const p=position(road,index,offset,this.terrainY);
+    const root=new THREE.Group();
+    root.position.set(p.x,this.terrainY(p.x,p.z),p.z);
+    root.rotation.y=p.yaw;
+    const grey=materials.steel,white=materials.white;
+    const pole=new THREE.Mesh(new THREE.CylinderGeometry(.056,.075,2.8,9),grey);
+    pole.position.y=1.4;pole.castShadow=true;root.add(pole);
+    const rim=new THREE.Mesh(new THREE.CircleGeometry(.58,32),
+      new THREE.MeshStandardMaterial({color:0xc82123,roughness:.71,side:THREE.DoubleSide}));
+    rim.position.set(0,2.9,.064);root.add(rim);
+    const inner=new THREE.Mesh(new THREE.CircleGeometry(.44,32),white);
+    inner.position.set(0,2.9,.074);root.add(inner);
+    const canvas=document.createElement('canvas');
+    canvas.width=canvas.height=256;
+    const ctx=canvas.getContext('2d');
+    ctx.font='bold 152px sans-serif';ctx.fillStyle='#171717';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(String(limit),128,135);
+    const texture=new THREE.CanvasTexture(canvas);
+    texture.colorSpace=THREE.SRGBColorSpace;
+    const numbers=new THREE.Mesh(new THREE.PlaneGeometry(.79,.79),
+      new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,
+        transparent:true,alphaTest:.14,depthWrite:false}));
+    numbers.position.set(0,2.9,.083);root.add(numbers);
+    this.add(root,'Sinal de limite · '+limit+' km/h');
+    this.statistics.speedSigns++;
+    return root;
+  }
+
+  dangerSign(road,index,offset,kind='CURVAS'){
+    const p=position(road,index,offset,this.terrainY);
+    const root=new THREE.Group();
+    root.position.set(p.x,this.terrainY(p.x,p.z),p.z);
+    root.rotation.y=p.yaw;
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(.055,.075,2.8,8),materials.steel);
+    post.position.y=1.4;root.add(post);
+    const triangle=(radius)=>{
+      const shape=new THREE.Shape();
+      shape.moveTo(0,radius);
+      shape.lineTo(-radius*.89,-radius*.62);
+      shape.lineTo(radius*.89,-radius*.62);
+      shape.closePath();
+      return new THREE.ShapeGeometry(shape);
+    };
+    const back=new THREE.Mesh(triangle(.68),
+      new THREE.MeshStandardMaterial({color:0xc72727,side:THREE.DoubleSide,roughness:.76}));
+    back.position.set(0,3.03,.063);root.add(back);
+    const face=new THREE.Mesh(triangle(.49),
+      new THREE.MeshBasicMaterial({color:0xf4f5ef,side:THREE.DoubleSide}));
+    face.position.set(0,2.99,.076);root.add(face);
+    const exclaim=new THREE.Mesh(new THREE.BoxGeometry(.085,.36,.035),
+      new THREE.MeshBasicMaterial({color:0x101417}));
+    exclaim.position.set(0,2.98,.095);root.add(exclaim);
+    const dot=new THREE.Mesh(new THREE.SphereGeometry(.055,9,6),
+      new THREE.MeshBasicMaterial({color:0x101417}));
+    dot.position.set(0,2.72,.1);root.add(dot);
+    this.add(root,'Sinal de perigo · '+kind);
+    this.statistics.dangerSigns++;
+    return root;
+  }
+
   // Continuous crash barrier visual + a compound static Cannon body.
   barrier(road,offset,first,last,step,kind='metal'){
     const placements=[],body=new CANNON.Body({mass:0});
@@ -260,15 +313,14 @@ export class RoadEnvironment {
 
   highway(road){
     const n=road.points.length-1;
-    const indices=Array.from({length:Math.floor((n-8)/5)},(_,i)=>i*5+4);
-    this.markings(road,indices,[-road.width*.245,road.width*.245],materials.white,4,.12);
-    this.markings(road,Array.from({length:n-12},(_,i)=>i+6),
-      [-road.width*.445,road.width*.445],materials.white,2,.14);
+    // All motorway lane lines follow the 3D deck in RoadSignage.
     this.barrier(road,0,7,n-9,3,'median');
     for(const side of [-1,1])
       this.barrier(road,side*(road.width*.5+2),9,n-9,4,'metal');
     this.sign(road,clamp(Math.round(n*.29),3,n-3),road.width*.5+6.5,'AUTOESTRADA A1','120');
     this.sign(road,clamp(Math.round(n*.78),3,n-3),-road.width*.5-6.5,'SAÍDA / EXIT','');
+    this.speedSign(road,clamp(Math.round(n*.18),3,n-3),road.width*.5+4.8,120);
+    this.dangerSign(road,clamp(Math.round(n*.72),3,n-3),-road.width*.5-4.8,'SAÍDA');
   }
 
   mountain(road){
@@ -289,6 +341,8 @@ export class RoadEnvironment {
     this.statistics.stones+=rocks.length;
     this.sign(road,clamp(Math.floor(n*.43),3,n-3),road.width*.5+5.6,
       'CURVAS DE SERRA','40');
+    this.dangerSign(road,clamp(Math.floor(n*.24),3,n-3),road.width*.5+3.4,'CURVAS');
+    this.speedSign(road,clamp(Math.floor(n*.42),3,n-3),-road.width*.5-3.5,40);
   }
 
   rural(road){
@@ -323,6 +377,7 @@ export class RoadEnvironment {
     this.statistics.ruralVegetation+=shrubs.length;
     this.sign(road,clamp(Math.round(n*.24),3,n-3),road.width*.5+4.8,
       'ESTRADA RURAL','60');
+    this.speedSign(road,clamp(Math.round(n*.21),3,n-3),road.width*.5+3.7,60);
   }
 
   dirt(road){
@@ -352,14 +407,26 @@ export class RoadEnvironment {
     this.statistics.stones+=stones.length;
     this.sign(road,clamp(Math.round(n*.16),3,n-3),
       road.width*.5+3.9,'PISTA DE TERRA','30');
+    this.dangerSign(road,clamp(Math.round(n*.21),3,n-3),road.width*.5+3.8,'PISO IRREGULAR');
   }
 
   update(dt,paused=false){
     if(!paused)this.elapsed+=Math.max(0,Math.min(dt,.12));
     // Working lights cycle red / amber / green; AI traffic rules are separate work.
-    const phase=this.elapsed%24;
-    const selected=phase<9?2:phase<11?1:0;
+    const phase=this.elapsed%26;
+    // 0–9: one approach green, 9–11 amber, 11–13 all red;
+    // 13–22: opposite approach green, 22–24 amber, 24–26 all red.
+    // Conflicting sides can never show green simultaneously.
     for(const signal of this.trafficLights){
+      let selected=0;
+      if(signal.side<0){
+        if(phase<9)selected=2;
+        else if(phase<11)selected=1;
+      }else{
+        if(phase>=13&&phase<22)selected=2;
+        else if(phase>=22&&phase<24)selected=1;
+      }
+      signal.state=['red','amber','green'][selected];
       for(let i=0;i<3;i++)signal.lamps[i].emissiveIntensity=
         i===selected?2.9:.045;
     }

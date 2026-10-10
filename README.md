@@ -274,3 +274,29 @@ cilíndricos e copas geométricas em `src/world.js` foi substituído pelo
 
 Os testes de distribuição, geometria, LOD, frustum e clima correm em
 `npm run test:forest`. O desempenho real deve ser medido no jogo em GPU.
+
+
+## Sinalização rodoviária 3D — pavimento real
+
+`src/road-signage.js` gera linhas contínuas, descontínuas e duplas a
+partir **dos vértices da própria estrada**, usando a mesma malha que o carro
+percorre. A pintura acompanha curvas, alterações de altura e o abaulamento
+transversal, evitando o efeito de marcas retas, flutuantes ou com z-fighting.
+Uma distância constante de ~18 mm, `polygonOffset` e profundidade de leitura
+protegida evitam as marcas desaparecerem no asfalto. Os tracejados são
+medidos por metros de percurso, e não por índice da malha.
+
+Inclui linhas laterais contínuas, marcações centrais duplas nas vias
+adequadas, descontínuas nas restantes, separações de vias da autoestrada,
+setas direcionais e passadeiras com largura variável à da estrada. As
+linhas usam geometria de faixas em GPU, não caixas 3D esticadas.
+Os materiais são partilhados e a sinalização é gerada uma única vez.
+
+`src/road-environments.js` mantém as placas 3D e acrescenta sinais
+circulares de limite de velocidade, sinais de perigo triangulares e
+semáforos com ciclos alternados de verde/amarelo/vermelho por sentido,
+incluindo fases de vermelho para os dois sentidos. São sinais funcionais
+visualmente; os carros da IA ainda não cumprem automaticamente sinais.
+
+Verificação: `npm run test:roads` testa também encaixe geométrico,
+linhas, setas, passadeiras, sinais verticais e fases semafóricas.
