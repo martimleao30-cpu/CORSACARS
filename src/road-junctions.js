@@ -62,7 +62,8 @@ export function findAtGradeJunctions(roads){
       const size=Math.hypot(dx,dz)||1;
       const ux=dx/size,uz=dz/size;
       const halfU=secondary.road.width*.58/Math.max(.28,x.sin)+2.1;
-      const halfV=primary.road.width*.5+.035;
+      // A small intentional overlap avoids a hairline hole between two sampled decks.
+       const halfV=primary.road.width*.5-.12;
       result.push({
         x:x.x,z:x.z,y:(x.y+x.otherY)*.5,
         primary:primary.road,secondary:secondary.road,
@@ -108,7 +109,7 @@ export function findAtGradeJunctions(roads){
         x:c.x,z:c.z,y:c.y,primary:c.main,secondary:road,
         ux:c.ux,uz:c.uz,
         halfU:Math.min(22,road.width*.8/Math.max(.34,c.angle)+1.8),
-        halfV:c.main.width*.5+.08,
+        halfV:c.main.width*.5-.12,
         angle:c.angle,kind:'endpoint'
       });
     }
@@ -213,6 +214,44 @@ export function clipGeometryAtJunctions(geometry,cuts){
     removedTriangles:removed,clippedTriangles:clipped};
   return result;
 }
+// Pull the secondary edge onto the primary road's camber over a short
+// transition band. Both the rendered and Cannon geometry use these vertices,
+// so there's no floating ledge or abrupt height step at the asphalt seam.
+export function blendJunctionHeights(geometry,cuts,terrainY){
+  if(!geometry||!cuts?.length||typeof terrainY!=='function')return geometry;
+  const vertices=geometry.getAttribute('position');
+  let changed=false;
+  for(let i=0;i<vertices.count;i++){
+    const x=vertices.getX(i),z=vertices.getZ(i);
+    let y=vertices.getY(i);
+    for(const cut of cuts){
+      const dx=x-cut.x,dz=z-cut.z;
+      const u=dx*cut.ux+dz*cut.uz;
+      const v=-dx*cut.uz+dz*cut.ux;
+      const dv=Math.abs(v)-cut.halfV;
+      const du=Math.max(0,Math.abs(u)-cut.halfU);
+      if(dv<-.001||dv>2.8||du>3)continue;
+      const t=1-Math.min(1,Math.max(0,dv/2.8));
+      const end=1-Math.min(1,du/3);
+      const blend=t*t*(3-2*t)*end*end*(3-2*end);
+      const halfWidth=cut.primary.width*.5;
+      const across=Math.min(1,Math.abs(v)/halfWidth);
+      const primaryY=terrainY(x,z)+.205+.052*(1-across*across);
+      y+=(primaryY-y)*blend;
+    }
+    if(Math.abs(y-vertices.getY(i))>.000001){
+      vertices.setY(i,y);changed=true;
+    }
+  }
+  if(changed){
+    vertices.needsUpdate=true;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+  }
+  return geometry;
+}
+
 // Remove roadwear decals whose instanced quads extend into another road's
 // junction. Otherwise opaque tyre skids and gravel appear on top of asphalt
 // after the underlying triangles have been clipped.
@@ -259,6 +298,7 @@ export function resolveRoadJunctions(network,physics){
     road.sourceGeometry=road.mesh.geometry;
     const clipped=clipGeometryAtJunctions(road.sourceGeometry,cuts);
     if(!clipped)continue;
+    blendJunctionHeights(clipped,cuts,network.terrainY);
     road.mesh.geometry=clipped;
     if(road.sides?.geometry){
       const side=clipGeometryAtJunctions(road.sides.geometry,cuts);
