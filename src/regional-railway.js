@@ -202,7 +202,8 @@ export class RegionalRailway{
     this.statistics={lengthM:Math.round(this.line.total),stations:this.stations.length,
       trainCars:this.trainCars.length,sleepers:this.sleeperCount,bridges:this.bridgeSupports,
       railSegments:this.line.points.length-1,
-      ballastStones:this.ballastStones,catenaryMasts:this.catenaryMasts};
+      ballastStones:this.ballastStones,catenaryMasts:this.catenaryMasts,
+      bridgeDeckSegments:this.bridgeDeckSegments};
   }
   createBox(name,position,dimensions,mat,parent=this.group,collide=false){
     const geo=new THREE.BoxGeometry(...dimensions);
@@ -278,20 +279,70 @@ export class RegionalRailway{
     stones.castShadow=false;stones.receiveShadow=true;
     this.group.add(stones);this.ballastStones=stoneCount;
 
-    // Maintain the original road-crossing clearance. Pier spacing and the
-    // alignment are unchanged; train movement and station positions remain.
-    this.bridgeSupports=0;
-    for(let d=25;d<total-25;d+=43){
-      const p=sampleAlignment(this.line,d),ground=this.terrainY(p.point.x,p.point.z);
-      const deckHeight=p.point.y-ground;
-      const nearRoad=this.roadside?.roadProximity(p.point.x,p.point.z).edge??Infinity;
-      if(deckHeight<3.6||nearRoad<12)continue;
-      this.createBox('Pilar do viaduto',
-        new THREE.Vector3(p.point.x,(p.point.y+ground)/2-.2,p.point.z),
-        [1.12,Math.max(.5,deckHeight-.5),1.12],this.materials.concrete);
+    this.buildViaductSupports();
+    this.buildCatenary();
+  }
+  // A viaduct is a continuous load-bearing span, not pillars scattered
+  // randomly on a high railway. Only elevated portions receive longitudinal
+  // girders, crossheads and paired columns on terrain-grounded footings.
+  buildViaductSupports(){
+    const total=this.line.total;
+    const profile=distance=>{
+      const point=sampleAlignment(this.line,distance);
+      const ground=this.terrainY(point.point.x,point.point.z);
+      const height=point.point.y-ground;
+      const roadEdge=this.roadside?.roadProximity(point.point.x,point.point.z).edge??Infinity;
+      return {...point,ground,height,roadEdge};
+    };
+    const span=9,pierSpacing=27;
+    this.bridgeSupports=0;this.bridgeDeckSegments=0;
+    for(let d=0;d<total-span;d+=span){
+      const a=profile(d),b=profile(d+span);
+      if(Math.min(a.height,b.height)<3.0)continue;
+      const mid=profile(d+span*.5);
+      const length=a.point.distanceTo(b.point);
+      const yaw=Math.atan2(b.point.x-a.point.x,b.point.z-a.point.z);
+      const girder=this.createBox('Viaduto · viga contínua de betão',
+        a.point.clone().lerp(b.point,.5).add(new THREE.Vector3(0,-.78,0)),
+        [4.1,.60,length+.24],this.materials.concrete);
+      girder.rotation.y=yaw;
+      const lip=this.createBox('Viaduto · bordo de segurança',
+        a.point.clone().lerp(b.point,.5).addScaledVector(mid.side,2.05)
+          .add(new THREE.Vector3(0,-.36,0)),
+        [.18,.56,length+.20],this.materials.structure);
+      lip.rotation.y=yaw;
+      const opposite=this.createBox('Viaduto · bordo de segurança',
+        a.point.clone().lerp(b.point,.5).addScaledVector(mid.side,-2.05)
+          .add(new THREE.Vector3(0,-.36,0)),
+        [.18,.56,length+.20],this.materials.structure);
+      opposite.rotation.y=yaw;
+      this.bridgeDeckSegments++;
+    }
+    for(let d=pierSpacing*.5;d<total;d+=pierSpacing){
+      const p=profile(d);
+      if(p.height<3.4||p.roadEdge<12)continue;
+      const height=p.height-.95;
+      const yaw=Math.atan2(p.dir.x,p.dir.z);
+      const top=p.point.y-.73;
+      for(const offset of [-1.06,1.06]){
+        const foot=p.point.clone().addScaledVector(p.side,offset);
+        const base=this.terrainY(foot.x,foot.z);
+        const columnHeight=Math.max(.4,top-base-.24);
+        const footing=this.createBox('Viaduto · sapata de fundação',
+          new THREE.Vector3(foot.x,base+.09,foot.z),
+          [1.16,.35,1.35],this.materials.concrete);
+        footing.rotation.y=yaw;
+        const column=this.createBox('Viaduto · pilar estrutural',
+          new THREE.Vector3(foot.x,base+.28+columnHeight*.5,foot.z),
+          [.57,columnHeight,.76],this.materials.concrete);
+        column.rotation.y=yaw;
+      }
+      const crosshead=this.createBox('Viaduto · travessa de apoio',
+        new THREE.Vector3(p.point.x,top-.08,p.point.z),
+        [3.55,.48,1.35],this.materials.concrete);
+      crosshead.rotation.y=yaw;
       this.bridgeSupports++;
     }
-    this.buildCatenary();
   }
   buildCatenary(){
     const total=this.line.total,interval=57;
