@@ -439,6 +439,9 @@ function createDiagnostics(){
       'Rodas em contacto: '+data.wheelContact+'/4',
       'Suspensão [m]: '+(data.suspension||[]).join(' · '),
       'Slip rodas: '+(data.wheelSlip||[]).join(' · '),
+      'Aceleração longitudinal/lateral: '+
+        (data.longitudinalAcceleration??0)+' / '+(data.lateralAcceleration??0)+' m/s²',
+      'Carga relativa FL/FR/RL/RR: '+(data.wheelLoads||[]).join(' · '),
       'TCS redução: '+Math.round((data.tractionIntervention||0)*100)+'%',
       'Tempo física: '+stepMs.toFixed(2)+' ms',
       'CPU total: '+frameProfiler.snapshot().cpu.toFixed(2)+' ms · mundo '+
@@ -454,6 +457,11 @@ function createDiagnostics(){
       'Render: '+renderer.info.render.calls+' draw calls · '+renderer.info.render.triangles+' tri',
       'Memória GPU aprox.: '+renderer.info.memory.textures+' texturas / '+renderer.info.memory.geometries+' geometrias',
       'Estradas da região: '+roadCount,
+      'Mapa auditado: '+(world.mapAudit?.metrics.roads??0)+' vias · '+
+        (world.mapAudit?.issues.length??0)+' alertas',
+      'Alertas principais: '+
+        Object.entries(world.mapAudit?.counts||{}).slice(0,4)
+          .map(([name,count])=>name+'='+count).join(' · '),
       'Árvores: '+(world.forest?.statistics.active||0)+' visíveis / '+
         (world.forest?.statistics.planted||0)+' colocadas',
       'LOD árvores 0/1/2/3: '+(world.forest?.statistics.lod||[0,0,0,0]).join('/')
