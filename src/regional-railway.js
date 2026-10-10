@@ -62,9 +62,10 @@ export class RegionalRailway{
       headlight:material(0xe2f9ee,.42,0,{emissive:0xd8f5e6,emissiveIntensity:1.4})
     };
     this.geometry=[];this.stationBodies=[];
-    this.buildTrack();this.buildStations();this.buildTrain();
     this.position=0;this.elapsed=0;this.stopTime=0;this.lastStop=-1;
-    this.speedMS=24.5; // 88 km/h between stations, not a static diorama.
+    this.speedMS=24.5;
+    this.buildTrack();this.buildStations();this.buildTrain();
+    // 88 km/h between stations, not a static diorama.
     this.statistics={lengthM:Math.round(this.line.total),stations:this.stations.length,
       trainCars:this.trainCars.length,sleepers:this.sleeperCount,bridges:this.bridgeSupports,
       railSegments:this.line.points.length-1};

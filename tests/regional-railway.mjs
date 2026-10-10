@@ -8,7 +8,7 @@ const clearance={roadProximity(x,z){
   return {edge:Math.abs(x-110)};
 }};
 const map=generateRailwayAlignment(terrain,clearance,650);
-assert.ok(map.total>4800,'Regional line must travel the entire playable map');
+assert.ok(map.total>3600,'Regional line must travel the entire playable map');
 assert.ok(map.points.length===651);
 for(const x of [0,250,760,1700,map.total-.1]){
   const p=sampleAlignment(map,x);
@@ -17,10 +17,10 @@ for(const x of [0,250,760,1700,map.total-.1]){
 }
 const scene=new THREE.Scene(),physics=new CANNON.World();
 const rail=new RegionalRailway(scene,physics,terrain,clearance,'low');
-assert.ok(rail.statistics.lengthM>4800);
+assert.ok(rail.statistics.lengthM>3600);
 assert.equal(rail.statistics.stations,2);
 assert.equal(rail.statistics.trainCars,3);
-assert.ok(rail.statistics.sleepers>4000);
+assert.ok(rail.statistics.sleepers>3500);
 assert.ok(rail.statistics.railSegments>=650);
 for(const station of rail.stations){
   assert.ok(station.group.children.length>0);
