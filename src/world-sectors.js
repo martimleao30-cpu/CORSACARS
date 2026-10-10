@@ -67,13 +67,16 @@ export class WorldSectors {
     }
   }
 
-  preloadAll(onProgress=()=>{}){
-    this.preloaded=true;
+  async preloadAll(onProgress=()=>{},yieldFrame=async()=>{}){
+    // Never evict POIs during travel once an eager boot has completed.
+    // Yield during loading so the progress display keeps responding.
     for(let i=0;i<this.regions.length;i++){
       const region=this.regions[i];
       if(!this.active.has(region.id))this.load(region);
       onProgress(i+1,this.regions.length,region.name);
+      if(i%2===1)await yieldFrame();
     }
+    this.preloaded=true;
     return this.active.size;
   }
 
