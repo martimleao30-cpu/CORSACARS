@@ -100,11 +100,13 @@ export class RiverSystem {
     for(let i=0;i<cols;i++){
       const x=vertices.getX(i),z=vertices.getZ(i),p=this.lookup(x,z);
       if(!p)continue;
-      const inner=p.width+1.8,outer=p.width+17;
+      // Extend the fully cut bed beyond the water edge by a terrain vertex:
+      // low quality meshes must never interpolate a green triangle over water.
+      const inner=p.width+8.5,outer=p.width+24;
       if(p.distance>=outer)continue;
       const factor=1-smooth((p.distance-inner)/(outer-inner));
       const current=vertices.getY(i);
-      const bed=p.waterY-1.25;
+      const bed=p.waterY-1.55;
       const desired=Math.min(current,bed);
       const next=current+(desired-current)*factor;
       if(Math.abs(next-current)<.0005)continue;
@@ -153,8 +155,6 @@ export class RiverSystem {
     const pos=[],uv=[],indices=[],bank=[];
     for(let i=0;i<this.points.length;i++){
       const p=this.points[i];
-      const prev=this.points[Math.max(0,i-1)];
-      const along=i?Math.hypot(p.x-prev.x,p.z-prev.z):0;
       for(let j=0;j<=8;j++){
         const v=j/8,side=(v*2-1)*p.width;
         pos.push(p.x+p.nx*side,p.y+.08,p.z+p.nz*side);
@@ -166,7 +166,6 @@ export class RiverSystem {
         const a=i*9+j,b=a+9;
         indices.push(a,b,a+1,a+1,b,b+1);
       }
-      void along;
     }
     const geometry=new THREE.BufferGeometry();
     geometry.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
