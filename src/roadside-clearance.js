@@ -128,7 +128,7 @@ export class RoadsideClearance{
             const offset=road.width*.5+9.7;
             const x=center.x+outward.x*offset,z=center.z+outward.z*offset;
             const poiDistance=Math.hypot(x-region.roadPoint.x,z-region.roadPoint.z);
-            if(poiDistance<34||poiDistance>135)continue;
+            if(poiDistance<34||poiDistance>125)continue;
             const collision=selected.some(other=>Math.hypot(x-other.x,z-other.z)<58);
             if(collision)continue;
             let clear=true;
