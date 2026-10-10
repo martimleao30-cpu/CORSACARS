@@ -22,7 +22,11 @@
   <canvas id="game" aria-label="Mundo 3D de CORSACARS"></canvas>
   <div id="loading" class="loading">
     <div class="loading-mark">C<span>/</span>C</div>
-    <p>Preparar o mundo e a física...</p>
+    <p id="loadingStage" aria-live="polite">A PREPARAR O MUNDO E A FÍSICA</p>
+    <div class="world-loading-track" role="progressbar" aria-label="Preparação do mundo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div id="loadingProgress" class="world-loading-fill"></div>
+    </div>
+    <span class="world-loading-hint">PRIMEIRO CARREGAMENTO MAIS COMPLETO · MENOS INTERRUPÇÕES AO CONDUZIR</span>
   </div>
 
   <section id="entryScreen" class="entry-screen hidden" aria-label="Ecrã de entrada de CORSACARS">
