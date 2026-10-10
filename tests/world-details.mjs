@@ -3,6 +3,19 @@ import * as THREE from 'three';
 import { WorldDetails } from '../src/world-details.js';
 
 // Real geometry/LOD/wetness tests without requiring a graphics card or browser.
+// Cloud density textures use HTML canvas at runtime. Supply a small deterministic
+// canvas shim for the headless geometry test (no browser/WebGL needed).
+globalThis.document={
+  createElement(type){
+    assert.equal(type,'canvas');
+    return {width:192,height:192,getContext(){
+      return {
+        createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
+        putImageData(){}
+      };
+    }};
+  }
+};
 const scene=new THREE.Scene();
 const points=[];
 for(let i=0;i<=96;i++){
@@ -23,7 +36,12 @@ assert.ok(details.grassPatches.length>0,'3D grass LOD regions must exist');
 assert.ok(details.winds.length>=3,'Grass and both tree species must use GPU wind');
 assert.ok(details.puddles.isInstancedMesh,'Reflective puddles must be instanced geometry');
 assert.ok(details.shrubs.count>0,'Instanced bushes must exist');
-assert.ok(details.clouds.count>0,'3D clouds must exist');
+assert.ok(details.clouds.count>0,'Clouds must exist');
+assert.equal(details.cloudGroups.length,4,'Atmospheric clouds must be split into culled regions');
+assert.equal(details.clouds.geometry.getAttribute('position').count,4,
+  'Clouds must be feathered alpha planes rather than faceted 3D solids');
+assert.ok(details.clouds.material.map?.isCanvasTexture,
+  'Clouds must have procedural soft density maps');
 assert.equal(details.puddles.visible,false);
 const originalGrass=details.grassPatches.reduce((total,p)=>total+p.mesh.count,0);
 details.setDensity(.3);
