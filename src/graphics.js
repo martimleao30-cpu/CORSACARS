@@ -140,6 +140,24 @@ export class GraphicsPipeline {
     }
   }
 
+  warmupReflections(){
+    if(!this.reflectionEnabled)return;
+    // Capture all faces once behind the loading screen; gameplay then
+    // refreshes one full-resolution face at a time with no visible holes.
+    const carVisible=this.vehicle.model.visible;
+    const wheelVisible=this.vehicle.wheelModels.map(w=>w.visible);
+    this.reflectionCapturePosition.copy(this.vehicle.model.position).add(this.reflectionOffset);
+    this.reflectionCamera.position.copy(this.reflectionCapturePosition);
+    try{
+      this.vehicle.model.visible=false;
+      for(const wheel of this.vehicle.wheelModels)wheel.visible=false;
+      this.reflectionCamera.update(this.renderer,this.scene);
+      this.reflectionFace=0;
+    }finally{
+      this.vehicle.model.visible=carVisible;
+      this.vehicle.wheelModels.forEach((w,i)=>{w.visible=wheelVisible[i];});
+    }
+  }
   update(dt,active=true){
     // ACES handles bright sun highlights, while exposure gently follows
     // sunrise, midday and overcast rather than blowing out the road texture.
