@@ -179,8 +179,8 @@ export function addRoadWear(scene,samples,width,terrainY,quality='high',seed=21)
 // Three softly graded verge materials occupy the same mesh: dusty compacted
 // gravel at the road, mixed mineral soil, and an irregular grass/earth edge.
 // Vertex colours don't require extra draw calls; geometry follows terrain.
-export function addRoadShoulders(scene,samples,width,terrainY,material) {
-  const shoulders=[],bands=[.025,.68,1.50,2.35];
+export function addRoadShoulders(scene,samples,width,terrainY,material,startingOffset=0) {
+  const shoulders=[],bands=[.025,.68,1.50,2.35].map(d=>d+startingOffset);
   const palette=[
     [.77,.76,.72], [.90,.85,.75], [.70,.65,.51], [.60,.63,.48]
   ];
