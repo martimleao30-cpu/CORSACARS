@@ -45,11 +45,18 @@ assert.equal(up.autoInstallOnAppQuit,false,'No unexpected restart or install on 
 assert.equal(up.allowDowngrade,false);
 assert.equal(up.allowPrerelease,false);
 assert.ok(timers.some(x=>x.kind==='timeout'&&x.ms===8000));
-assert.ok(timers.some(x=>x.kind==='interval'&&x.ms===60*60*1000));
+assert.ok(timers.some(x=>x.kind==='interval'&&x.ms===15*60*1000));
 assert.equal((await invoke('state')).state,'idle');
 assert.equal((await invoke('check')).state,'available');
 assert.equal(checkCount,1);
 assert.equal(installed,0);
+// A silent/offline check must surface a useful error instead of staying idle.
+const workingCheck=up.checkForUpdates;
+up.checkForUpdates=async()=>{throw new Error('Network unavailable');};
+assert.equal((await invoke('check')).state,'error');
+assert.ok(webContents.messages.some(v=>v.msg.state==='error'));
+up.checkForUpdates=workingCheck;
+assert.equal((await invoke('check')).state,'available');
 assert.equal(downloadCount,0);
 assert.equal((await invoke('download')).state,'ready');
 assert.equal(downloadCount,1);
