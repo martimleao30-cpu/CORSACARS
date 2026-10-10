@@ -239,7 +239,7 @@ export class RoadsideInfrastructure{
     root.userData.busBay=true;
     root.userData.bayLengthM=44;
     root.userData.bayWidthM=3.77;
-    root.userData.bayBody=body;
+    root.userData.busBayHasCollider=true;
     this.stats.busBays++;
     this.stats.busPainted++;
   }
