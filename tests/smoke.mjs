@@ -73,6 +73,8 @@ assert.match(vehicle,/dashLight/);
 assert.match(premium,/style-glass/);
 assert.match(premium,/new NavigationHUD/);
 assert.match(premium,/garageModel/);
+assert.match(premium,/this.railDestinations/);
+assert.match(premium,/this.api.world.railway/);
 assert.match(premium,/BMW M4 Competition/);
 assert.match(main,/setCarModel/);
 assert.match(premium,/gpsDestination/);

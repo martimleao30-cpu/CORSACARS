@@ -46,8 +46,13 @@ export class PremiumInterface {
     this.buildPages();
     this.buildSettingsTabs();
     this.createHud();
+    this.railDestinations=this.api.world.railway.stations.map(s=>({
+      id:'rail-'+s.id,name:s.name,kind:'railway-station',
+      point:s.point,roadPoint:s.point
+    }));
     this.navigation=new NavigationHUD($('gpsCanvas'),
-      this.api.world.network,this.api.world.sectors.regions,$('gpsStatus'));
+      this.api.world.network,
+      [...this.api.world.sectors.regions,...this.railDestinations],$('gpsStatus'));
     this.bindPages();
     this.setHud(this.prefs);
     this.bindDragging();
@@ -298,7 +303,7 @@ export class PremiumInterface {
       this.api.toast('Num navegador, fecha o separador para sair. O progresso local mantém-se.');
     });
     $('testTrackPause').addEventListener('click',()=>this.api.teleportToTests());
-    for(const region of this.api.world.sectors.regions)
+    for(const region of this.navigation.regions)
       $('gpsDestination').add(new Option(region.name,region.id));
     $('gpsGo').addEventListener('click',()=>{
       const id=$('gpsDestination').value;
@@ -657,10 +662,21 @@ export class PremiumInterface {
       ctx.strokeStyle='#21e7fa';ctx.lineWidth=4;
       ctx.shadowColor='#14dbff';ctx.shadowBlur=12;ctx.stroke();ctx.shadowBlur=0;
     }
-    const sites=this.api.world.sectors?.regions||[];
+    const railway=this.api.world.railway?.line?.points||[];
+    if(railway.length>1){
+      ctx.beginPath();
+      railway.forEach((p,i)=>{
+        const [px,py]=project(p);
+        if(i===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+      });
+      ctx.strokeStyle='#6b7778';ctx.lineWidth=2.2;ctx.setLineDash([5,4]);
+      ctx.stroke();ctx.setLineDash([]);
+    }
+    const sites=[...(this.api.world.sectors?.regions||[]),...this.railDestinations];
     for(const site of sites) {
       const [x,y]=project(site.point);
-      ctx.fillStyle='#f7d28b';ctx.beginPath();ctx.arc(x,y,3.8,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=site.kind==='railway-station'?'#93e1f5':'#f7d28b';
+      ctx.beginPath();ctx.arc(x,y,site.kind==='railway-station'?5.1:3.8,0,Math.PI*2);ctx.fill();
       ctx.fillStyle='#eeeae0';ctx.font='9px sans-serif';
       ctx.fillText(site.name.slice(0,22),Math.min(w-100,x+6),y-4);
     }
