@@ -12,12 +12,34 @@ const materials={
   cement:new THREE.MeshStandardMaterial({color:0x898d88,roughness:.94,side:THREE.DoubleSide}),
   kerb:new THREE.MeshStandardMaterial({color:0xc2c4bd,roughness:.93}),
   steel:new THREE.MeshStandardMaterial({color:0x89949a,metalness:.73,roughness:.4}),
+  galvanised:new THREE.MeshStandardMaterial({color:0xa9b3b8,metalness:.79,roughness:.38,side:THREE.DoubleSide}),
   tar:new THREE.MeshStandardMaterial({color:0x35312c,roughness:.95}),
   grate:new THREE.MeshStandardMaterial({color:0x26282a,metalness:.68,roughness:.52}),
   earth:new THREE.MeshStandardMaterial({color:0x806848,roughness:1}),
   rock:new THREE.MeshStandardMaterial({color:0x81847e,roughness:.98}),
   wood:new THREE.MeshStandardMaterial({color:0x69523c,roughness:.96})
 };
+// A genuine corrugated W-beam cross-section, rather than two rectangular
+// strips. One lightweight extruded shape is shared by each instanced segment.
+export function createWBeamGuardrailGeometry(){
+  const shape=new THREE.Shape();
+  const front=[
+    [.01,-.205],[.092,-.145],[-.055,-.065],
+    [.09,.042],[-.053,.133],[.01,.205]
+  ];
+  shape.moveTo(...front[0]);
+  for(let i=1;i<front.length;i++)shape.lineTo(...front[i]);
+  for(let i=front.length-1;i>=0;i--)
+    shape.lineTo(front[i][0]-.04,front[i][1]);
+  shape.closePath();
+  const geometry=new THREE.ExtrudeGeometry(shape,{
+    depth:1,steps:1,bevelEnabled:false,curveSegments:1
+  });
+  geometry.translate(0,0,-.5);
+  geometry.computeVertexNormals();
+  geometry.userData.corsaGuardrail='corrugated-W-beam';
+  return geometry;
+}
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 const normal=(road,i)=>{
   const p=road.points;
@@ -324,10 +346,10 @@ export class RoadEnvironment {
     return root;
   }
 
-  // Road-following metal safety rail: paired galvanized beams, thin support
-  // posts and a real Cannon collider only where no road/entrance crosses.
+  // Galvanised corrugated W-beam on actual steel posts every ~4m.
+  // Collision and entrance clearance use the same continuous road segment.
   barrier(road,offset,first,last,step,kind='metal'){
-    const beams=[],posts=[],body=new CANNON.Body({mass:0});
+    const beams=[],posts=[],spacers=[],body=new CANNON.Body({mass:0});
     const isMedian=kind==='median';
     for(let i=first;i+step<=last;i+=step){
       const a=position(road,i,offset,this.terrainY);
@@ -340,36 +362,53 @@ export class RoadEnvironment {
       const dx=bb.x-aa.x,dz=bb.z-aa.z,dy=bb.y-aa.y;
       const horizontal=Math.hypot(dx,dz);
       if(horizontal<.1||horizontal>55)continue;
+      const length=Math.hypot(horizontal,dy);
       const yaw=Math.atan2(dx,dz),pitch=-Math.atan2(dy,horizontal);
       const midpoint={x:(aa.x+bb.x)*.5,y:(aa.y+bb.y)*.5,
         z:(aa.z+bb.z)*.5,yaw,pitch};
       if(isMedian){
-        beams.push({...midpoint,y:midpoint.y+.56,sx:.40,sy:.85,sz:Math.hypot(horizontal,dy)+.10});
+        beams.push({...midpoint,y:midpoint.y+.56,sx:.40,sy:.85,sz:length+.08});
       }else{
-        for(const h of [.72,.98])
-          beams.push({...midpoint,y:midpoint.y+h,sx:.17,sy:.15,sz:Math.hypot(horizontal,dy)+.11});
-        posts.push({x:aa.x,y:aa.y+.59,z:aa.z,
-          sx:.095,sy:1.18,sz:.095});
+        beams.push({...midpoint,y:midpoint.y+.76,
+          sx:1,sy:1,sz:length+.06});
+        // Roadside safety structures are supported at regular 3.6–4.0m
+        // spacing, not by a single giant pillar on each long road segment.
+        const count=Math.max(1,Math.ceil(horizontal/3.9));
+        for(let j=0;j<=count;j++){
+          // Avoid duplicate posts at the boundary of adjacent segments.
+          if(j===count&&i+step<last)continue;
+          const t=j/count,px=aa.x+dx*t,pz=aa.z+dz*t;
+          const py=aa.y+dy*t;
+          const outside=Math.sign(offset)||1;
+          const nx=-dz/horizontal*outside,nz=dx/horizontal*outside;
+          posts.push({x:px+nx*.12,y:py+.47,z:pz+nz*.12,
+            yaw,sx:.12,sy:.94,sz:.15});
+          spacers.push({x:px+nx*.085,y:py+.77,z:pz+nz*.085,
+            yaw,sx:.20,sy:.13,sz:.23});
+        }
       }
       const orientation=new CANNON.Quaternion();
       orientation.setFromAxisAngle(new CANNON.Vec3(0,1,0),yaw);
       body.addShape(new CANNON.Box(new CANNON.Vec3(
-        isMedian?.20:.09,isMedian?.43:.29,(horizontal+.12)*.5)),
-        new CANNON.Vec3(midpoint.x,midpoint.y+(isMedian?.56:.84),midpoint.z),
+        isMedian?.20:.12,isMedian?.43:.245,(horizontal+.12)*.5)),
+        new CANNON.Vec3(midpoint.x,midpoint.y+(isMedian?.56:.76),midpoint.z),
         orientation);
     }
     if(!beams.length)return;
     const label=isMedian?'Separador central':'Barreira de proteção';
-    this.instances(label,new THREE.BoxGeometry(1,1,1),
-      isMedian?materials.cement:materials.steel,beams);
+    this.instances(label,
+      isMedian?new THREE.BoxGeometry(1,1,1):createWBeamGuardrailGeometry(),
+      isMedian?materials.cement:materials.galvanised,beams);
     if(posts.length){
       this.instances('Barreira metálica · suportes',
-        new THREE.CylinderGeometry(1,1,1,8),materials.steel,posts);
+        new THREE.BoxGeometry(1,1,1),materials.steel,posts);
+      this.instances('Barreira metálica · afastadores',
+        new THREE.BoxGeometry(1,1,1),materials.galvanised,spacers);
       this.statistics.metalRailPosts+=posts.length;
     }
     this.physics.addBody(body);this.bodies.push(body);
     if(isMedian)this.statistics.highwayBarriers+=beams.length;
-    else this.statistics.mountainBarriers+=Math.round(beams.length/2);
+    else this.statistics.mountainBarriers+=beams.length;
   }
 
   // Rural post-and-rail fence, with real horizontal timbers following the
