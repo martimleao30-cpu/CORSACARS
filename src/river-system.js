@@ -54,7 +54,7 @@ export class RiverSystem {
     });
     this.bucketSize=42;this.buckets=new Map();
     for(let i=0;i<this.points.length-1;i++){
-      const a=this.points[i],b=this.points[i+1],margin=28;
+      const a=this.points[i],b=this.points[i+1],margin=49;
       for(let gx=Math.floor((Math.min(a.x,b.x)-margin)/this.bucketSize);
         gx<=Math.floor((Math.max(a.x,b.x)+margin)/this.bucketSize);gx++)
         for(let gz=Math.floor((Math.min(a.z,b.z)-margin)/this.bucketSize);
@@ -252,6 +252,14 @@ export class RiverSystem {
       obj.rotation.set(random()*2,random()*6.28,random()*2);
       obj.scale.set(size,size*.53,size*(.65+random()*.60));
       obj.updateMatrix();mesh.setMatrixAt(made,obj.matrix);
+      // A small number of substantial boulders get static contact shapes;
+      // pebbles remain visual-only to keep broadphase inexpensive.
+      if(size>1.25&&made%9===0){
+        const body=new CANNON.Body({mass:0,material:new CANNON.Material('river-rock')});
+        body.addShape(new CANNON.Sphere(size*.43));
+        body.position.copy(obj.position);
+        this.physics.addBody(body);this.bodies.push(body);
+      }
       mesh.setColorAt(made,new THREE.Color(
         [0x797e78,0xa7a99c,0x777d75,0xb2b2a5][Math.floor(random()*4)]));
       made++;
