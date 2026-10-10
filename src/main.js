@@ -9,6 +9,7 @@ import { PerformanceMonitor } from './performance.js';
 import { PremiumInterface } from './interface.js';
 import {setupPCEntry} from './pc-entry.js';
 import { RoadDust } from './road-dust.js';
+import {preloadDrivingWorld} from './world-preload.js';
 import './desktop-updates.js';
 
 const $ = (id) => document.getElementById(id);
@@ -63,7 +64,7 @@ car.setCarModel(settings.selectedVehicle||'coupe');
 const roadDust = new RoadDust(scene, settings.quality);
 const graphics = new GraphicsPipeline(renderer, scene, camera, car, world);
 graphics.setQuality(settings.quality, settings);
-void graphics.initialize();
+const graphicsReady=graphics.initialize();
 const indirect = new IndirectLighting(scene, renderer);
 graphics.indirect = indirect;
 const assets = new AssetUpgrade(car, world, scene, renderer, status => {
@@ -662,15 +663,39 @@ function frame(now) {
 }
 
 applyQuality();
-// Load optional detailed car and natural environment lighting already in the 3D menu.
-// Network failures keep the procedural car and the rest of the game functional.
-if (!window.__CORSACARS_DISABLE_REMOTE_ASSETS__) {
-  void assets.start(settings.textureQuality || 'high');
-  void indirect.load();
-}
 camera.position.copy(car.getPosition()).add(new THREE.Vector3(0, 5, -13));
 camera.lookAt(car.getPosition());
-$('loading').classList.add('hidden');
-showOnly('startScreen');
-setupPCEntry();
-requestAnimationFrame(frame);
+async function prepareFirstFrame(){
+  const stage=$('loadingStage'),bar=$('loadingProgress');
+  try{
+    const prepared=await preloadDrivingWorld({
+      world,renderer,camera,graphicsReady,
+      // Optional remote car, photographic tarmac and HDRI are loaded during
+      // startup instead of unexpectedly replacing geometry while driving.
+      loadAssets:()=>window.__CORSACARS_DISABLE_REMOTE_ASSETS__
+        ?Promise.resolve()
+        :Promise.allSettled([
+          assets.start(settings.textureQuality || 'high'),indirect.load()
+        ]),
+      yieldFrame:()=>new Promise(resolve=>requestAnimationFrame(()=>resolve())),
+      onProgress:(percent,message)=>{
+        if(stage)stage.textContent=message;
+        if(bar){bar.style.width=percent+'%';
+          bar.parentElement?.setAttribute('aria-valuenow',String(percent));}
+      }
+    });
+    $('loading').dataset.regions=String(prepared.regions);
+    $('loading').dataset.forestChunks=String(prepared.forestChunks);
+  }catch(error){
+    // Never trap players in an infinite loading overlay on an unsupported
+    // machine. Keep the already built world as an offline-compatible fallback.
+    console.error('[CORSACARS] Não foi possível pré-carregar o mundo completo:',error);
+    if(stage)stage.textContent='MODO DE COMPATIBILIDADE · MUNDO DISPONÍVEL';
+  }finally{
+    $('loading').classList.add('hidden');
+    showOnly('startScreen');
+    setupPCEntry();
+    requestAnimationFrame(frame);
+  }
+}
+void prepareFirstFrame();
