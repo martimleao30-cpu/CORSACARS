@@ -11,6 +11,9 @@ export class GraphicsPipeline {
     this.composer=null;this.ssao=null;this.taa=null;this.renderPass=null;
     this.fxaa=null;this.bloom=null;
     this.frameCount=0;this.reflectionEnabled=true;
+    this.reflectionFace=0;
+    this.reflectionCapturePosition=new THREE.Vector3();
+    this.reflectionOffset=new THREE.Vector3(0,.6,0);
     this.reflectionTarget=new THREE.WebGLCubeRenderTarget(128,{
       generateMipmaps:true,minFilter:THREE.LinearMipmapLinearFilter
     });
