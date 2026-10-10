@@ -12,6 +12,7 @@ import {ForestSystem} from './forest-system.js';
 import {RoadSignage} from './road-signage.js';
 import {CinematicSky,evaluateAtmosphere,configureCinematicShadows} from './cinematic-lighting.js';
 import {ModernRoadLighting} from './modern-road-lighting.js';
+import {RegionalRailway} from './regional-railway.js';
 import {RainStreaks} from './atmosphere-effects.js';
 import {createWeatheredRockGeometry,UrbanFacadeBatch,createWeatheredWallMaterial} from './natural-assets.js';
 
@@ -87,6 +88,8 @@ export class DrivingWorld {
     // Roads, junctions and POI entrances share ONE clearance mask.
     this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
     this.roadside=new RoadsideClearance(this.network,this.sectors.regions);
+    this.railway=new RegionalRailway(this.scene,this.physics,groundHeight,
+      this.roadside,this.quality);
     this.buildRoadside();
     this.roadEnvironment=new RoadEnvironment(this.scene,this.physics,this.network,
       groundHeight,this.quality,this.roadside);
@@ -276,7 +279,8 @@ export class DrivingWorld {
       seed:20261010,
       terrainY:groundHeight,
       distanceToRoad:(x,z)=>this.distanceToRoad(x,z),
-      isNearRoad:(x,z)=>!this.roadside.plantAllowed(x,z,'tree',2)
+      isNearRoad:(x,z)=>!this.roadside.plantAllowed(x,z,'tree',2)||
+        this.railway.nearestTrack(x,z)<11
     });
     // Rock transforms remain independent of the new forest batches.
     const dummy = new THREE.Object3D();
@@ -309,7 +313,8 @@ export class DrivingWorld {
     for (let i = 0; i < 500 && count < 140; i++) {
       const x = (random() - 0.5) * 1800, z = (random() - 0.5) * 1800;
       const size = 0.4 + random() * 2.4;
-      if (!this.roadside.plantAllowed(x,z,'rock',size*.75)||
+      if (this.railway.nearestTrack(x,z)<5||
+          !this.roadside.plantAllowed(x,z,'rock',size*.75)||
           this.distanceToRoad(x,z)<16) continue;
       dummy.position.set(x, groundHeight(x, z) + size * 0.15, z);
       dummy.rotation.set(random(), random() * TAU, random());
@@ -397,6 +402,7 @@ export class DrivingWorld {
     }
     this.network?.setWetness(wetness);
     this.roadEnvironment?.update(dt,paused);
+    this.railway?.update(dt,paused);
     this.updateAtmosphere();
     if (vehiclePosition) {
       this.sectors.update(vehiclePosition,performance.now()/1000,this.hour);

@@ -467,3 +467,17 @@ cruzamentos ao mesmo nível e reajusta a rota quando o automóvel muda de via.
 A imagem original enviada, convertida para WebP com transparência em `assets/ui/gps-reference.webp`, mantém o estilo do
 exemplo em modo de exploração sem rota. Sem serviços externos ou localização
 pessoal. Testes: `node tests/gps-navigation.mjs`.
+
+
+## Linha ferroviária regional
+
+`src/regional-railway.js` cria uma linha em circuito panorâmico por todas
+as zonas do mapa (vale, zona urbana, autoestrada, bosque e encostas). Carris
+metálicos, leito de balastro e milhares de travessas são gerados por instancing.
+Nas zonas onde cruza estradas a via ganha altura progressivamente, com pilares
+em zonas seguras, para evitar novamente superfícies viárias sobrepostas.
+Duas estações com plataformas, faixas táteis, abrigos, montras, iluminação
+natural e edifício de bilheteira. Uma automotora com duas carruagens viaja
+pela linha, com animação e paragens. O comboio é um elemento animado — não um
+simulador ferroviário com cabine controlável e colisões ferroviárias completas.
+Testes: `node tests/regional-railway.mjs`.
