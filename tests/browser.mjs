@@ -138,7 +138,16 @@ try {
   await page.keyboard.press('c');
   await page.locator('#toast').getByText(/CÂMARA/).waitFor();
   await page.keyboard.press('k');
+  await page.locator('#weatherLabel').getByText('NUBLADO').waitFor();
+  await page.keyboard.press('k');
+  await page.locator('#weatherLabel').getByText('NEVOEIRO').waitFor();
+  await page.keyboard.press('k');
   await page.locator('#weatherLabel').getByText('CHUVA').waitFor();
+  await page.keyboard.press('k');
+  await page.locator('#weatherLabel').getByText('TEMPESTADE').waitFor();
+  assert.equal(await page.locator('#weatherSelect').inputValue(),'storm');
+  await page.keyboard.press('k');
+  await page.locator('#weatherLabel').getByText('CÉU LIMPO').waitFor();
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#pauseScreen').isVisible(), true);
   await page.locator('#mapPause').click();
