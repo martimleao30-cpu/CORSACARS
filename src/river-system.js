@@ -122,6 +122,20 @@ export class RiverSystem {
     const p=this.lookup(x,z);
     return !!p&&p.distance<p.width+margin;
   }
+  channelHeight(original,p){
+    if(!p||p.distance>=p.width+28)return original;
+    const bed=p.waterY-1.55;
+    const inner=p.width*.68,shore=p.width+4;
+    let desired;
+    if(p.distance<=inner)desired=bed;
+    else if(p.distance<=shore)
+      desired=THREE.MathUtils.lerp(bed,p.waterY-.18,
+        smooth((p.distance-inner)/(shore-inner)));
+    else desired=THREE.MathUtils.lerp(p.waterY-.18,original,
+      smooth((p.distance-shore)/24));
+    // Erosion cannot create an artificial elevated platform.
+    return Math.min(original,desired);
+  }
   carveTerrain(geometry){
     const vertices=geometry.getAttribute('position');
     const cols=vertices.count;
@@ -129,15 +143,11 @@ export class RiverSystem {
     for(let i=0;i<cols;i++){
       const x=vertices.getX(i),z=vertices.getZ(i),p=this.lookup(x,z);
       if(!p)continue;
-      // Extend the fully cut bed beyond the water edge by a terrain vertex:
-      // low quality meshes must never interpolate a green triangle over water.
-      const inner=p.width+8.5,outer=p.width+24;
-      if(p.distance>=outer)continue;
-      const factor=1-smooth((p.distance-inner)/(outer-inner));
+      // A submerged deep channel, gently graded banks and the original
+      // terrain must form one continuous piece of geometry. The former
+      // constant-depth trench was 8m wider than the water on BOTH sides.
       const current=vertices.getY(i);
-      const bed=p.waterY-1.55;
-      const desired=Math.min(current,bed);
-      const next=current+(desired-current)*factor;
+      const next=this.channelHeight(current,p);
       if(Math.abs(next-current)<.0005)continue;
       vertices.setY(i,next);
       affected++;
@@ -472,9 +482,10 @@ export class RiverSystem {
           const distance=p.width+(t?16:1.6);
           const x=p.x+p.nx*distance*side,z=p.z+p.nz*distance*side;
           const terrain=this.terrainY(x,z);
-          // Inner gravel bed stays below the water surface; outer bank
-          // returns to existing undisturbed ground elevation.
-          const y=t?terrain-.035:Math.min(terrain,p.y-.17);
+          const currentBank=this.channelHeight(terrain,this.lookup(x,z));
+          // Blend smoothly from the submerged gravel lip into the ACTUAL
+          // eroded ground, not the pre-excavation terrain elevation.
+          const y=t?currentBank+.022:Math.min(terrain,p.y-.17);
           positions.push(x,y,z);
           const c=new THREE.Color(t?0x64705d:0x7b8074);
           colors.push(c.r,c.g,c.b);
