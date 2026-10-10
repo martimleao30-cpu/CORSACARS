@@ -300,3 +300,22 @@ visualmente; os carros da IA ainda não cumprem automaticamente sinais.
 
 Verificação: `npm run test:roads` testa também encaixe geométrico,
 linhas, setas, passadeiras, sinais verticais e fases semafóricas.
+
+
+## Gráficos do mundo 3.0 — nuvens, terreno, vegetação e chuva
+
+- **Nuvens:** máscaras de densidade geradas localmente, com camadas suaves e
+  sem cubos/icosaedros gigantes; grupos espaciais `InstancedMesh`, transparência
+  recortada e cor alterada pelo clima e pelo ciclo do dia.
+- **Terreno:** estratos de relevo suave nas serras e mistura cromática por
+  declive, altitude e humidade; o cálculo da altura é partilhado pela malha,
+  pelos pneus, pelas estradas e pela vegetação. Maior resolução geométrica nos
+  perfis Médio/Alto/Ultra e granulação de solo/rocha no material PBR.
+- **Relva:** tufos de três lâminas 3D curvadas, com vértices intermédios,
+  cores alternadas, vento GPU e densidade por configuração.
+- **Chuva:** traços finos com comprimento e velocidade individuais, reciclados
+  à volta da câmara; reflexos e poças existentes ficam dependentes de humidade
+  progressiva, e a luz solar é mais difusa em tempo chuvoso.
+- **Desempenho:** grupos de nuvens limitados, geometria instanciada e sem
+  dependência de ativos externos. A qualidade e os FPS devem ser inspecionados
+  em GPU real; o Chromium em CI usa software WebGL.

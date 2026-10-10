@@ -148,8 +148,15 @@ export function createTerrainMaterial() {
   }
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
     const i = y*size+x, p=i*4, n=elevations[i];
-    const value = Math.min(255, Math.max(105, Math.round(178+n*52)));
-    rgb.data[p]=value+2;rgb.data[p+1]=value+1;rgb.data[p+2]=value-3;rgb.data[p+3]=255;
+    // Rich granular soil, dry leaves and stone chips; broad colour comes
+    // from slope/altitude vertex colours instead of one solid green texture.
+    const fleck=Math.sin(x*.49+Math.sin(y*.19))*Math.cos(y*.53-x*.1);
+    const value = Math.min(255,Math.max(100,Math.round(170+n*62+fleck*13)));
+    const mineral=n>.75?7:0;
+    rgb.data[p]=Math.min(255,value+mineral+3);
+    rgb.data[p+1]=Math.max(0,value-5);
+    rgb.data[p+2]=Math.max(0,value-14+mineral);
+    rgb.data[p+3]=255;
     const right=elevations[y*size+(x+1)%size];
     const left=elevations[y*size+(x+size-1)%size];
     const down=elevations[((y+1)%size)*size+x];
@@ -165,11 +172,11 @@ export function createTerrainMaterial() {
   bumpCtx.putImageData(normals,0,0);
   const map=canvasTexture(noise,true);
   const normalMap=canvasTexture(bump);
-  map.repeat.set(100,100);
-  normalMap.repeat.set(100,100);
+  map.repeat.set(145,145);
+  normalMap.repeat.set(145,145);
   const m=new THREE.MeshStandardMaterial({
     vertexColors:true,map,normalMap,roughness:.96,metalness:0
   });
-  m.normalScale.set(.17,.17);
+  m.normalScale.set(.28,.28);
   return m;
 }

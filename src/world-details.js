@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {roadDeckHeight} from './road-upgrades.js';
+import {AtmosphericClouds} from './atmosphere-effects.js';
 
 // Entirely native Three.js geometry: no external meshes or image placeholders.
 // Reused geometries, materials and per-region InstancedMesh keep draw calls low.
@@ -151,21 +152,34 @@ export class WorldDetails {
   }
 
   buildGrass() {
-    // Flat blades are REAL 3D polygons, crossed in pairs to give volume.
-    const blades = new THREE.BufferGeometry();
-    const w = .075;
-    const positions = [
-      -w,0,0, w,0,0, .008,1,0,
-      0,0,-w, 0,0,w, 0,.82,.008
-    ];
-    blades.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+    // Three crossed, tapered blades, each with a bend at the middle. Extra
+    // facets create silhouette depth while keeping one shared instanced mesh.
+    const blades=new THREE.BufferGeometry();
+    const bladePositions=[],bladeIndices=[];
+    for(let blade=0;blade<3;blade++){
+      const angle=blade*Math.PI/3;
+      const sin=Math.sin(angle),cos=Math.cos(angle);
+      const bend=.06*(blade%2===0?1:-1);
+      const profile=[
+        [-.102,0,0],[.102,0,0],
+        [-.070,.49,bend*.52],[.067,.49,bend*.52],
+        [-.004,1,bend*1.65]
+      ];
+      const base=bladePositions.length/3;
+      for(const [x,y,z] of profile)
+        bladePositions.push(x*cos-z*sin,y,x*sin+z*cos);
+      bladeIndices.push(base,base+1,base+2,base+1,base+3,base+2,
+        base+2,base+3,base+4);
+    }
+    blades.setAttribute('position',new THREE.Float32BufferAttribute(bladePositions,3));
+    blades.setIndex(bladeIndices);
     blades.computeVertexNormals();
     const {mat, shaderUniform} = windMaterial(0x91a85b,.14);
     this.winds.push(shaderUniform);
     const colors = [C(0x607b38), C(0x819b4c), C(0x9ba65c), C(0x476a31)];
     const tileSize = 190;
-    const count = this.quality === 'ultra' ? 6800 :
-      this.quality === 'high' ? 4400 : this.quality === 'medium' ? 2100 : 750;
+    const count = this.quality === 'ultra' ? 7600 :
+      this.quality === 'high' ? 5200 : this.quality === 'medium' ? 2400 : 850;
     const buckets = new Map();
     for (let i=0; i<count; i++){
       const point = this.points[Math.floor(rand() * (this.points.length - 1))];
@@ -276,28 +290,10 @@ export class WorldDetails {
   }
 
   buildClouds() {
-    const count=this.quality==='low'?26:this.quality==='medium'?47:83;
-    const geometry=new THREE.IcosahedronGeometry(1,1);
-    const material=new THREE.MeshLambertMaterial({
-      color:0xffffff,transparent:true,opacity:.67,
-      depthWrite:false,side:THREE.FrontSide
-    });
-    const mesh=new THREE.InstancedMesh(geometry,material,count);
-    const t=new THREE.Object3D();
-    for(let i=0;i<count;i++){
-      t.position.set((rand()-.5)*1800,165+rand()*135,(rand()-.5)*1800);
-      const size=16+rand()*30;
-      t.scale.set(size*2.8, size*.37, size*1.4);
-      t.rotation.set(0,rand()*TAU,0);
-      t.updateMatrix();mesh.setMatrixAt(i,t.matrix);
-      mesh.setColorAt(i,C(i%4===0?0xc9cdd2:0xe7e6da));
-    }
-    mesh.instanceMatrix.needsUpdate=true;
-    mesh.instanceColor.needsUpdate=true;
-    mesh.castShadow=false;
-    mesh.frustumCulled=false;
-    this.scene.add(mesh);
-    this.clouds=mesh;
+    // Multi-layer soft density textures replace the old giant faceted icosahedra.
+    this.cloudSystem=new AtmosphericClouds(this.scene,this.quality);
+    this.clouds=this.cloudSystem.clouds;
+    this.cloudGroups=this.cloudSystem.groups;
   }
 
   buildPuddles() {
@@ -342,12 +338,7 @@ export class WorldDetails {
     const delta=paused?0:Math.min(.05,dt);
     this.elapsed+=delta;
     for(const item of this.winds)item.value=this.elapsed;
-    if(this.clouds){
-      this.clouds.position.x=Math.sin(this.elapsed*.006)*55;
-      this.clouds.material.opacity=weather==='rain'?.79:weather==='fog'?.52:.7;
-      const daylight=Math.max(0,Math.sin((hour-6)/24*TAU));
-      this.clouds.material.color.set(daylight<.18?0x69788b:weather==='rain'?0x89949b:0xf7f1e7);
-    }
+    this.cloudSystem?.update(dt,weather,hour,paused);
     const target=weather==='rain'?1:0;
     this.wetness=THREE.MathUtils.damp(this.wetness,target,weather==='rain'?.23:.055,delta);
     if(this.puddles){

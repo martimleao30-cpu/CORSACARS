@@ -9,6 +9,7 @@ import {createRoadBed,addRoadSides,addRoadWear} from './road-upgrades.js';
 import {RoadEnvironment} from './road-environments.js';
 import {ForestSystem} from './forest-system.js';
 import {RoadSignage} from './road-signage.js';
+import {RainStreaks} from './atmosphere-effects.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -26,7 +27,13 @@ export function groundHeight(x, z) {
   const mountains = Math.pow(distant, 1.8) * (
     24 + 12 * Math.sin(x * 0.012) * Math.cos(z * 0.018)
   );
-  return rolling + mountains;
+  // Ridged long-wavelength strata create believable variation across hills,
+  // while all road/collision consumers still share this exact height function.
+  const ridges = Math.max(0,Math.min(1,distant))*
+    (.9*Math.sin(x*.071+Math.sin(z*.026))*
+      Math.sin(z*.054-Math.cos(x*.041)) +
+     1.45*Math.pow(Math.abs(Math.sin(x*.032+z*.018)),2.7));
+  return rolling + mountains + ridges;
 }
 
 function material(color, roughness = 0.85, metalness = 0) {
@@ -131,21 +138,36 @@ export class DrivingWorld {
   }
 
   buildTerrain() {
-    const subdivisions = this.quality === 'ultra' ? 196 : this.quality === 'high' ? 150 : 118;
+    const subdivisions = this.quality === 'ultra' ? 236 : this.quality === 'high' ? 188 : this.quality==='medium'?150:118;
     const geometry = new THREE.PlaneGeometry(2000, 2000, subdivisions, subdivisions);
     geometry.rotateX(-Math.PI / 2);
     const positions = geometry.getAttribute('position');
     const colors = [];
-    const low = new THREE.Color(0x596c46);
-    const high = new THREE.Color(0x9f9d78);
-    for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i), z = positions.getZ(i);
-      const h = groundHeight(x, z);
-      positions.setY(i, h);
-      const mix = THREE.MathUtils.clamp((h + 2) / 38, 0, 1);
-      const grain = 0.93 + 0.11 * Math.sin(i * 7.3);
-      const color = low.clone().lerp(high, mix).multiplyScalar(grain);
-      colors.push(color.r, color.g, color.b);
+    const grass=new THREE.Color(0x6f8450);
+    const meadow=new THREE.Color(0x718451);
+    const earth=new THREE.Color(0x8c7857);
+    const rock=new THREE.Color(0x92958b);
+    const shadowed=new THREE.Color(0x526344);
+    for(let i=0;i<positions.count;i++){
+      const x=positions.getX(i),z=positions.getZ(i);
+      const h=groundHeight(x,z);
+      positions.setY(i,h);
+      const slope=Math.hypot(groundHeight(x+3,z)-groundHeight(x-3,z),
+        groundHeight(x,z+3)-groundHeight(x,z-3))/6;
+      const moisture=Math.sin(x*.0083+Math.cos(z*.006))*
+        Math.cos(z*.0091-Math.sin(x*.013));
+      const rockiness=THREE.MathUtils.smoothstep(slope,.24,.82)*.82+
+        THREE.MathUtils.smoothstep(h,17,49)*.35;
+      const dry=THREE.MathUtils.smoothstep(h,7,32)*.4+
+        THREE.MathUtils.smoothstep(moisture,.13,.85)*.33;
+      const patch=.06*Math.sin(x*.052+Math.sin(z*.029))*
+        Math.cos(z*.042-Math.cos(x*.021));
+      const color=grass.clone().lerp(meadow,THREE.MathUtils.clamp(.55+moisture*.36,0,1))
+        .lerp(earth,THREE.MathUtils.clamp(dry,0,.72))
+        .lerp(rock,THREE.MathUtils.clamp(rockiness,0,.9))
+        .lerp(shadowed,THREE.MathUtils.clamp(-moisture*.19,0,.15))
+        .multiplyScalar(THREE.MathUtils.clamp(.96+patch,.83,1.09));
+      colors.push(color.r,color.g,color.b);
     }
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geometry.computeVertexNormals();
@@ -337,23 +359,9 @@ export class DrivingWorld {
   }
 
 
-    buildRain() {
-    const count = 1050;
-    const coords = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      coords[i * 3] = (random() - 0.5) * 92;
-      coords[i * 3 + 1] = random() * 38;
-      coords[i * 3 + 2] = (random() - 0.5) * 92;
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(coords, 3));
-    this.rain = new THREE.Points(geometry, new THREE.PointsMaterial({
-      color: 0xc5e4f2, size: 0.12, opacity: 0.63, transparent: true,
-      depthWrite: false, sizeAttenuation: true
-    }));
-    this.rain.visible = false;
-    this.rain.frustumCulled = false;
-    this.scene.add(this.rain);
+  buildRain() {
+    this.rainEffect=new RainStreaks(this.scene,this.quality);
+    this.rain=this.rainEffect.mesh;
   }
 
   surfaceAt(x,z) {
@@ -391,7 +399,8 @@ export class DrivingWorld {
     this.ambient.intensity = 0.17 + daylight * (this.weather === 'rain' ? 0.55 : 1.1);
     this.ambient.color.set(daylight < 0.18 ? 0x829cbd : 0xd5e8ff);
     this.bulbMaterial.emissiveIntensity = daylight < 0.12 ? 1.9 : 0.06;
-    this.sun.color.set(daylight < 0.4 ? 0xffc184 : 0xffefdd);
+    this.sun.color.set(daylight < 0.4 ? 0xffc184 : this.weather==='rain' ? 0xc4d0da : 0xffefdd);
+    this.sun.shadow.radius=this.weather==='rain'?3.0:daylight<.25?2.6:1.9;
     this.stars.visible = daylight < 0.08 && this.weather === 'clear';
   }
 
@@ -399,15 +408,7 @@ export class DrivingWorld {
     this.frameDt = paused ? 0 : dt;
     if (!paused) {
       this.hour = (this.hour + dt * this.sunSpeed / 60) % 24;
-      if (this.rain.visible) {
-        const pos = this.rain.geometry.getAttribute('position');
-        for (let i = 0; i < pos.count; i++) {
-          let y = pos.getY(i) - dt * 32;
-          if (y < 0) y += 38;
-          pos.setY(i, y);
-        }
-        pos.needsUpdate = true;
-      }
+      this.rainEffect?.update(dt,false);
     }
     const wetness = this.details?.update(dt, vehiclePosition, this.weather, this.hour, paused) || 0;
     if (this.roadMaterial) {
