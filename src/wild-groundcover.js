@@ -117,21 +117,74 @@ export class WildGroundcover{
       this.chunks.push({mesh,x:group.x,z:group.z,count:group.items.length});
     }
     this.statistics.tiles=this.chunks.length;
+    // A single GPU-instanced meadow near the camera is reused while driving.
+    // It can fill any field in the map without rendering millions of far tufts.
+    this.localCapacity={
+      low:1500,medium:3200,high:6500,ultra:11000
+    }[this.quality]||6500;
+    this.localGrass=new THREE.InstancedMesh(grassGeo,grassWind.mat,this.localCapacity);
+    this.localGrass.name='Relva natural densa · LOD próximo';
+    this.localGrass.count=0;
+    this.localGrass.frustumCulled=false;
+    this.localGrass.castShadow=false;
+    this.localGrass.receiveShadow=true;
+    this.scene.add(this.localGrass);
+    this.localCell=null;
+    this.statistics.localMeadow=0;
+  }
+  updateLocalGrass(position){
+    if(!this.localGrass)return;
+    const cx=Math.round(position.x/24)*24,cz=Math.round(position.z/24)*24;
+    const cell=cx+','+cz;
+    if(this.localCell===cell)return;
+    this.localCell=cell;
+    const random=rng(424242^(Math.imul(cx,73856093)^Math.imul(cz,19349663)));
+    const dummy=new THREE.Object3D(),mesh=this.localGrass;
+    let planted=0;
+    const target=Math.floor(this.localCapacity*this.density);
+    // Fine grass around the player, even far from the original circular road.
+    // Test against roads, junctions, service areas and railway tracks.
+    for(let i=0;i<target*5&&planted<target;i++){
+      const radius=Math.sqrt(random())*86,angle=random()*Math.PI*2;
+      const x=cx+Math.cos(angle)*radius,z=cz+Math.sin(angle)*radius;
+      if(Math.abs(x)>1938||Math.abs(z)>1938)continue;
+      if(this.railway?.nearestTrack(x,z)<5.3)continue;
+      if(this.clearance&&!this.clearance.plantAllowed(x,z,'grass',.72))continue;
+      const edge=this.clearance?.roadProximity(x,z).edge??40;
+      const profile=meadowProfile(x,z,edge);
+      if(random()>profile.density*.92)continue;
+      const breadth=.60+random()*.73;
+      const height=profile.height*(.58+random()*1.02);
+      dummy.position.set(x,this.terrainY(x,z)-.028,z);
+      dummy.rotation.set(0,random()*Math.PI*2,0);
+      dummy.scale.set(breadth,height,breadth);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(planted,dummy.matrix);
+      mesh.setColorAt(planted,profile.color.clone().multiplyScalar(.85+random()*.27));
+      planted++;
+    }
+    mesh.count=planted;
+    mesh.instanceMatrix.needsUpdate=true;
+    if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+    this.statistics.localMeadow=planted;
   }
   update(cameraPosition,dt,paused=false){
     for(const chunk of this.chunks){
       const dx=chunk.x-cameraPosition.x,dz=chunk.z-cameraPosition.z;
       chunk.mesh.visible=dx*dx+dz*dz<470*470;
     }
+    this.updateLocalGrass(cameraPosition);
     if(!paused)for(const wind of this.winds)wind.value+=Math.min(.12,dt||0);
   }
   setDensity(factor){
     this.density=Math.max(.2,Math.min(1,Number(factor)||1));
     for(const chunk of this.chunks)
       chunk.mesh.count=Math.floor(chunk.count*this.density);
+    this.localCell=null;
   }
   dispose(){
     for(const chunk of this.chunks)this.scene.remove(chunk.mesh);
+    if(this.localGrass)this.scene.remove(this.localGrass);
     for(const geo of this.geometries)geo.dispose();
     for(const mat of this.materials)mat.dispose();
     this.chunks.length=0;
