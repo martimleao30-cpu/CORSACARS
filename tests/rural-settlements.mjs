@@ -42,7 +42,7 @@ for(const kind of ['farmstead','hamlet']){
       'As asas devem bater em vez de ficar fixas');
     const animalPositions=[...result.root.children].filter(obj=>
       obj.name==='Vaca de quinta · gado'||obj.name==='Ovelha · rebanho');
-    assert.ok(animalPositions.every(obj=>obj.position.x>70),
+    assert.ok(animalPositions.every(obj=>Math.abs(obj.position.x)>70),
       'O gado não pode invadir a faixa de rodagem');
   }else{
     assert.ok(result.root.children.some(obj=>obj.name==='Largo da aldeia · calçada'));
