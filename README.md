@@ -531,3 +531,18 @@ limitada a 5120 píxeis no maior lado. Texturas PBR procedurais: Alto 768,
 Ultra 1536, detalhe do terreno 512 e anisotropia 16. Estas alterações
 melhoram a nitidez mas aumentam o custo de GPU/VRAM e não transformam
 modelos 3D em digitalizações fotorrealistas.
+
+
+## Novas infraestruturas rodoviárias (2026)
+
+O módulo `src/roadside-infrastructure.js` acrescenta paragens de autocarro
+com cobertura, montras e bancos, SOS da autoestrada, pórticos elevados,
+marcos refletores, painéis direcionais e postos de informação para zonas
+rurais e de serra. A posição segue a topografia da via e evita cruzamentos,
+rampas, acessos e as áreas de serviço. Pilares e armários possuem colisões.
+O teste `tests/roadside-infrastructure.mjs` confirma as estruturas, as
+exclusões, a sinalização e a remoção correta de corpos físicos.
+
+Na auditoria corrigiram-se as placas que mostravam `500 m km/h` em vez de
+`500 m` e a ausência de limpeza de texturas/geometrias na destruição dos
+ambientes rodoviários, que provocava acumulação de memória GPU.

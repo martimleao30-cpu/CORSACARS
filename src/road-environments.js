@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {roadDeckHeight} from './road-upgrades.js';
+import {RoadsideInfrastructure} from './roadside-infrastructure.js';
 import {createNaturalShrubGeometry,createWeatheredRockGeometry} from './natural-assets.js';
 
 // Route-specific, real Three.js scenery. Shared mesh geometries and instanced
@@ -67,6 +68,9 @@ export class RoadEnvironment {
             ring.points.length-6,5,'metal');
       }
     }
+    this.infrastructure=new RoadsideInfrastructure(
+      this.scene,this.physics,this.network,this.terrainY,this.clearance,this.quality);
+    Object.assign(this.statistics,this.infrastructure.stats);
     this.elapsed=0;
   }
 
@@ -218,7 +222,10 @@ export class RoadEnvironment {
     ctx.strokeStyle='#ebf0e7';ctx.lineWidth=9;ctx.strokeRect(12,12,488,168);
     ctx.fillStyle='#f8f7ed';ctx.font='bold 41px sans-serif';
     ctx.textAlign='center';ctx.fillText(title,256,83);
-    if(speed){ctx.font='bold 37px sans-serif';ctx.fillText(speed+' km/h',256,141);}
+    if(speed){ctx.font='bold 37px sans-serif';
+      const detail=/^\d+$/.test(String(speed).trim())?speed+' km/h':speed;
+      ctx.fillText(detail,256,141);
+    }
     const texture=new THREE.CanvasTexture(canvas);
     texture.colorSpace=THREE.SRGBColorSpace;
     const board=new THREE.Mesh(new THREE.BoxGeometry(3.9,1.5,.13),
@@ -527,7 +534,28 @@ export class RoadEnvironment {
     }
   }
   dispose(){
+    if(this.disposed)return;
+    this.disposed=true;
+    this.infrastructure?.dispose();
     for(const body of this.bodies)this.physics.removeBody(body);
-    for(const mesh of this.objects)this.scene.remove(mesh);
+    const shared=new Set(Object.values(materials));
+    const geometries=new Set(),ownedMaterials=new Set(),ownedMaps=new Set();
+    for(const obj of this.objects){
+      this.scene.remove(obj);
+      obj.traverse(child=>{
+        if(child.geometry)geometries.add(child.geometry);
+        for(const m of Array.isArray(child.material)?child.material:[child.material]){
+          if(!m||shared.has(m))continue;
+          ownedMaterials.add(m);
+          for(const key of ['map','normalMap','roughnessMap','emissiveMap','alphaMap']){
+            if(m[key])ownedMaps.add(m[key]);
+          }
+        }
+      });
+    }
+    for(const geo of geometries)geo.dispose();
+    for(const mat of ownedMaterials)mat.dispose();
+    for(const map of ownedMaps)map.dispose();
+    this.objects.length=0;this.bodies.length=0;
   }
 }
