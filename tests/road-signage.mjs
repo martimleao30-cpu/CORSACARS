@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {createRoadBed,ROAD_SECTION} from '../src/road-upgrades.js';
 import {RoadSignage,createRoadSampler,createLineGeometry,createCrosswalkGeometry,
-  createArrowGeometry,PAINT_LIFT,LINE_STYLES} from '../src/road-signage.js';
+  createArrowGeometry,PAINT_LIFT,LINE_STYLES,junctionPaintGaps,
+  paintIntervals,roadCenterMarking} from '../src/road-signage.js';
 
 const terrain=(x,z)=>1.6*Math.sin(x*.025)+.8*Math.cos(z*.037);
 function fakeRoad(id,category,width=12,count=120){
@@ -65,9 +66,32 @@ const network={roads:[
 const signage=new RoadSignage(scene,network,'low');
 assert.ok(signage.statistics.continuous>=10,'Continuous edge lines on each road');
 assert.ok(signage.statistics.dashed>0,'Dashed centre and lane separation lines');
-assert.ok(signage.statistics.double>=3,'Highway, mountain and rural double lines');
+assert.equal(signage.statistics.double,0,
+  'No arbitrary continuous double centre lines across rural or motorway routes');
 assert.ok(signage.statistics.arrows>0,'Painted straight/turning arrows must exist');
 assert.ok(signage.statistics.crosswalks>=4,'Painted crosswalks across urban roads');
+const join={x:curve.points[59].x,z:curve.points[59].z,halfU:13,
+  halfV:curve.width*.5,angle:.94,primary:curve,secondary:network.roads[5]};
+network.junctions=[join];
+const gaps=junctionPaintGaps(sampler,network.junctions);
+assert.equal(gaps.length,1,'A real junction needs exactly one paint-free zone');
+assert.ok(gaps[0][1]-gaps[0][0]>20);
+assert.equal(paintIntervals(sampler.total,0,sampler.total,gaps).length,2);
+const clippedLine=createLineGeometry(sampler,{style:'dashed',lateral:0,
+  excluded:gaps,dash:3.8,gap:5.2});
+const paintUv=clippedLine.getAttribute('uv');
+for(let i=0;i<paintUv.count;i++)
+  assert.ok(paintUv.getY(i)<=gaps[0][0]+.0001||
+    paintUv.getY(i)>=gaps[0][1]-.0001,
+    'Road paint must NOT pass through a conflicting junction');
+const mountainPlan=roadCenterMarking(network.roads[3],
+  createRoadSampler(network.roads[3]));
+assert.equal(mountainPlan.style,'dashed',
+  'Mountain centre lines default to interrupted overtaking marks');
+assert.equal(roadCenterMarking(network.roads[4],
+  createRoadSampler(network.roads[4])).solid.length,0,
+  'Rural roads must not paint continuous centre lines everywhere');
+clippedLine.dispose();
 assert.equal(signage.statistics.roadCount,network.roads.length);
 assert.equal(signage.meshes.length,signage.statistics.geometries);
 assert.ok(signage.meshes.every(mesh=>mesh.material.polygonOffset &&
