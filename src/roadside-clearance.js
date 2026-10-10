@@ -29,6 +29,7 @@ function segmentPair(a,b,c,d){
 export class RoadsideClearance{
   constructor(network,regions=[]){
     this.network=network;
+    this.regions=regions;
     this.cells=new Map();
     this.segments=[];
     this.openings=[];

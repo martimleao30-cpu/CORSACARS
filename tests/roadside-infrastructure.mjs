@@ -30,6 +30,16 @@ const initial=physics.bodies.length;
 const env=new RoadEnvironment(scene,physics,network,()=>0,'low',mask);
 const architecture=env.infrastructure,stats=architecture.stats;
 assert.ok(stats.stops>=1,'Accessible glass-and-steel bus shelters should exist');
+const stops=architecture.groups.filter(g=>g.name.startsWith('Paragem de autocarro'));
+assert.ok(stops.length>=1);
+for(const stop of stops){
+  assert.ok(['town','aldeia'].includes(stop.userData.servesPOI),
+    'Stop must serve a named settlement, not arbitrary roadside space');
+  assert.ok(stop.userData.poiDistance>=27&&stop.userData.poiDistance<=127,
+    'Stop must remain close enough to its population to walk');
+  const settlement=sectors.regions.find(r=>r.id===stop.userData.servesPOI);
+  assert.ok(settlement&&stop.userData.roadId===settlement.road);
+}
 assert.ok(stats.emergencyCabinets>=1,'Motorway needs emergency SOS cabinets');
 assert.ok(stats.directionBoards>=5,'Direction signs must be legible');
 assert.ok(stats.delineators>20,'Modern roadside reflectors along several roads');

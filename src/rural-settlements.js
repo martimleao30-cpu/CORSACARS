@@ -89,6 +89,11 @@ export function buildRuralSettlement(group,physics,bodies,region,terrain){
       box('Estaca de vedação',out,along,.16,1.4,.16,'timber');
     stats.fenceSections++;
   }
+  // Driveable dirt access connects the public road with the farm entrance or
+  // village courtyard. Tiles follow terrain to avoid a long floating slab.
+  for(let out=9;out<=38;out+=4.7){
+    box('Acesso rural de gravilha',out,0,4.95,.10,5.0,'asphalt',false);
+  }
   if(region.kind==='hamlet'){
     // A small rural settlement, not a random roadside prop. The bus stop
     // should be near these houses, on the road's opposite verge.

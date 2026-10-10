@@ -129,10 +129,40 @@ export class RoadsideInfrastructure{
     plane.position.z+=.065;
     this.stats.directionBoards++;
   }
-  shelter(road,at,side){
-    const p=this.find(road,at,side,10.5,5);
+  // Stops serve actual communities, not arbitrary percentages along a road.
+  // Keep 28–120 m away from the actual POI's driveway and remain walkable.
+  stopLocation(road,region,side,lead=1){
+    let nearest=0,best=Infinity;
+    for(let i=0;i<road.points.length;i++){
+      const p=road.points[i],d=(p.x-region.roadPoint.x)**2+
+        (p.z-region.roadPoint.z)**2;
+      if(d<best){best=d;nearest=i;}
+    }
+    const stepOrder=[7,9,11,13,15,18,21,24,28,32];
+    for(const direction of [lead,-lead]){
+      for(const steps of stepOrder){
+        const i=nearest+steps*direction;
+        if(i<5||i>=road.points.length-5)continue;
+        const p=this.candidate(road,i,side,road.width*.5+10.4);
+        const distance=Math.hypot(p.x-region.roadPoint.x,p.z-region.roadPoint.z);
+        if(distance<27||distance>127)continue;
+        if(this.allowed(p,7)){
+          this.stats.placedSafely++;
+          return {...p,poiId:region.id,poiDistance:distance};
+        }
+        this.stats.rejected++;
+      }
+    }
+    return null;
+  }
+  shelter(road,region,side,lead=1){
+    const p=this.stopLocation(road,region,side,lead);
     if(!p)return;
-    const root=this.createRoot('Paragem de autocarro · urbana',p);
+    const rural=region.kind==='hamlet';
+    const root=this.createRoot('Paragem de autocarro · '+(rural?'rural':'urbana'),p);
+    root.userData.servesPOI=region.id;
+    root.userData.poiDistance=p.poiDistance;
+    root.userData.roadId=road.id;
     // 3.8 m shelter, structural steel, tempered glass, accessible threshold.
     this.mesh(root,'Paragem · laje','box','concrete',0,.11,0,4.3,.21,5.25);
     this.mesh(root,'Paragem · cobertura metálica','box','dark',0,3.08,0,4.5,.21,5.20);
@@ -146,8 +176,13 @@ export class RoadsideInfrastructure{
     this.mesh(root,'Paragem · encosto','box','seat',.2,1.18,-1.77,2.5,.74,.10);
     for(const z of [-.75,.75])
       this.mesh(root,'Paragem · pé do banco','box','steel',z,.41,-1.45,.07,.67,.10);
-    this.board(root,'Paragem · mapa e horário',['PARAGEM','CENTRO / VALE'],
+    this.board(root,'Paragem · mapa e horário',
+      ['PARAGEM',rural?'ALDEIA / SERRA':'CENTRO / VILA'],
       'blue',-1.55,1.6,-2.25,.7,1.0);
+    if(rural){
+      this.mesh(root,'Paragem rural · acabamento madeira','box','seat',
+        0,3.04,0,4.6,.16,5.3);
+    }
     this.stats.stops++;
   }
   direction(road,at,side,writing,kind='road'){
@@ -260,8 +295,12 @@ export class RoadsideInfrastructure{
         this.direction(road,.61,-1,['CIRCULAR','SERRA ALTA']);
         this.markers(road,'ring',17);
       }else if(road.category==='urban'){
-        for(const [at,side] of [[.24,-1],[.76,1]])
-          this.shelter(road,at,side);
+        const settlement=(this.clearance?.regions||[]).find(r=>
+          r.kind==='town'&&r.road===road.id);
+        if(settlement){
+          this.shelter(road,settlement,settlement.side,-1);
+          this.shelter(road,settlement,-settlement.side,1);
+        }
         this.direction(road,.41,1,['CENTRO DA VILA','ESTAÇÃO FERROVIÁRIA']);
         this.direction(road,.87,-1,['CIRCULAR','PARQUE / COMÉRCIO']);
         this.markers(road,'urban',14);
@@ -274,6 +313,9 @@ export class RoadsideInfrastructure{
         }
         this.markers(road,'highway',9);
       }else if(road.category==='mountain'){
+        const village=(this.clearance?.regions||[]).find(r=>
+          r.kind==='hamlet'&&r.road===road.id);
+        if(village)this.shelter(road,village,-village.side,-1);
         this.kiosk(road,.52,-1,'SERRA ALTA');
         this.direction(road,.24,1,['MIRADOURO','ATENÇÃO: CURVAS']);
         this.markers(road,'mountain',8);
