@@ -15,6 +15,12 @@ assert.ok(system.statistics.riverSections>400);
 assert.ok(system.statistics.riverLengthM>2000);
 assert.ok(system.statistics.boulders>20);
 assert.ok(system.waterMesh.material.isShaderMaterial);
+const flows=system.waterMesh.geometry.getAttribute('flowSpeed');
+assert.ok(flows?.count>3000,'Every flowing water vertex needs current velocity');
+assert.ok(Array.from(flows.array).every(speed=>speed>=.7&&speed<=2.31),
+  'Current must adapt to the changing valley slope');
+assert.match(system.waterMaterial.vertexShader,/uTime\*2\.8\*vSpeed/);
+assert.match(system.waterMaterial.fragmentShader,/whitewater|flowFoam/);
 assert.ok(system.crossings.length>=1,
   'A bridge must be placed at a real river/road intersection');
 assert.ok(system.crossings.every(p=>p.roadId===road.id&&
