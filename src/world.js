@@ -490,7 +490,14 @@ export class DrivingWorld {
   }
 
   surfaceAt(x,z) {
-    return this.network.query(x,z,this.weather);
+    const sample=this.network.query(x,z,'clear');
+    if(!['wet','dry'].includes(sample.surface))return sample;
+    // Preserve the permanently wet test-track segment, while regular
+    // asphalt loses tyre grip continuously as actual rainwater accumulates.
+    const testTrack=this.network.roads.find(r=>r.id==='provas');
+    const fixedWet=sample.surface==='wet'&&sample.road===testTrack?.name&&
+      this.network.wetness<.45;
+    return {...sample,moisture:this.network.wetness,fixedWet};
   }
 
   setWeather(weather) {
