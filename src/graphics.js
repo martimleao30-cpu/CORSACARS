@@ -164,7 +164,7 @@ export class GraphicsPipeline {
     const targetExposure=this.world.atmosphere?.exposure??1.04;
     this.renderer.toneMappingExposure=THREE.MathUtils.damp(
       this.renderer.toneMappingExposure,targetExposure,1.35,dt);
-    this.indirect?.update(this.world.hour,this.world.weather,this.quality);
+    this.indirect?.update(this.world.hour,this.world.weatherState||this.world.weather,this.quality);
     this.frameCount++;
     const frequency=this.quality==='ultra'?4:10;
     if(active&&this.reflectionEnabled&&this.frameCount%frequency===0){
