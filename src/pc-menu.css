@@ -250,3 +250,31 @@ button:focus-visible,select:focus-visible,input:focus-visible{
 .world-loading-hint{max-width:min(640px,90vw);
   margin:5px auto 0;color:#8699a7;letter-spacing:.14em;
   font-size:9px;line-height:1.8;}
+
+/* Circular, north-up navigation: no rectangular reference art or GPS banner. */
+.topbar{justify-content:flex-end}
+.gps-hud{left:28px;bottom:27px;width:208px;height:208px;
+  border-radius:50%;overflow:visible;isolation:isolate;filter:none;
+  border:1px solid rgba(200,219,228,.47);
+  background:rgba(7,19,27,.78);
+  box-shadow:0 12px 35px rgba(0,0,0,.42),0 0 0 5px rgba(4,17,26,.28),
+    inset 0 1px 12px rgba(255,255,255,.065)}
+.gps-hud canvas{display:block;width:100%;height:100%;border-radius:50%;
+  background:transparent;box-shadow:inset 0 0 20px rgba(3,11,20,.45)}
+.gps-heading,.gps-reference{display:none!important}
+.gps-status{position:absolute;top:-30px;bottom:auto;left:50%;
+  transform:translateX(-50%);z-index:3;width:max-content;max-width:245px;
+  font-size:9px;text-align:center;letter-spacing:.03em;
+  padding:5px 10px;border:1px solid rgba(80,203,222,.45);
+  border-radius:4px;background:rgba(6,20,31,.88)}
+.gps-status[hidden],.hud-state[hidden]{display:none!important}
+.hud-hints{display:none!important}
+.hud .perf-value{position:fixed!important;top:71px!important;
+  bottom:auto!important;right:28px!important;left:auto!important;
+  padding:5px 8px;font-size:9px;background:rgba(7,18,26,.54);
+  border:1px solid rgba(220,232,238,.10)}
+@media(max-width:750px){
+  .gps-hud{width:152px;height:152px;left:14px;bottom:16px}
+  .hud .perf-value{top:58px!important;right:12px!important;
+    bottom:auto!important}
+}
