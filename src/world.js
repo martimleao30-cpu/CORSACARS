@@ -7,7 +7,7 @@ import {clipGeometryAtJunctions,trimRoadWearAtJunctions} from './road-junctions.
 import { WorldSectors } from './world-sectors.js';
 import {RoadsideClearance} from './roadside-clearance.js';
 import { DrivingTestArea } from './driving-test-area.js';
-import {createRoadBed,addRoadSides,addRoadWear} from './road-upgrades.js';
+import {createRoadBed,addRoadSides,addRoadWear,addRoadShoulders} from './road-upgrades.js';
 import {RoadEnvironment} from './road-environments.js';
 import {ForestSystem} from './forest-system.js';
 import {RoadSignage} from './road-signage.js';
@@ -254,35 +254,10 @@ export class DrivingWorld {
   }
 
   buildRoadside() {
-    // Curved gravel shoulders hug the terrain beside the road.
-    for (const direction of [-1, 1]) {
-      const vertices = [], uv = [], indices = [];
-      for (let i = 0; i < this.roadPoints.length; i++) {
-        const edge = this.roadPoints[i];
-        const inside = edge.center.clone().addScaledVector(edge.side,
-          direction * (this.roadWidth / 2 + 0.03));
-        const outside = edge.center.clone().addScaledVector(edge.side,
-          direction * (this.roadWidth / 2 + 2.2));
-        inside.y = groundHeight(inside.x, inside.z) + 0.13;
-        outside.y = groundHeight(outside.x, outside.z) + 0.045;
-        vertices.push(inside.x, inside.y, inside.z, outside.x, outside.y, outside.z);
-        uv.push(0, i * 0.5, 1, i * 0.5);
-        if (i < this.roadPoints.length - 1) {
-          const j = i * 2;
-          indices.push(j, j + 2, j + 1, j + 1, j + 2, j + 3);
-        }
-      }
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-      geometry.setIndex(indices);
-      geometry.computeVertexNormals();
-      const shoulder = new THREE.Mesh(geometry, createGravelMaterial());
-      shoulder.material.side = THREE.DoubleSide;
-      shoulder.receiveShadow = true;
-      this.scene.add(shoulder);
-      (this.ringShoulders||=[]).push(shoulder);
-    }
+    // The ring uses precisely the same natural, layered shoulder geometry
+    // as every regional road. Junction cutters operate on these meshes too.
+    this.ringShoulders=addRoadShoulders(this.scene,this.roadPoints,
+      this.roadWidth,groundHeight,createGravelMaterial());
   }
 
   // Asphalt at a T junction is continuous, but its outer kerb and gravel
