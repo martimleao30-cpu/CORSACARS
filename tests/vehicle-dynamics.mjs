@@ -14,6 +14,19 @@ assert.ok(tyreGrip('wet').longitudinal>tyreGrip('gravel').longitudinal);
 assert.ok(tyreGrip('gravel').longitudinal>tyreGrip('grass').longitudinal);
 assert.ok(tyreGrip('dry','track').longitudinal>tyreGrip('dry','road').longitudinal);
 assert.ok(tyreGrip('wet','track').longitudinal<tyreGrip('dry','track').longitudinal);
+for(const compound of ['road','sport','track']){
+  const dry=tyreGrip('dry',compound,0);
+  const damp=tyreGrip('dry',compound,.45);
+  const soaked=tyreGrip('dry',compound,1);
+  const wet=tyreGrip('wet',compound);
+  assert.ok(dry.longitudinal>damp.longitudinal&&
+    damp.longitudinal>soaked.longitudinal,
+    'Rainwater must progressively decrease wheel traction');
+  assert.ok(Math.abs(soaked.longitudinal-wet.longitudinal)<1e-9,
+    'Completely soaked pavement must match wet asphalt tyre behaviour');
+  assert.ok(damp.lateral<dry.lateral&&damp.lateral>soaked.lateral);
+  assert.ok(damp.rolling>dry.rolling&&damp.rolling<soaked.rolling);
+}
 assert.equal(Object.keys(TYRES).length,3);
 const angles=ackermannAngles(.3,spec.wheelbaseM,spec.trackM);
 assert.ok(angles[0]>angles[1]&&angles[1]>0,'Inside wheel must turn more');
