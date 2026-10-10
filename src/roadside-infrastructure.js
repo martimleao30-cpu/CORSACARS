@@ -201,6 +201,38 @@ export class RoadsideInfrastructure{
     const body=new CANNON.Body({mass:0,material:new CANNON.Material('dry')});
     body.addShape(new CANNON.Trimesh(colliderVertices,indices));
     this.physics.addBody(body);this.bodies.push(body);this.stats.colliders++;
+    // Slim white perimeter stripe makes the bay read as a proper parking
+    // recess while keeping the taper ends open for vehicles to enter/leave.
+    const stripePositions=[],stripeIndices=[];
+    for(let i=-9;i<=9;i++){
+      const d=i*1.7,t=clamp((22-Math.abs(d))/10,0,1);
+      const extent=.12+3.65*t*t*(3-2*t);
+      const point=this.clearance.alongRoad(road,p.index,d);
+      for(const lateral of [offset-.16+extent-.13,offset-.16+extent]){
+        const x=point.x-p.tangent.z*p.side*lateral;
+        const z=point.z+p.tangent.x*p.side*lateral;
+        const y=this.terrainY(x,z)+.209-.068+.017;
+        const local=root.worldToLocal(new THREE.Vector3(x,y,z));
+        stripePositions.push(local.x,local.y,local.z);
+      }
+      if(i===9)continue;
+      const n=(i+9)*2;
+      stripeIndices.push(n,n+1,n+2,n+1,n+3,n+2);
+    }
+    const stripeGeo=new THREE.BufferGeometry();
+    stripeGeo.setAttribute('position',
+      new THREE.Float32BufferAttribute(stripePositions,3));
+    stripeGeo.setIndex(stripeIndices);
+    stripeGeo.computeVertexNormals();
+    this.busBayGeometries.push(stripeGeo);
+    const stripeMaterial=new THREE.MeshBasicMaterial({
+      color:0xf3f3ec,side:THREE.DoubleSide,
+      polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1
+    });
+    this.busBayMaterials.push(stripeMaterial);
+    const stripe=new THREE.Mesh(stripeGeo,stripeMaterial);
+    stripe.name='Baía BUS · linha branca lateral';
+    root.add(stripe);
     // BUS painted on the asphalt. Letters are arranged longitudinally so
     // they remain legible from the driver's approach direction.
     const canvas=document.createElement('canvas');
