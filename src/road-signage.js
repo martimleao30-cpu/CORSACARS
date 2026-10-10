@@ -309,6 +309,7 @@ export class RoadSignage {
     // and edge lines. This removes floating paint from unpaved valleys.
     if(road.category==='dirt')return;
     const highway=road.category==='highway';
+    const fourLaneRing=road.id==='circular'||road.category==='ring';
     const connector=road.category==='highway-ramp';
     const length=sampler.total;
     const edge=w*.5-.45;
@@ -325,7 +326,20 @@ export class RoadSignage {
         road.name+' · Linha lateral contínua');
       this.statistics.continuous++;
     }
-    if(!highway&&!connector){
+    if(fourLaneRing){
+      // Four physical 3.50 m lanes: outer dashed lane divisions at ±3.5 m,
+      // with a central continuous line between opposing carriageways.
+      this.add(createLineGeometry(sampler,{style:'continuous',lateral:0,
+        width:.15,start,end,excluded:gaps}),
+        road.name+' · Divisão central das duas direções');
+      this.statistics.continuous++;
+      for(const lateral of [-w*.25,w*.25]){
+        this.add(createLineGeometry(sampler,{style:'dashed',lateral,
+          width:.13,start,end,dash:4.1,gap:6.2,excluded:gaps}),
+          road.name+' · Divisão das vias urbanas');
+        this.statistics.dashed++;
+      }
+    }else if(!highway&&!connector){
       const center=roadCenterMarking(road,sampler,gaps);
       const solid=center.solid;
       // The ordinary centre is dashed. Where a genuine sharp bend occurs,
