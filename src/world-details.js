@@ -387,13 +387,18 @@ export class WorldDetails {
       mesh.count=Math.floor((mesh.userData.baseCount??mesh.count)*f);
   }
 
-  update(dt, car, weather, hour, paused=false) {
+  update(dt, car, weather, hour, paused=false,climate=null) {
     const delta=paused?0:Math.min(.05,dt);
     this.elapsed+=delta;
     for(const item of this.winds)item.value=this.elapsed;
-    this.cloudSystem?.update(dt,weather,hour,paused);
-    const target=weather==='rain'?1:0;
-    this.wetness=THREE.MathUtils.damp(this.wetness,target,weather==='rain'?.23:.055,delta);
+    this.cloudSystem?.update(dt,weather,hour,paused,climate);
+    // Rain accumulates while showers strengthen; drying is slower when
+    // overcast or foggy. Wetness remains the single source for tyre grip,
+    // paint/clearcoat response and the visibility of all puddles.
+    const target=climate?climate.rain:(weather==='rain'?1:0);
+    const drying=.038*(1-(climate?.fog||0)*.6);
+    this.wetness=THREE.MathUtils.damp(this.wetness,target,
+      target>this.wetness?.21:drying,delta);
     if(this.puddles){
       this.puddles.visible=this.wetness>.045;
       this.puddles.material.opacity=.48*this.wetness;
