@@ -21,13 +21,13 @@ for(let i=0;i<=420;i++){
   ring.push({center:new THREE.Vector3(Math.cos(angle)*400,.2,Math.sin(angle)*400)});
 }
 const network=new RoadNetwork(scene,physics,()=>0,ring,13.5,'low');
-assert.equal(REGIONAL_LINKS.length,6);
-assert.equal(network.roads.length,7);
-assert.equal(physics.bodies.length,6,'All new roads need real collision bodies');
+assert.equal(REGIONAL_LINKS.length,7);
+assert.equal(network.roads.length,11);
+assert.equal(physics.bodies.length,network.roads.length-1,'All new roads need real collision bodies');
 assert.ok(network.cells.size>30,'Surface lookups should use spatial hashing');
 for(const road of network.roads){
   if(road.id==='circular')continue;
-  assert.equal(road.points[0].x,ring[road.from].center.x);
+  if(road.from!==undefined)assert.equal(road.points[0].x,ring[road.from].center.x);
   assert.ok(road.mesh.geometry.index.count>30);
   assert.equal(road.mesh.geometry.getAttribute('position').count,
     road.points.length*7,'Road cross-section must be actual 3D geometry');
@@ -42,6 +42,12 @@ for(const road of network.roads){
   }
 }
 assert.equal(network.query(4000,4000).surface,'grass');
+assert.deepEqual(new Set(REGIONAL_LINKS.map(r=>r.category)),
+  new Set(['urban','highway','mountain','rural','dirt','test']));
+assert.equal(network.connectors.length,3,'Town side road plus motorway on/off ramps');
+assert.ok(network.roads.find(r=>r.id==='rural').mesh.material.userData.variant==='worn');
+assert.ok(network.roads.some(r=>r.surface==='dirt'),
+  'Driveable physical dirt route must be present');
 network.setWetness(1);
 assert.ok(network.materials.get('nacional').clearcoat>.7,
   'Rain should wet regional road materials, not just circular road');

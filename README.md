@@ -19,7 +19,7 @@ com `InstancedMesh` e alguns colisores em `cannon-es`:
   e ramal de terra acessível pela estrada circular.
 - Pedreira e Trilho de Terra do Vale: gravilha e terra com relevo físico
   irregular, pedras instanciadas, rastos estáticos e aderência própria.
-  Poeira ao conduzir em superfícies soltas é gerada em tempo real.
+  Poeira ao conduzir em superfícies soltas é gerada em tempo real, limitada a 96 partículas instanciadas e ativada pelo contacto dos pneus em terra/gravilha.
 
 As rampas, o cruzamento e o percurso de terra fazem parte do índice espacial
 e das colisões Cannon. A renderização mantém Three.js/WebGL, sem Unity.

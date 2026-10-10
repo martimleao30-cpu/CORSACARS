@@ -7,6 +7,7 @@ import { AssetUpgrade } from './assets.js';
 import { IndirectLighting } from './lighting.js';
 import { PerformanceMonitor } from './performance.js';
 import { PremiumInterface } from './interface.js';
+import { RoadDust } from './road-dust.js';
 import './desktop-updates.js';
 
 const $ = (id) => document.getElementById(id);
@@ -56,6 +57,7 @@ physics.solver.iterations = 12;
 physics.broadphase = new CANNON.SAPBroadphase(physics);
 const world = new DrivingWorld(scene, physics, settings.quality);
 const car = new PlayerVehicle(physics, scene, world.spawn);
+const roadDust = new RoadDust(scene, settings.quality);
 const graphics = new GraphicsPipeline(renderer, scene, camera, car, world);
 graphics.setQuality(settings.quality, settings);
 void graphics.initialize();
@@ -372,6 +374,7 @@ function applyQuality() {
   camera.far=Math.max(500,Math.min(1900,Number(settings.drawDistance)||1500));
   camera.updateProjectionMatrix();
   world.setVegetationDensity?.(Number(settings.vegetation)||1);
+  roadDust.quality=settings.quality;
   renderer.shadowMap.needsUpdate = true;
   graphics.setQuality(settings.quality, settings);
   graphics.configureEffects?.(settings);
@@ -578,6 +581,7 @@ function frame(now) {
   car.updateVisuals(world.hour >= 19 || world.hour <= 6 || world.weather !== 'clear');
   world.update(dt, car.getPosition(), !play);
   updateCamera(dt);
+  roadDust.update(dt,car,world,camera,play);
   car.setVisualDetail(camera.position);
   graphics.update(dt, play);
   const telemetry = car.getTelemetry();
