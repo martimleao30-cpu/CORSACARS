@@ -25,7 +25,8 @@ export class ModernRoadLighting{
     this.scene=scene;this.network=network;this.terrainY=terrainY;
     this.clearance=clearance;this.quality=quality;
     this.placements=[];this.fixtures=[];this.meshes=[];
-    this.timer=0;
+    // Allow the nearest lamps to illuminate on the very first night frame.
+    this.timer=.2;
     this.stats={total:0,urban:0,highway:0,ring:0,access:0,excluded:0};
     this.materials={
       pole:new THREE.MeshStandardMaterial({color:0x747f86,roughness:.45,metalness:.82}),
