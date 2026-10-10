@@ -44,6 +44,14 @@ for(const road of network.roads){
   }
   assert.ok(road.sides.geometry.index.count>0,'Visible roadbed side walls required');
   assert.equal(road.shoulders.length,2,'Both road shoulders must exist');
+  if(['rural','mountain'].includes(road.category)&&road.from!==undefined){
+    assert.equal(road.drainage.length,2,
+      'Rural and mountain routes need a ditch and embankment on both sides');
+    for(const ribbon of road.drainage){
+      assert.ok(ribbon.geometry.index.count>100);
+      assert.equal(ribbon.geometry.userData.corsaDrainage,true);
+    }
+  }
   if(road.category==='mountain'){
     assert.equal(road.mesh.material.userData.mountainDetail,true,
       'Mountain roads must have their own improved texture detail');
