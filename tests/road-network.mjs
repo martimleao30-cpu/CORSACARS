@@ -13,6 +13,7 @@ globalThis.document={
 };
 const {RoadNetwork,REGIONAL_LINKS}=await import('../src/road-network.js');
 const {WorldSectors}=await import('../src/world-sectors.js');
+const {RoadsideClearance}=await import('../src/roadside-clearance.js');
 const {DrivingTestArea}=await import('../src/driving-test-area.js');
 const scene=new THREE.Scene(),physics=new CANNON.World();
 const ring=[];
@@ -158,6 +159,17 @@ assert.equal(testTrack.samples.length,7,'Physical driving test markers should ex
 assert.equal(testTrack.obstacleBodies.length,0,
   'Yellow test-track boxes and raised speed bump must not block the lanes');
 const sectors=new WorldSectors(scene,physics,network,()=>0);
+const clearance=new RoadsideClearance(network,sectors.regions);
+assert.ok(clearance.busBays.length>0,'Existing BUS stops must stay available');
+assert.ok(network.busBayCells.size>0,'BUS bays must be indexed in road-space cells');
+const bay=clearance.busBays[0];
+const insideBay=bay.offset-bay.road.width*.5-1.5;
+const bx=bay.x-bay.outward.x*insideBay;
+const bz=bay.z-bay.outward.z*insideBay;
+const grip=network.query(bx,bz,'clear');
+assert.equal(grip.busBay,true,
+  'Indexed BUS lookup must retain paved-shoulder tyre grip');
+assert.equal(grip.surface,'dry');
 assert.equal(sectors.regions.length,11);
 const spot=sectors.regions[0];
 const initial=physics.bodies.length;
