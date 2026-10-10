@@ -59,7 +59,7 @@ export class VolumetricMist{
     });
     this.mesh=new THREE.InstancedMesh(this.geometry,this.material,count);
     this.mesh.name='Nevoeiro 3D · camadas de humidade a baixa altitude';
-    this.mesh.frustumCulled=false;
+    this.mesh.frustumCulled=true;
     this.mesh.renderOrder=2;
     const dummy=new THREE.Object3D();
     // Static instances. Fog modulation happens in the GPU.
@@ -79,6 +79,7 @@ export class VolumetricMist{
     }
     this.mesh.instanceMatrix.needsUpdate=true;
     if(this.mesh.instanceColor)this.mesh.instanceColor.needsUpdate=true;
+    this.mesh.computeBoundingSphere();
     this.mesh.visible=false;scene.add(this.mesh);
   }
   update(dt,climate,atmosphere,paused=false){
@@ -132,6 +133,7 @@ export class WetRoadPuddles{
       }
     }
     this.geometry=new THREE.CircleGeometry(1,28);
+    this.color=new THREE.Color(0x708597);
     this.material=new THREE.MeshPhysicalMaterial({
       color:0x728ba2,roughness:.055,metalness:.32,transparent:true,
       opacity:0,depthWrite:false,depthTest:true,clearcoat:1,
@@ -151,7 +153,7 @@ export class WetRoadPuddles{
     this.mesh.visible=amount>.02;
     this.material.opacity=.48*amount;
     if(atmosphere)this.material.color.copy(atmosphere.horizon).lerp(
-      new THREE.Color(0x708597),.48);
+      this.color,.48);
   }
   dispose(){
     this.scene.remove(this.mesh);
