@@ -319,3 +319,18 @@ linhas, setas, passadeiras, sinais verticais e fases semafóricas.
 - **Desempenho:** grupos de nuvens limitados, geometria instanciada e sem
   dependência de ativos externos. A qualidade e os FPS devem ser inspecionados
   em GPU real; o Chromium em CI usa software WebGL.
+
+
+## Realismo dos objetos do cenário — redução do aspeto de desenho animado
+
+O módulo `src/natural-assets.js` substitui os arbustos de icosaedros por
+folhagem individual inclinada, flores esféricas por pétalas 3D e rochas de
+polígonos planos por blocos erosionados com tons minerais. As fachadas dos
+prédios passam a apresentar janelas separadas com molduras, vidros, peitoris,
+portas e parapeitos; o mesmo sistema é usado na pequena vila dinâmica.
+
+Os novos detalhes partilham geometrias e instâncias para reduzir draw calls.
+Os colisores dos prédios não foram modificados. O objetivo é retirar o aspeto
+cartoon sem prometer fotorrealismo de jogos AAA: edifícios procedurais ainda
+não substituem fotogrametria, bibliotecas PBR fotográficas e arte profissional.
+Testar em `node tests/natural-assets.mjs` e `npm test`.

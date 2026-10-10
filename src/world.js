@@ -10,6 +10,7 @@ import {RoadEnvironment} from './road-environments.js';
 import {ForestSystem} from './forest-system.js';
 import {RoadSignage} from './road-signage.js';
 import {RainStreaks} from './atmosphere-effects.js';
+import {createWeatheredRockGeometry,UrbanFacadeBatch} from './natural-assets.js';
 
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -306,8 +307,8 @@ export class DrivingWorld {
     // Rock transforms remain independent of the new forest batches.
     const dummy = new THREE.Object3D();
 
-    const colors = [0xc1b7a1, 0x949fa4, 0xc4bdb0, 0x827b74, 0xa4a99c];
-    const glass = material(0x5a7e90, 0.22, 0.26);
+    const colors = [0xa7a49d, 0x999e9a, 0xb4aca2, 0x8d908a, 0xa5a59c];
+    const facade=new UrbanFacadeBatch(this.scene);
     for (let i = 0; i < 48; i++) {
       const x = 65 + (i % 8) * 28 + random() * 9;
       const z = -70 + Math.floor(i / 8) * 42 + random() * 8;
@@ -318,19 +319,17 @@ export class DrivingWorld {
       const width = 14 + random() * 8, depth = 15 + random() * 9;
       const baseY = groundHeight(x, z) - 0.12;
       groupBox(this.scene, x, baseY, z, width, height, depth, colors[i % colors.length]);
-      for (let floor = 0; floor < Math.floor(height / 5); floor++) {
-        const face = new THREE.Mesh(new THREE.BoxGeometry(width * 0.75, 2.5, 0.08), glass);
-        face.position.set(x, baseY + 3.5 + floor * 5, z + depth / 2 + 0.06);
-        this.scene.add(face);
-      }
+      facade.building({x,z,baseY,width,height,depth,seed:i});
       const body = new CANNON.Body({ mass: 0 });
       body.addShape(new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, depth / 2)));
       body.position.set(x, baseY + height / 2, z);
       this.physics.addBody(body);
     }
 
-    const rocks = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(2, 0),
-      material(0x7b7b70), 140);
+    this.facade=facade.finalize();
+    const rocks = new THREE.InstancedMesh(createWeatheredRockGeometry(2),
+      new THREE.MeshStandardMaterial({color:0xb8b7ae,roughness:1,metalness:0,
+        vertexColors:true}), 140);
     let count = 0;
     for (let i = 0; i < 500 && count < 140; i++) {
       const x = (random() - 0.5) * 1800, z = (random() - 0.5) * 1800;
@@ -340,10 +339,13 @@ export class DrivingWorld {
       dummy.rotation.set(random(), random() * TAU, random());
       dummy.scale.set(size, size * 0.6, size * 1.1);
       dummy.updateMatrix();
-      rocks.setMatrixAt(count++, dummy.matrix);
+      rocks.setMatrixAt(count, dummy.matrix);
+      rocks.setColorAt(count,new THREE.Color([0xaba89f,0xa59d91,0x969c9b,0xa7a5a0][count%4]));
+      count++;
     }
     rocks.count = count;
     rocks.instanceMatrix.needsUpdate = true;
+    if(rocks.instanceColor)rocks.instanceColor.needsUpdate=true;
     rocks.receiveShadow = true;
     this.scene.add(rocks);
   }

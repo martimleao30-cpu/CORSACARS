@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
+import {UrbanFacadeBatch} from './natural-assets.js';
 
 // A first region of reachable named locations. The static geometry and its
 // rigid-body colliders enter/leave memory with the nearest sector, not at boot.
@@ -90,11 +91,14 @@ export class WorldSectors {
         box(group,this.physics,bodies,x+offset,y,z-3,.22,3,.25,STEEL,false);
       }
     }else if(region.kind==='town'){
-      for(const [dx,dz,w,h] of [[-10,-11,8,7],[10,-12,7,10],[14,8,8,6]]){
+      const facades=new UrbanFacadeBatch(group);
+      for(const [index,[dx,dz,w,h]] of [[-10,-11,8,7],[10,-12,7,10],[14,8,8,6]].entries()){
         box(group,this.physics,bodies,x+dx,y,z+dz,w,h,6,
           h>7?BLUE:CONCRETE);
-        box(group,this.physics,bodies,x+dx,y+h,z+dz,w+.8,.6,7,ROOF,false);
+        facades.building({x:x+dx,z:z+dz,baseY:y,width:w,height:h,depth:6,seed:index});
       }
+      facades.finalize();
+      group.userData.facades=facades;
     }else if(region.kind==='lookout'){
       for(const dz of [-11,11]){
         box(group,this.physics,bodies,x-9,y,z+dz,16,.9,.22,STEEL,false);
@@ -128,7 +132,13 @@ export class WorldSectors {
     const record=this.active.get(id);
     if(!record)return;
     this.scene.remove(record.group);
-    record.group.traverse(obj=>{if(obj.isMesh)obj.geometry?.dispose();});
+    // Batched façade geometry/materials are disposed together; legacy POI
+    // mesh geometries stay independent and continue to be freed on unload.
+    const facadeObjects=new Set(record.group.userData.facades?.meshes||[]);
+    record.group.traverse(obj=>{
+      if(obj.isMesh&&!facadeObjects.has(obj))obj.geometry?.dispose();
+    });
+    record.group.userData.facades?.dispose();
     for(const body of record.bodies)this.physics.removeBody(body);
     this.active.delete(id);
   }

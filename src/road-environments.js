@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {roadDeckHeight} from './road-upgrades.js';
+import {createNaturalShrubGeometry,createWeatheredRockGeometry} from './natural-assets.js';
 
 // Route-specific, real Three.js scenery. Shared mesh geometries and instanced
 // markings keep the extra road infrastructure affordable for WebGL / Electron.
@@ -336,8 +337,8 @@ export class RoadEnvironment {
       rocks.push({...p,y:this.terrainY(p.x,p.z)+size*.24,
         sx:size,sy:size*.67,sz:size*.92,yaw:rng()*Math.PI*2});
     }
-    this.instances('Rochas · Serra',new THREE.DodecahedronGeometry(1,0),
-      materials.rock,rocks);
+    this.instances('Rochas · Serra',createWeatheredRockGeometry(1),
+      new THREE.MeshStandardMaterial({color:0xa4a6a0,roughness:1,vertexColors:true}),rocks);
     this.statistics.stones+=rocks.length;
     this.sign(road,clamp(Math.floor(n*.43),3,n-3),road.width*.5+5.6,
       'CURVAS DE SERRA','40');
@@ -364,15 +365,16 @@ export class RoadEnvironment {
         const offset=side*(road.width*.5+4.7+rng()*6.5);
         const p=position(road,i,offset,this.terrainY);
         const scale=.38+rng()*.93;
-        shrubs.push({...p,y:this.terrainY(p.x,p.z)+scale*.38,
-          sx:scale*.88,sy:scale*.54,sz:scale,
+        shrubs.push({...p,y:this.terrainY(p.x,p.z)+.012,
+          sx:scale*.88,sy:scale*.89,sz:scale,
           yaw:rng()*Math.PI*2,
-          color:rng()>.5?0x567047:0x718054});
+          color:rng()>.5?0x98a28d:0x879c83});
       }
     }
     this.instances('Vegetação junto à estrada rural',
-      new THREE.IcosahedronGeometry(1,1),
-      new THREE.MeshStandardMaterial({color:0xffffff,roughness:.97}),
+      createNaturalShrubGeometry(this.quality==='low'?'low':'medium'),
+      new THREE.MeshStandardMaterial({color:0xf0f1e8,roughness:.96,vertexColors:true,
+        side:THREE.DoubleSide}),
       shrubs);
     this.statistics.ruralVegetation+=shrubs.length;
     this.sign(road,clamp(Math.round(n*.24),3,n-3),road.width*.5+4.8,
@@ -401,8 +403,9 @@ export class RoadEnvironment {
     }
     this.instances('Rastos no piso de terra',new THREE.BoxGeometry(1,1,1),
       materials.earth,tracks);
-    this.instances('Pedras soltas · Caminho',new THREE.DodecahedronGeometry(1,0),
-      materials.rock,stones);
+    this.instances('Pedras soltas · Caminho',createWeatheredRockGeometry(1),
+      new THREE.MeshStandardMaterial({color:0x9b9e99,roughness:1,vertexColors:true}),
+      stones);
     this.statistics.dirtRuts+=tracks.length;
     this.statistics.stones+=stones.length;
     this.sign(road,clamp(Math.round(n*.16),3,n-3),

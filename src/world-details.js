@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {roadDeckHeight} from './road-upgrades.js';
 import {AtmosphericClouds} from './atmosphere-effects.js';
+import {createNaturalShrubGeometry,createNaturalFlowerGeometry} from './natural-assets.js';
 
 // Entirely native Three.js geometry: no external meshes or image placeholders.
 // Reused geometries, materials and per-region InstancedMesh keep draw calls low.
@@ -230,22 +231,23 @@ export class WorldDetails {
 
   buildShrubs() {
     const count=this.quality==='low'?150:this.quality==='medium'?260:530;
-    const geometry=new THREE.IcosahedronGeometry(1,1);
+    const geometry=createNaturalShrubGeometry(this.quality==='low'?'low':'medium');
     const material=new THREE.MeshStandardMaterial({
-      color:0x6c7c4d,roughness:.96,metalness:0
+      color:0xf1f0e7,roughness:.94,metalness:0,vertexColors:true,
+      side:THREE.DoubleSide
     });
     const shrubs=new THREE.InstancedMesh(geometry,material,count);
     const t=new THREE.Object3D();
-    const palettes=[C(0x527143),C(0x5a7a52),C(0x879866),C(0x496a43)];
+    const palettes=[C(0x8b997e),C(0x829b80),C(0x8c9a7d),C(0x7f947b)];
     for(let i=0;i<count;i++) {
       const p=this.points[Math.floor(rand()*(this.points.length-1))];
       const side=(rand()<.5?-1:1)*(this.width/2+8+rand()*85);
       const x=p.center.x+p.side.x*side;
       const z=p.center.z+p.side.z*side;
       const scale=.5+rand()*1.15;
-      t.position.set(x,this.terrainY(x,z)+.38*scale,z);
+      t.position.set(x,this.terrainY(x,z)+.012,z);
       t.rotation.set(rand()*.35,rand()*TAU,rand()*.35);
-      t.scale.set(scale*.95,scale*.54,scale);
+      t.scale.set(scale*.95,scale*.88,scale);
       t.updateMatrix();
       shrubs.setMatrixAt(i,t.matrix);
       shrubs.setColorAt(i,palettes[Math.floor(rand()*palettes.length)]);
@@ -265,10 +267,11 @@ export class WorldDetails {
       new THREE.MeshStandardMaterial({color:0x436d32,roughness:1}),amount
     );
     const bloom=new THREE.InstancedMesh(
-      new THREE.IcosahedronGeometry(.09,0),
-      new THREE.MeshStandardMaterial({roughness:.78,vertexColors:false}),amount
+      createNaturalFlowerGeometry(),
+      new THREE.MeshStandardMaterial({roughness:.85,vertexColors:true,
+        side:THREE.DoubleSide}),amount
     );
-    const palettes=[C(0xf4d577),C(0xf5d9f0),C(0xb49fea),C(0xf6f5dd)];
+    const palettes=[C(0xe8d6ac),C(0xc8b4ba),C(0xa6a6bc),C(0xf0e5d1)];
     const t=new THREE.Object3D();
     for(let i=0;i<amount;i++){
       const point=this.points[Math.floor(rand()*(this.points.length-1))];
@@ -280,7 +283,7 @@ export class WorldDetails {
       t.position.set(x,y+h*.32,z);
       t.scale.set(1,h,1);t.rotation.set(0,rand()*TAU,0);t.updateMatrix();
       stem.setMatrixAt(i,t.matrix);
-      t.position.y=y+h*.75;t.scale.set(1+rand()*.7,1,1+rand()*.7);t.updateMatrix();
+      t.position.y=y+h*.85;t.scale.set(.55+rand()*.34,1,.55+rand()*.34);t.updateMatrix();
       bloom.setMatrixAt(i,t.matrix);
       bloom.setColorAt(i,palettes[Math.floor(rand()*palettes.length)]);
     }

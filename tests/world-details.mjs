@@ -36,6 +36,9 @@ assert.ok(details.grassPatches.length>0,'3D grass LOD regions must exist');
 assert.ok(details.winds.length>=3,'Grass and both tree species must use GPU wind');
 assert.ok(details.puddles.isInstancedMesh,'Reflective puddles must be instanced geometry');
 assert.ok(details.shrubs.count>0,'Instanced bushes must exist');
+assert.equal(details.shrubs.geometry.userData.corsaNatural,'leafy-shrub',
+  'Cartoon-like icosahedral shrubs must be replaced with leaf geometry');
+assert.equal(details.shrubs.material.vertexColors,true,'Shrubs require varied leaf tones');
 assert.ok(details.clouds.count>0,'Clouds must exist');
 assert.equal(details.cloudGroups.length,4,'Atmospheric clouds must be split into culled regions');
 assert.equal(details.clouds.geometry.getAttribute('position').count,4,

@@ -42,6 +42,10 @@ assert.ok(environment.statistics.speedSigns>=4,'Round maximum-speed signs requir
 assert.ok(environment.statistics.dangerSigns>=4,'Triangular hazard signs required');
 assert.ok(environment.statistics.stones>0 && environment.statistics.dirtRuts>0);
 assert.ok(environment.statistics.ruralVegetation>0,'Rural roadside plants must be placed along its own route');
+const ruralShrubs=environment.objects.find(m=>m.name==='Vegetação junto à estrada rural');
+assert.equal(ruralShrubs.geometry.userData.corsaNatural,'leafy-shrub');
+const mountainRocks=environment.objects.find(m=>m.name==='Rochas · Serra');
+assert.equal(mountainRocks.geometry.userData.corsaNatural,'weathered-rock');
 assert.equal(environment.statistics.physicalJunctions,3);
 assert.ok(physics.bodies.length>physicalRoadBodies,'Sidewalks / barriers must collide');
 assert.ok(environment.trafficLights.length>=4,'Working traffic lights required');
