@@ -9,6 +9,7 @@ import {createRoadBed,addRoadSides,addRoadWear} from './road-upgrades.js';
 import {RoadEnvironment} from './road-environments.js';
 import {ForestSystem} from './forest-system.js';
 import {RoadSignage} from './road-signage.js';
+import {CinematicSky,evaluateAtmosphere,configureCinematicShadows} from './cinematic-lighting.js';
 import {RainStreaks} from './atmosphere-effects.js';
 import {createWeatheredRockGeometry,UrbanFacadeBatch,createWeatheredWallMaterial} from './natural-assets.js';
 
@@ -102,23 +103,18 @@ export class DrivingWorld {
   }
 
   buildSun() {
-    this.scene.background = new THREE.Color(0xa5cbdc);
-    this.scene.fog = new THREE.FogExp2(0xa7c2c5, 0.0009);
-    this.ambient = new THREE.HemisphereLight(0xd8efff, 0x626e4c, 1.35);
+    // Sky pixels are computed from atmospheric colours and sun direction.
+    // A plain scene.background Color previously made lighting look flat.
+    this.scene.background=null;
+    this.scene.fog=new THREE.FogExp2(0xb9c9d1,.00078);
+    this.cinematicSky=new CinematicSky(this.scene);
+    this.atmosphere=evaluateAtmosphere(this.hour,this.weather);
+    this.ambient=new THREE.HemisphereLight(0xc4dcf0,0x67675d,1.0);
     this.scene.add(this.ambient);
-    this.sun = new THREE.DirectionalLight(0xffedd0, 2.65);
-    this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
-    this.sun.shadow.camera.left = -175;
-    this.sun.shadow.camera.right = 175;
-    this.sun.shadow.camera.top = 175;
-    this.sun.shadow.camera.bottom = -175;
-    this.sun.shadow.camera.near = 0.5;
-    this.sun.shadow.camera.far = 800;
-    this.sun.shadow.bias = -0.00008;
-    this.sun.shadow.normalBias = 0.045;
-    this.sun.shadow.radius = 2.2;
-    this.scene.add(this.sun, this.sun.target);
+    this.sun=new THREE.DirectionalLight(0xfff1dc,2.65);
+    this.sun.castShadow=true;
+    this.configureShadows(this.quality,'high');
+    this.scene.add(this.sun,this.sun.target);
     const rnd = seeded(8999);
     const positions = [];
     for (let i = 0; i < 650; i++) {
@@ -381,31 +377,31 @@ export class DrivingWorld {
     this.updateAtmosphere();
   }
 
+  configureShadows(quality=this.quality,shadowQuality='high'){
+    this.quality=quality;
+    return configureCinematicShadows(this.sun,quality,shadowQuality);
+  }
+
   updateAtmosphere() {
-    const angle = ((this.hour - 6) / 24) * TAU;
-    const daylight = Math.max(0, Math.sin(angle));
-    const twilight = THREE.MathUtils.smoothstep(daylight, 0.0, 0.25);
-    const daylightColor = new THREE.Color(0xaccddd);
-    const twilightColor = new THREE.Color(0xecae77);
-    const nightColor = new THREE.Color(0x07111e);
-    const sky = nightColor.clone().lerp(twilightColor, twilight)
-      .lerp(daylightColor, THREE.MathUtils.smoothstep(daylight, 0.25, 0.7));
-    if (this.weather === 'rain') sky.lerp(new THREE.Color(0x3a5262), 0.68);
-    if (this.weather === 'fog') sky.lerp(new THREE.Color(0xa4aba9), 0.34);
-    const atmosphericBlend = this.frameDt ? Math.min(1, this.frameDt * 2.6) : 0.05;
-    this.scene.background.lerp(sky, atmosphericBlend);
-    this.scene.fog.color.lerp(sky, atmosphericBlend);
-    const density = this.weather === 'fog' ? 0.009 :
-      this.weather === 'rain' ? 0.0023 : 0.0008;
-    this.scene.fog.density = THREE.MathUtils.lerp(this.scene.fog.density, density, atmosphericBlend);
-    this.sun.position.set(Math.cos(angle) * 180, Math.max(5, daylight * 200), Math.sin(angle) * 180);
-    this.sun.intensity = 0.045 + daylight * (this.weather === 'rain' ? 1.0 : 2.65);
-    this.ambient.intensity = 0.17 + daylight * (this.weather === 'rain' ? 0.55 : 1.1);
-    this.ambient.color.set(daylight < 0.18 ? 0x829cbd : 0xd5e8ff);
-    this.bulbMaterial.emissiveIntensity = daylight < 0.12 ? 1.9 : 0.06;
-    this.sun.color.set(daylight < 0.4 ? 0xffc184 : this.weather==='rain' ? 0xc4d0da : 0xffefdd);
-    this.sun.shadow.radius=this.weather==='rain'?3.0:daylight<.25?2.6:1.9;
-    this.stars.visible = daylight < 0.08 && this.weather === 'clear';
+    const state=evaluateAtmosphere(this.hour,this.weather);
+    this.atmosphere=state;
+    this.cinematicSky.update(state);
+    const blend=this.frameDt?Math.min(1,this.frameDt*3):1;
+    this.scene.fog.color.lerp(state.fogColor,blend);
+    this.scene.fog.density=THREE.MathUtils.lerp(
+      this.scene.fog.density,state.fogDensity,blend);
+    // Neutral midday, golden hour, cooler diffuse sun through rainy cloud.
+    this.sun.color.copy(state.sunColor);
+    this.sun.intensity=state.sunIntensity;
+    this.sun.castShadow=state.daylight>.065;
+    this.sun.position.copy(state.sunDirection).multiplyScalar(275)
+      .add(this.sun.target.position);
+    this.sun.shadow.radius=state.shadowRadius;
+    this.ambient.intensity=state.ambientIntensity;
+    this.ambient.color.copy(state.ambientColor);
+    this.ambient.groundColor.set(this.weather==='rain'?0x59616a:0x6c6758);
+    this.bulbMaterial.emissiveIntensity=state.daylight<.13?1.9:.06;
+    this.stars.visible=state.sunHeight<-.1&&this.weather==='clear';
   }
 
   update(dt, vehiclePosition, paused = false) {
@@ -428,10 +424,11 @@ export class DrivingWorld {
       this.sectors.update(vehiclePosition,performance.now()/1000);
       this.rain.position.set(vehiclePosition.x, vehiclePosition.y - 3, vehiclePosition.z);
       this.stars.position.set(vehiclePosition.x, 0, vehiclePosition.z);
-      this.sun.target.position.set(vehiclePosition.x, 0, vehiclePosition.z);
-      this.sun.position.x = vehiclePosition.x + Math.cos((this.hour - 6) / 24 * TAU) * 180;
-      this.sun.position.z = vehiclePosition.z + Math.sin((this.hour - 6) / 24 * TAU) * 180;
+      this.sun.target.position.set(vehiclePosition.x,vehiclePosition.y,vehiclePosition.z);
+      this.sun.position.copy(vehiclePosition).addScaledVector(
+        this.atmosphere.sunDirection,275);
       this.sun.target.updateMatrixWorld();
+      this.cinematicSky.mesh.position.copy(vehiclePosition);
       // Keep only a small number of nearby streetlights active.
       const nighttime = this.hour < 6.3 || this.hour > 18.9;
       for (const lamp of this.streetLights) {

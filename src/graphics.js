@@ -7,7 +7,7 @@ export class GraphicsPipeline {
   constructor(renderer, scene, camera, vehicle, world) {
     this.renderer=renderer;this.scene=scene;this.camera=camera;
     this.vehicle=vehicle;this.world=world;
-    this.quality='high';this.options={ao:true,reflections:true,antiAlias:'native',bloom:'off'};
+    this.quality='high';this.options={ao:true,reflections:true,antiAlias:'native',bloom:'low'};
     this.composer=null;this.ssao=null;this.taa=null;this.renderPass=null;
     this.fxaa=null;this.bloom=null;
     this.frameCount=0;this.reflectionEnabled=true;
@@ -33,8 +33,8 @@ export class GraphicsPipeline {
       this.composer.addPass(this.renderPass);
       this.ssao=new SSAOPass(this.scene,this.camera,
         Math.max(1,window.innerWidth),Math.max(1,window.innerHeight),16);
-      this.ssao.kernelRadius=10;
-      this.ssao.minDistance=.004;this.ssao.maxDistance=.11;
+      this.ssao.kernelRadius=7;
+      this.ssao.minDistance=.008;this.ssao.maxDistance=.14;
       this.composer.addPass(this.ssao);
 
       // One failure in an optional pass must not prevent other effects.
@@ -42,7 +42,7 @@ export class GraphicsPipeline {
         const [{UnrealBloomPass}] = await Promise.all([
           import('three/addons/postprocessing/UnrealBloomPass.js')
         ]);
-        this.bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.12,.36,.91);
+        this.bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.075,.29,.93);
         this.composer.addPass(this.bloom);
       }catch(e){console.warn('[CORSACARS] Bloom indisponível:',e);}
       try{
@@ -83,10 +83,11 @@ export class GraphicsPipeline {
     this.reflectionEnabled=advanced&&this.options.reflections!==false;
     if(this.ssao) this.ssao.enabled=advanced&&this.options.ao!==false;
     if(this.bloom){
-      this.bloom.enabled=this.options.bloom==='low'||this.options.bloom==='medium';
-      this.bloom.strength=this.options.bloom==='medium'?.25:.11;
-      this.bloom.radius=.4;
-      this.bloom.threshold=.93;
+      const amount=this.options.bloom==='medium'?.14:.055;
+      this.bloom.enabled=advanced&&['low','medium'].includes(this.options.bloom);
+      this.bloom.strength=amount;
+      this.bloom.radius=.28;
+      this.bloom.threshold=.95;
     }
     const taa=this.options.antiAlias==='taa'&&this.quality==='ultra';
     if(this.taa){
@@ -110,12 +111,11 @@ export class GraphicsPipeline {
   }
 
   update(dt,active=true){
-    const daytime=Math.max(0,Math.sin(((this.world.hour-6)/24)*Math.PI*2));
-    let targetExposure=.86+.3*daytime;
-    if(this.world.weather==='fog')targetExposure+=.08;
-    if(this.world.weather==='rain')targetExposure-=.08;
+    // ACES handles bright sun highlights, while exposure gently follows
+    // sunrise, midday and overcast rather than blowing out the road texture.
+    const targetExposure=this.world.atmosphere?.exposure??1.04;
     this.renderer.toneMappingExposure=THREE.MathUtils.damp(
-      this.renderer.toneMappingExposure,targetExposure,.8,dt);
+      this.renderer.toneMappingExposure,targetExposure,1.35,dt);
     this.indirect?.update(this.world.hour,this.world.weather,this.quality);
     this.frameCount++;
     const frequency=this.quality==='ultra'?25:65;

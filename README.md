@@ -338,3 +338,26 @@ Testar em `node tests/natural-assets.mjs` e `npm test`.
 As paredes dos edifícios urbanos também utilizam agora textura local de
 reboco/betão com relevo suave (bump) e tons menos saturados. A textura é
 partilhada entre edifícios do mesmo acabamento, em vez de criada por prédio.
+
+
+## Iluminação cinematográfica — sol e atmosfera 3D
+
+O sistema `src/cinematic-lighting.js` substitui o céu liso por uma
+atmosfera em shader com gradiente do zénite ao horizonte, **disco solar de
+ângulo realista** e halo suave dependente da altitude do sol. Amanhecer e
+pôr do sol passam a produzir tons quentes, o meio-dia é neutro e a chuva
+reduz a luz direta e arrefece as cores. A neblina combina com o horizonte
+para evitar uma linha de recorte.
+
+A iluminação do automóvel, vegetação, terreno e estradas usa o mesmo vetor
+do sol que o céu; as sombras ficam centradas no veículo, com frustum mais
+preciso e `normalBias` ajustado. Respeita a opção de sombras desligadas,
+as dimensões de shadow map e o perfil de qualidade. A conversão de cores é
+sRGB e o tonemapping ACESFilmic já existente é preservado, com exposição
+adaptada à hora do dia. SSAO e bloom são ajustados para manter contraste
+sem causar brilho artificial. Utilizadores com preferências antigas
+`bloom: off` mantêm essa escolha.
+
+A dispersão solar é uma aproximação atmosférica procedural em WebGL — não
+ray tracing. Os testes `tests/cinematic-lighting.mjs` verificam dia,
+crepúsculo, chuva, nevoeiro, noite, céu e sombras.

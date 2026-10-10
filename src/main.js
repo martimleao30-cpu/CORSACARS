@@ -43,7 +43,7 @@ const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.04;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(67, 1, 0.15, 1900);
@@ -364,13 +364,7 @@ function applyQuality() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8) * scales[settings.quality] * requestedScale);
   const shadowSetting=settings.shadowQuality || 'high';
   renderer.shadowMap.enabled = settings.quality !== 'low' && shadowSetting !== 'off';
-  const sizes={off:512,low:512,medium:1024,high:2048};
-  const size=sizes[shadowSetting]||1024;
-  if(world.sun.shadow.mapSize.x!==size){
-    world.sun.shadow.map?.dispose();
-    world.sun.shadow.map=null;
-    world.sun.shadow.mapSize.set(size,size);
-  }
+  world.configureShadows(settings.quality,shadowSetting);
   camera.far=Math.max(500,Math.min(1900,Number(settings.drawDistance)||1500));
   camera.updateProjectionMatrix();
   world.setVegetationDensity?.(Number(settings.vegetation)||1);

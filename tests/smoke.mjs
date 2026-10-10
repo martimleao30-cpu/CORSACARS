@@ -25,6 +25,8 @@ assert.match(main, /navigator\.getGamepads/);
 assert.match(main, /requestFullscreen/);
 assert.match(world, /new CANNON\.Trimesh/);
 assert.match(world, /updateAtmosphere/);
+assert.match(world,/new CinematicSky/);
+assert.match(world,/configureCinematicShadows/);
 assert.match(vehicle, /new CANNON\.RaycastVehicle/);
 assert.match(vehicle, /applyEngineForce/);
 assert.match(vehicle, /setBrake/);

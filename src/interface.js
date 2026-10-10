@@ -352,7 +352,7 @@ export class PremiumInterface {
     const cfg=this.api.settings;
     const defaults={
       renderScale:1,antiAlias:'native',shadowQuality:'high',
-      drawDistance:1500,vegetation:1,textureQuality:'low',bloom:'off',
+      drawDistance:1500,vegetation:1,textureQuality:'low',bloom:'low',
       displayMode:'windowed',engineVolume:.7,steeringSensitivity:1,
       gamepadDeadzone:.12,menuAccent:'#c9f173'
     };
