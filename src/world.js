@@ -425,7 +425,7 @@ export class DrivingWorld {
     this.roadEnvironment?.update(dt,paused);
     this.updateAtmosphere();
     if (vehiclePosition) {
-      this.sectors.update(vehiclePosition,performance.now()/1000);
+      this.sectors.update(vehiclePosition,performance.now()/1000,this.hour);
       this.rain.position.set(vehiclePosition.x, vehiclePosition.y - 3, vehiclePosition.z);
       this.stars.position.set(vehiclePosition.x, 0, vehiclePosition.z);
       this.sun.target.position.set(vehiclePosition.x,vehiclePosition.y,vehiclePosition.z);

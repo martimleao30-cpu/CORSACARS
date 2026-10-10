@@ -13,6 +13,7 @@ on:
       - "tests/updates.mjs"
       - "tests/road-signage.mjs"
       - "tests/road-environments.mjs"
+      - "tests/highway-services.mjs"
       - "tests/meadow-grass.mjs"
       - "tests/world-details.mjs"
       - ".github/workflows/windows-desktop.yml"

@@ -33,6 +33,7 @@ export class RoadsideClearance{
     this.segments=[];
     this.openings=[];
     this.junctions=[];
+    this.serviceZones=[];
     this.placed={plants:0,rejectedPlants:0,fences:0,rejectedFences:0};
     for(const road of network.roads){
       const points=road.points;
@@ -85,6 +86,13 @@ export class RoadsideClearance{
       this.openings.push({a,b,width:Math.max(6,region.kind==='service'?10:7),
         kind:region.kind});
       this.addJunction(a.x,a.z,region.kind==='service'?16:13);
+      if(region.kind==='service'){
+        this.serviceZones.push({
+          anchor:region.roadPoint,
+          tangent:region.tangent.clone().setY(0).normalize(),
+          outward:region.side.clone().setY(0).normalize()
+        });
+      }
     }
   }
   addJunction(x,z,radius){
@@ -123,9 +131,21 @@ export class RoadsideClearance{
     return this.openings.some(o=>
       segmentDistance(x,z,o.a,o.b).distance<o.width*.5+margin);
   }
+  insideService(x,z,margin=0){
+    return this.serviceZones.some(s=>{
+      const dx=x-s.anchor.x,dz=z-s.anchor.z;
+      const v=dx*s.outward.x+dz*s.outward.z;
+      const along=dx*s.tangent.x+dz*s.tangent.z;
+      return v>=15-margin&&v<=86+margin&&
+        Math.abs(along)<=55+margin;
+    });
+  }
   plantAllowed(x,z,kind='grass',radius=0){
     const margin={grass:2.8,flower:3.8,shrub:5.5,tree:9.5,
       roadsideShrub:3.5,rock:1.5}[kind]??4;
+    if(this.insideService(x,z,radius+1)){
+      this.placed.rejectedPlants++;return false;
+    }
     const boundary=this.roadProximity(x,z);
     if(boundary.road&&boundary.edge<margin+radius){
       this.placed.rejectedPlants++;return false;
@@ -140,7 +160,8 @@ export class RoadsideClearance{
   }
   fenceAllowed(x,z,road,margin=1){
     const other=this.roadProximity(x,z,road);
-    const blocked=(other.road&&other.edge<4.8+margin)||
+    const blocked=this.insideService(x,z,margin+1)||
+      (other.road&&other.edge<4.8+margin)||
       this.nearJunction(x,z,margin+1.3)||
       this.nearAccess(x,z,margin+2);
     if(blocked)this.placed.rejectedFences++;

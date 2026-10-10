@@ -47,7 +47,8 @@ export class RoadEnvironment {
       speedSigns:0,dangerSigns:0,
       highwayBarriers:0,mountainBarriers:0,roadSigns:0,stones:0,
       dirtRuts:0,physicalJunctions:network.connectors?.length||0,
-      woodFencePosts:0,woodFenceRails:0,metalRailPosts:0,skippedFenceSegments:0};
+      woodFencePosts:0,woodFenceRails:0,metalRailPosts:0,skippedFenceSegments:0,
+      motorwayServiceSigns:0};
     for(const road of network.roads){
       if(road.category==='urban')this.urban(road);
       if(road.category==='highway')this.highway(road);
@@ -409,6 +410,14 @@ export class RoadEnvironment {
     this.sign(road,clamp(Math.round(n*.78),3,n-3),-road.width*.5-6.5,'SAÍDA / EXIT','');
     this.speedSign(road,clamp(Math.round(n*.18),3,n-3),road.width*.5+4.8,120);
     this.dangerSign(road,clamp(Math.round(n*.72),3,n-3),-road.width*.5-4.8,'SAÍDA');
+    if(road.id==='autoestrada'){
+      // Destination signs belong on the same side as the actual rest area.
+      this.sign(road,clamp(Math.round(n*.36),3,n-3),
+        -(road.width*.5+8),'ÁREA DE SERVIÇO','500 m');
+      this.sign(road,clamp(Math.round(n*.45),3,n-3),
+        -(road.width*.5+7.6),'COMBUSTÍVEL / CAFÉ','');
+      this.statistics.motorwayServiceSigns+=2;
+    }
   }
 
   mountain(road){

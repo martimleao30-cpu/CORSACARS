@@ -401,3 +401,24 @@ Teste: `node tests/roadside-clearance.mjs` e `npm run test:roads`.
   partilha uma única geometria e um único material de relva.
 - Testes de geometria, paleta, distribuição, máscaras de circulação e vento em
   `tests/meadow-grass.mjs` e `tests/world-details.mjs`.
+
+
+## Área de Serviço Vale — Autoestrada A1
+
+O setor dinâmico `service` foi substituído por uma infraestrutura orientada
+pela direção da autoestrada, sem marcas comerciais: quatro bombas com visores,
+mangueiras, ilhas e proteções; cobertura metálica com quatro pilares,
+iluminação LED; loja/café com montras, porta e entrada coberta; dez lugares
+pintados, dois acessos revestidos à autoestrada, passeio, separadores, zona
+técnica, bancos e sinalização de entrada e de serviços a 500 m.
+
+A praça, a entrada e a saída têm superfícies 3D conformadas com o relevo e
+colisões por malha Cannon. Os elementos sólidos essenciais também têm
+colisões. A iluminação real só é ligada à noite e quando o carro se aproxima.
+A estação só é carregada quando o jogador se aproxima do setor e descarrega
+corpos físicos, texturas e materiais quando se afasta. A máscara viária reserva
+as dimensões da praça para impedir vegetação no parque e nas bombas.
+
+Ficheiros: `src/highway-services.js`, `src/world-sectors.js`,
+`src/road-environments.js` e `src/roadside-clearance.js`.
+Testes: `node tests/highway-services.mjs` e `npm run test:roads`.

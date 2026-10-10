@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {UrbanFacadeBatch} from './natural-assets.js';
+import {buildHighwayService} from './highway-services.js';
 
 // A first region of reachable named locations. The static geometry and its
 // rigid-body colliders enter/leave memory with the nearest sector, not at boot.
@@ -52,7 +53,7 @@ export class WorldSectors {
       const xy=p.clone().addScaledVector(side,road.width*.5+15);
       xy.y=groundHeight(xy.x,xy.z);
       this.regions.push({...definition,point:xy,roadPoint:p.clone(),
-        tangent,side});
+        tangent,side,roadWidth:road.width});
     }
   }
 
@@ -62,35 +63,34 @@ export class WorldSectors {
     const bodies=[];
     const base=region.point;
     const x=base.x,z=base.z,y=this.groundHeight(x,z);
-    // Access strip joins the side of the road to this real parking apron.
-    // Ground mesh collision already exists everywhere beneath the driveway.
-    const direction=region.side.clone().normalize();
-    const length=17;
-    const access=new THREE.Mesh(new THREE.PlaneGeometry(8,length),
-      mat(region.kind==='farm'?0x695945:0x646968,.93));
-    access.rotation.x=-Math.PI/2;
-    access.rotation.z=Math.atan2(direction.x,direction.z);
-    access.position.set((base.x+region.roadPoint.x)*.5,
-      this.groundHeight((base.x+region.roadPoint.x)*.5,
-        (base.z+region.roadPoint.z)*.5)+.13,
-      (base.z+region.roadPoint.z)*.5);
-    access.receiveShadow=true;group.add(access);
-    const apron=new THREE.Mesh(new THREE.PlaneGeometry(28,26),
-      mat(region.kind==='farm'?0x797055:0x686d70,.91));
-    apron.rotation.x=-Math.PI/2;
-    apron.position.set(x,y+.14,z);apron.receiveShadow=true;group.add(apron);
-    // Functional colliders prevent driving straight through the shop walls.
     if(region.kind==='service'){
-      box(group,this.physics,bodies,x+12,y,z+7,15,4.2,9,CONCRETE);
-      box(group,this.physics,bodies,x+12,y+4.2,z+7,17,.6,10,ROOF,false);
-      for(const side of [-1,1]){
-        box(group,this.physics,bodies,x+side*5,y,z,1.2,1.4,.85,BLUE);
-      }
-      box(group,this.physics,bodies,x,y+3,z,14,.38,9,ROOF,false);
-      for(const offset of [-6,6]){
-        box(group,this.physics,bodies,x+offset,y,z-3,.22,3,.25,STEEL,false);
-      }
-    }else if(region.kind==='town'){
+      // Streaming, collider-backed service station with shop, pumps, driveways,
+      // canopy and real (nearby-only) lights.
+      group.userData.service=buildHighwayService(
+        group,this.physics,bodies,region,this.groundHeight);
+    }else{
+      // The other small POIs retain their existing approach and apron.
+      // Access strip joins the side of the road to this real parking apron.
+      // Ground mesh collision already exists everywhere beneath the driveway.
+      const direction=region.side.clone().normalize();
+      const length=17;
+      const access=new THREE.Mesh(new THREE.PlaneGeometry(8,length),
+        mat(region.kind==='farm'?0x695945:0x646968,.93));
+      access.rotation.x=-Math.PI/2;
+      access.rotation.z=Math.atan2(direction.x,direction.z);
+      access.position.set((base.x+region.roadPoint.x)*.5,
+        this.groundHeight((base.x+region.roadPoint.x)*.5,
+          (base.z+region.roadPoint.z)*.5)+.13,
+        (base.z+region.roadPoint.z)*.5);
+      access.receiveShadow=true;group.add(access);
+      const apron=new THREE.Mesh(new THREE.PlaneGeometry(28,26),
+        mat(region.kind==='farm'?0x797055:0x686d70,.91));
+      apron.rotation.x=-Math.PI/2;
+      apron.position.set(x,y+.14,z);apron.receiveShadow=true;group.add(apron);
+  
+    // Functional colliders prevent driving straight through the shop walls.
+    if(region.kind==='town'){
+
       const facades=new UrbanFacadeBatch(group);
       for(const [index,[dx,dz,w,h]] of [[-10,-11,8,7],[10,-12,7,10],[14,8,8,6]].entries()){
         box(group,this.physics,bodies,x+dx,y,z+dz,w,h,6,
@@ -119,11 +119,12 @@ export class WorldSectors {
         box(group,this.physics,bodies,x-10,y,z+dz,.2,1.05,3,STEEL,false);
       }
     }
-    // Signpost with an actual world location.
+    // Small unnamed POIs continue to use their own simple roadside markers.
     box(group,this.physics,bodies,x-9,y,z+10,.15,2.4,.14,STEEL,false);
     box(group,this.physics,bodies,x-9,y+2.2,z+10,4,.75,.15,
       region.kind==='farm'?GREEN:BLUE,false);
     box(group,this.physics,bodies,x+8,y+.02,z-5,6,.04,.15,MARKING,false);
+    }
     this.scene.add(group);
     this.active.set(region.id,{group,bodies});
   }
@@ -139,11 +140,12 @@ export class WorldSectors {
       if(obj.isMesh&&!facadeObjects.has(obj))obj.geometry?.dispose();
     });
     record.group.userData.facades?.dispose();
+    record.group.userData.service?.root.userData.serviceDispose?.();
     for(const body of record.bodies)this.physics.removeBody(body);
     this.active.delete(id);
   }
 
-  update(carPosition,elapsed=0){
+  update(carPosition,elapsed=0,hour=14){
     if(elapsed-this.lastUpdate<.85)return;
     this.lastUpdate=elapsed;
     const nearSq=470*470,farSq=600*600;
@@ -151,6 +153,12 @@ export class WorldSectors {
       const dist=region.point.distanceToSquared(carPosition);
       if(dist<nearSq&&!this.active.has(region.id))this.load(region);
       if(dist>farSq&&this.active.has(region.id))this.unload(region.id);
+      const service=this.active.get(region.id)?.group.userData.service;
+      if(service){
+        const on=hour<6.4||hour>18.7;
+        for(const lamp of service.lights)lamp.intensity=
+          on&&dist<135*135?(lamp.distance>24?12:16):0;
+      }
     }
   }
 
