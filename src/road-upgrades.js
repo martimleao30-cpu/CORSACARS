@@ -235,6 +235,17 @@ export function addRoadShoulders(scene,samples,width,terrainY,material) {
   return shoulders;
 }
 
+// Gentle cut/fill of the actual visual + physics heightfield.
+// The carriageway retains at least 14cm of separation from the soil.
+export function roadsideTerrainDelta(distance,width){
+  const edge=Math.max(0,distance-width*.5);
+  const ease=t=>{const x=Math.max(0,Math.min(1,t));return x*x*(3-2*x);};
+  if(edge<=1.4)return .065;
+  if(edge<=4.5)return .065-.195*ease((edge-1.4)/3.1);
+  if(edge<=9.5)return -.13*(1-ease((edge-4.5)/5));
+  return 0;
+}
+
 // Natural roadside swales and cut/fill slopes. A draped five-band ribbon
 // follows the road and reconnects to the real terrain at both outside edges.
 // No separate terrain collider or invisible vertical concrete wall is added.
