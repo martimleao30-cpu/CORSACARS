@@ -643,7 +643,7 @@ export class PremiumInterface {
     const p=this.editorOpen?this.draft:this.prefs;
     const speed=p.unit==='mph'?data.speed/1.609344:data.speed;
     $('speedValue').textContent=String(Math.max(0,Math.round(speed)));
-    document.querySelector('.speed-row>span').textContent=p.unit==='mph'?'MPH':'KM/H';
+    (this.speedUnitLabel??=document.querySelector('.speed-row>span')).textContent=p.unit==='mph'?'MPH':'KM/H';
     $('rpmValue').textContent=Math.round(data.rpm)+' RPM';
     $('rpmBar').style.width=Math.max(0,Math.min(100,data.rpm/6850*100))+'%';
     $('gearValue').textContent=data.gear;
