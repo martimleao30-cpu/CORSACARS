@@ -15,6 +15,23 @@ assert.ok(system.statistics.riverSections>400);
 assert.ok(system.statistics.riverLengthM>2000);
 assert.ok(system.statistics.boulders>20);
 assert.ok(system.waterMesh.material.isShaderMaterial);
+assert.ok(system.waterfallMesh.material.isShaderMaterial,
+  'The waterfall must be real animated geometry, not a decorative image');
+assert.equal(system.statistics.waterfallDropM,3.7);
+assert.ok(system.waterfallMesh.geometry.index.count>1200,
+  'Waterfall needs detailed flowing water geometry');
+assert.ok(system.bankMesh.geometry.index.count>1400,
+  'Both physical riverbanks must be joined with the watercourse');
+const upper=system.points[system.waterfall.start];
+const lower=system.points[system.waterfall.end];
+assert.ok(upper.y-lower.y>2.9,
+  'Waterfall must have an actual altitude drop in the river profile');
+for(const i of [2,40,101,205,system.points.length-3]){
+  const a=system.points[Math.max(0,i-1)],b=system.points[Math.min(i+1,system.points.length-1)];
+  const dot=(b.x-a.x)*system.points[i].nx+(b.z-a.z)*system.points[i].nz;
+  assert.ok(Math.abs(dot)<1e-5,
+    'Both riverbanks must be perpendicular to arc-length river flow');
+}
 const flows=system.waterMesh.geometry.getAttribute('flowSpeed');
 assert.ok(flows?.count>3000,'Every flowing water vertex needs current velocity');
 assert.ok(Array.from(flows.array).every(speed=>speed>=.7&&speed<=2.31),
@@ -65,10 +82,14 @@ for(let i=0;i<attrib.count;i++){
 }
 assert.ok(lowered.length>15,'Channel should be visibly lower than the valley');
 const before=system.waterMaterial.uniforms.uTime.value;
+const waterfallBefore=system.waterfallMaterial.uniforms.uTime.value;
 system.update(.05,false,true,new THREE.Vector3(.8,.4,.2));
 assert.ok(system.waterMaterial.uniforms.uTime.value>before,
   'A flowing river must animate its currents');
 assert.equal(system.waterMaterial.uniforms.uRain.value,1);
+assert.ok(system.waterfallMaterial.uniforms.uTime.value>waterfallBefore,
+  'Waterfall must animate with the flowing river');
+assert.equal(system.waterfallFoamMaterial.uniforms.uRain.value,1);
 const after=system.waterMaterial.uniforms.uTime.value;
 system.update(.1,true,false);
 assert.equal(system.waterMaterial.uniforms.uTime.value,after,
