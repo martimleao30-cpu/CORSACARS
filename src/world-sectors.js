@@ -135,12 +135,21 @@ export class WorldSectors {
     this.scene.remove(record.group);
     // Batched façade geometry/materials are disposed together; legacy POI
     // mesh geometries stay independent and continue to be freed on unload.
+    const service=record.group.userData.service;
     const facadeObjects=new Set(record.group.userData.facades?.meshes||[]);
+    const reusable=new Set([STEEL,CONCRETE,GLASS,MARKING,BLUE,RED,ROOF,GREEN]);
+    const uniqueGeometry=new Set(),uniqueMaterials=new Set();
     record.group.traverse(obj=>{
-      if(obj.isMesh&&!facadeObjects.has(obj))obj.geometry?.dispose();
+      if(!obj.isMesh||facadeObjects.has(obj))return;
+      if(obj.geometry)uniqueGeometry.add(obj.geometry);
+      if(service)return; // service-specific materials belong to its disposer
+      for(const material of Array.isArray(obj.material)?obj.material:[obj.material])
+        if(material&&!reusable.has(material))uniqueMaterials.add(material);
     });
+    for(const geometry of uniqueGeometry)geometry.dispose();
+    for(const material of uniqueMaterials)material.dispose();
     record.group.userData.facades?.dispose();
-    record.group.userData.service?.root.userData.serviceDispose?.();
+    service?.root.userData.serviceDispose?.();
     for(const body of record.bodies)this.physics.removeBody(body);
     this.active.delete(id);
   }

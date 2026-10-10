@@ -5,6 +5,25 @@ const PROFILES_KEY = 'corsacars.hud.profiles.v1';
 const pages = ['startScreen','pauseScreen','settingsScreen','garageScreen',
   'hudEditorScreen','mapScreen','creditsScreen'];
 const validStyle = ['glass','digital','analog','racing','minimal','custom'];
+const DEFAULT_BINDINGS=Object.freeze({
+  accelerate:'w',brake:'s',left:'a',right:'d',handbrake:' ',camera:'c'
+});
+const RESERVED_KEYS=new Set(['q','e','m','r','n','k','x','z','f','tab']);
+export function safeBindings(saved){
+  const source=saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{};
+  const result={},used=new Set();
+  for(const [action,fallback] of Object.entries(DEFAULT_BINDINGS)){
+    const stored=source[action];
+    const valid=typeof stored==='string'&&/^[a-z0-9 ]$/.test(stored)&&
+      !RESERVED_KEYS.has(stored)&&!used.has(stored);
+    let key=valid?stored:fallback;
+    if(used.has(key))
+      key=[fallback,...Object.values(DEFAULT_BINDINGS),'t','y','u','i','o','p']
+        .find(x=>!used.has(x)&&!RESERVED_KEYS.has(x));
+    result[action]=key;used.add(key);
+  }
+  return result;
+}
 const defaultHud = {
   style:'glass',unit:'kmh',color:'#d2b493',scale:1,opacity:0.34,
   showRpm:true,showGear:true,background:true,animations:true,
@@ -520,13 +539,13 @@ export class PremiumInterface {
     const defaults={
       accelerate:'w',brake:'s',left:'a',right:'d',handbrake:' ',camera:'c'
     };
-    cfg.bindings={...defaults,...(cfg.bindings||{})};
+    cfg.bindings=safeBindings(cfg.bindings);
     const names={
       accelerate:'ACELERAR',brake:'TRAVAR',left:'ESQUERDA',
       right:'DIREITA',handbrake:'TRAVÃO MÃO',camera:'CÂMARA'
     };
     let recording=null;
-    const display=k=>k===' '?'ESPAÇO':k.toUpperCase();
+    const display=k=>k===' '?'ESPAÇO':String(k).toUpperCase();
     const refresh=()=>{
       for(const button of document.querySelectorAll('[data-bind]')){
         const k=button.dataset.bind;
@@ -539,7 +558,9 @@ export class PremiumInterface {
       ];
       entries.forEach(([key,label],i)=>{
         if(!hintElements[i])return;
-        hintElements[i].innerHTML='<kbd>'+display(cfg.bindings[key])+'</kbd> '+label;
+        const kbd=document.createElement('kbd');
+        kbd.textContent=display(cfg.bindings[key]);
+        hintElements[i].replaceChildren(kbd,document.createTextNode(' '+label));
       });
     };
     for(const button of document.querySelectorAll('[data-bind]')){
