@@ -464,6 +464,6 @@ luminoso como na referência enviada. No menu de pausa → MAPA é possível
 escolher um destino (vila, área de serviço, quinta, miradouro, pedreira).
 O GPS calcula uma rota curta por uma rede de caminhos ligada nos
 cruzamentos ao mesmo nível e reajusta a rota quando o automóvel muda de via.
-A imagem transparente `assets/ui/gps-reference.svg` mantém o estilo do
+A imagem original enviada, convertida para WebP com transparência em `assets/ui/gps-reference.webp`, mantém o estilo do
 exemplo em modo de exploração sem rota. Sem serviços externos ou localização
 pessoal. Testes: `node tests/gps-navigation.mjs`.

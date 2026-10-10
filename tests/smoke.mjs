@@ -73,5 +73,8 @@ assert.match(vehicle,/dashLight/);
 assert.match(premium,/style-glass/);
 assert.match(premium,/new NavigationHUD/);
 assert.match(premium,/gpsDestination/);
+const gpsAsset=readFileSync(new URL('../assets/ui/gps-reference.webp',import.meta.url));
+assert.ok(gpsAsset.length>1000,'GPS transparent asset must be included in web and desktop builds');
+assert.equal(gpsAsset.toString('ascii',0,4),'RIFF');
 assert.match(premiumCss,/style-glass/);
 console.log('PASS: vehicle, road, 3D vegetation, wet weather, clouds and translucent HUD integrations.');
