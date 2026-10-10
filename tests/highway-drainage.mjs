@@ -40,6 +40,10 @@ for(const channel of drainage.channels){
       'Concrete drainage must stop around bridge/junction zones');
   }
   assert.equal(channel.water.visible,false,'Dry channels show no flowing water');
+  assert.ok(channel.runoff.geometry.index.count>0,
+    'Runoff from wet shoulders must be visibly channeled into grates');
+  assert.equal(channel.runoff.visible,false,
+    'Rain rivulets must remain invisible when the asphalt is dry');
   assert.equal(channel.water.geometry.index.count,
     channel.segmentCount*6/7,
     'One moving water strip accompanies seven concrete profile strips');
@@ -50,12 +54,15 @@ for(let i=0;i<1000;i++)drainage.update(.05,1,1);
 assert.ok(drainage.level>.35,'Rain feeds a growing flow through gutters');
 assert.ok(drainage.channels.every(c=>c.water.visible),
   'Rain-fed water flow must be visible on both sides');
+assert.ok(drainage.channels.every(c=>c.runoff.visible),
+  'Rain must run across the verge into real drainage inlets');
 const paused=drainage.level;
 drainage.update(1,0,0,true);
 assert.equal(drainage.level,paused,'Paused runoff must not change');
 for(let i=0;i<4500;i++)drainage.update(.07,0,0);
 assert.ok(drainage.level<.025,'Drainage must empty after rain stops');
 assert.ok(drainage.channels.every(c=>!c.water.visible));
+assert.ok(drainage.channels.every(c=>!c.runoff.visible));
 const bodies=physics.bodies.length;
 drainage.dispose();
 assert.ok(!scene.children.includes(drainage.group));
