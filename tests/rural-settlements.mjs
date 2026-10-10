@@ -26,6 +26,8 @@ for(const kind of ['farmstead','hamlet']){
     assert.ok(result.root.children.some(obj=>obj.name==='Trator agrícola · carroçaria'));
     assert.equal(result.stats.cows,3);
     assert.equal(result.stats.sheep,5);
+    assert.equal(result.stats.animalColliders,8,
+      'Livestock should have collision bodies, not ghost animals');
     assert.ok(result.stats.swallows>=5);
     assert.equal(result.root.children.filter(obj=>
       obj.name==='Vaca de quinta · gado').length,3);
@@ -47,6 +49,7 @@ for(const kind of ['farmstead','hamlet']){
   }else{
     assert.ok(result.root.children.some(obj=>obj.name==='Largo da aldeia · calçada'));
     assert.equal(result.stats.cows,0);
+    assert.equal(result.stats.animalColliders,0);
     assert.ok(result.stats.swallows>=5);
   }
 }
