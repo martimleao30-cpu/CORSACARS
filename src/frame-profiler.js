@@ -10,7 +10,7 @@ export class FrameProfiler{
     this.query=null;
     this.collecting=false;
     this.frame=0;
-    this.samples={cpu:[],physics:[],world:[],effects:[],render:[],gpu:[]};
+    this.samples={frame:[],cpu:[],physics:[],world:[],effects:[],render:[],gpu:[]};
     this.lastGpuMs=null;
     this.recordings=0;
   }
@@ -60,8 +60,9 @@ export class FrameProfiler{
     list.push(ms);
     if(list.length>80)list.shift();
   }
-  record({cpu,physics,world,effects,render}){
+  record({frame,cpu,physics,world,effects,render}){
     this.recordings++;
+    this.push('frame',frame);
     this.push('cpu',cpu);this.push('physics',physics);
     this.push('world',world);this.push('effects',effects);
     this.push('render',render);
@@ -72,7 +73,12 @@ export class FrameProfiler{
     const mem=gl.memory||{},render=gl.render||{};
     const heap=typeof performance!=='undefined'&&performance.memory
       ?performance.memory.usedJSHeapSize/(1024*1024):null;
+    const sorted=this.samples.frame.slice().sort((a,b)=>a-b);
+    const p95Frame=sorted.length
+      ?sorted[Math.ceil(sorted.length*.95)-1]:0;
     const result={
+      frame:average(this.samples.frame),
+      p95Frame,
       cpu:average(this.samples.cpu),
       physics:average(this.samples.physics),
       world:average(this.samples.world),
