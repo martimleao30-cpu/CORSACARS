@@ -117,6 +117,20 @@ export function setupPCEntry(){
     $('startScreen')?.querySelector('#startButton')?.focus({preventScroll:true});
   };
   continueButton.addEventListener('click',enter);
+  // The introductory gate must also work with a PC controller's A / X button.
+  // Poll only while visible; the normal menu handles the controller afterwards.
+  if(typeof window.requestAnimationFrame==='function'){
+    let previousPress=false;
+    const pollPad=()=>{
+      if(entered)return;
+      const pad=navigator.getGamepads?.()?.find(x=>x?.connected&&x.mapping==='standard');
+      const pressed=Boolean(pad?.buttons[0]?.pressed);
+      if(pressed&&!previousPress){enter();return;}
+      previousPress=pressed;
+      window.requestAnimationFrame(pollPad);
+    };
+    window.requestAnimationFrame(pollPad);
+  }
   document.addEventListener('keydown',event=>{
     if(entered||!['Enter','Space'].includes(event.code)||event.repeat)return;
     if(event.target?.closest('#entryCheckUpdate,#entryUpdateAction'))return;

@@ -16,6 +16,8 @@ on:
       - "tests/highway-services.mjs"
       - "tests/meadow-grass.mjs"
       - "tests/world-details.mjs"
+      - "tests/pc-entry.mjs"
+      - "tests/browser.mjs"
       - "tests/gps-navigation.mjs"
       - "tests/wild-groundcover.mjs"
       - "tests/regional-railway.mjs"
