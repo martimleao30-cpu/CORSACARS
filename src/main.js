@@ -11,6 +11,7 @@ import { PremiumInterface } from './interface.js';
 import {setupPCEntry} from './pc-entry.js';
 import { RoadDust } from './road-dust.js';
 import {preloadDrivingWorld} from './world-preload.js';
+import {WindshieldWeather} from './windshield-weather.js';
 import './desktop-updates.js';
 
 const $ = (id) => document.getElementById(id);
@@ -63,6 +64,7 @@ const world = new DrivingWorld(scene, physics, settings.quality);
 const car = new PlayerVehicle(physics, scene, world.spawn);
 car.setCarModel(settings.selectedVehicle||'coupe');
 const roadDust = new RoadDust(scene, settings.quality);
+const windshieldWeather=new WindshieldWeather(document.body);
 const graphics = new GraphicsPipeline(renderer, scene, camera, car, world);
 graphics.setQuality(settings.quality, settings);
 const graphicsReady=graphics.initialize();
@@ -180,11 +182,11 @@ window.addEventListener('keydown', event => {
   if (key === 'e') car.shift(1);
   if (key === 'n') { world.hour = world.hour > 7 && world.hour < 19 ? 23 : 14; toast('HORA ALTERADA'); }
   if (key === 'k') {
-    const choices = ['clear', 'rain', 'fog'];
+    const choices = ['clear', 'cloudy', 'fog', 'rain', 'storm'];
     const next = choices[(choices.indexOf(world.weather) + 1) % choices.length];
     world.setWeather(next);
     $('weatherSelect').value = next;
-    toast('CLIMA: ' + { clear: 'LIMPO', rain: 'CHUVA', fog: 'NEVOEIRO' }[next]);
+    toast('CLIMA: ' + { clear: 'LIMPO', cloudy:'NUBLADO', fog: 'NEVOEIRO', rain: 'CHUVA', storm:'TEMPESTADE' }[next]);
   }
 });
 window.addEventListener('keyup', event => keys.delete(event.key.toLowerCase()));
@@ -663,10 +665,12 @@ function frame(now) {
     }
     gamepadLast.menu = pressed;
   }
-  car.updateVisuals(world.hour >= 19 || world.hour <= 6 || world.weather !== 'clear');
+  car.updateVisuals(world.hour >= 19 || world.hour <= 6 ||
+    world.weatherState.rain>.34||world.weatherState.fog>.48);
   const worldCpuStart=performance.now();
   world.update(dt, car.getPosition(), !play);
   updateCamera(dt);
+  windshieldWeather.update(dt,world.weatherState,car.speedKmh,cameraMode,play);
   world.updateForest(camera,dt,!play);
   roadDust.update(dt,car,world,camera,play);
   car.setVisualDetail(camera.position);
@@ -683,7 +687,7 @@ function frame(now) {
   if(nearby)poiHint.textContent='F · '+nearby.name.toUpperCase()+' · INTERAGIR';
   const hours = Math.floor(world.hour), mins = Math.floor(world.hour % 1 * 60);
   $('worldTime').textContent = String(hours).padStart(2, '0') + ':' + String(mins).padStart(2, '0');
-  $('weatherLabel').textContent = { clear: 'CÉU LIMPO', rain: 'CHUVA', fog: 'NEVOEIRO' }[world.weather];
+  $('weatherLabel').textContent = { clear: 'CÉU LIMPO', cloudy:'NUBLADO', fog:'NEVOEIRO', rain:'CHUVA', storm:'TEMPESTADE' }[world.weather];
   engine.update(telemetry.rpm, controls.accelerate, !play);
   if (notifyUntil && now > notifyUntil) {
     $('toast').classList.add('hidden');
