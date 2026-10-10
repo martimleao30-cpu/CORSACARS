@@ -84,6 +84,7 @@ export class RoadNetwork {
   constructor(scene,physics,terrainY,ringPoints,ringWidth,quality='high') {
     this.scene=scene;this.physics=physics;this.terrainY=terrainY;
     this.quality=quality;
+    this.wetness=0;
     this.roads=[{id:'circular',name:'Estrada Circular',surface:'dry',
       width:ringWidth,points:ringPoints.map(p=>p.center)}];
     this.cells=new Map();
@@ -236,6 +237,7 @@ export class RoadNetwork {
 
   setWetness(wetness) {
     const w=Math.max(0,Math.min(1,wetness));
+    this.wetness=w;
     for(const material of this.materials.values()){
       if(!material.userData.roadAsphalt)continue;
       material.clearcoat=.06+.8*w;
@@ -277,6 +279,9 @@ export class RoadNetwork {
   }
 
   query(x,z,weather='clear'){
+    // The road remains slippery after the rain stops, while puddles dry.
+    // Visible asphalt wetness and tyre grip must agree.
+    const slippery=weather==='rain'||this.wetness>=.45;
     const key=Math.floor(x/this.cellSize)+','+Math.floor(z/this.cellSize);
     const candidates=this.cells.get(key)||[];
     let road=null, min=Infinity, closestSegment=null;
@@ -290,7 +295,7 @@ export class RoadNetwork {
       const v=-dx*j.uz+dz*j.ux;
       if(Math.abs(u)<=j.halfU&&Math.abs(v)<=j.primary.width*.5){
         const road=j.primary;
-        let type=road.surface==='dry'&&weather==='rain'?'wet':road.surface;
+        let type=road.surface==='dry'&&slippery?'wet':road.surface;
         return {surface:type,road:road.name,distance:Math.abs(v)};
       }
     }
@@ -308,7 +313,7 @@ export class RoadNetwork {
       const inside=bay.road.width*.5-.16;
       const outside=inside+.12+3.65*smooth;
       if(lateral>=inside&&lateral<=outside){
-        return {surface:weather==='rain'?'wet':'dry',road:bay.road.name,
+        return {surface:slippery?'wet':'dry',road:bay.road.name,
           distance:lateral,busBay:true};
       }
     }
@@ -319,7 +324,7 @@ export class RoadNetwork {
     if(!road)return {surface:'grass',road:null,distance:Infinity};
     const distance=Math.sqrt(min);
     if(distance<=road.width*.5+.65){
-      let type=(road.surface==='dry'&&weather==='rain')?'wet':road.surface;
+      let type=(road.surface==='dry'&&slippery)?'wet':road.surface;
       if(road.id==='provas'){
         const u=closestSegment.index/(road.points.length-1);
         if(u>.50&&u<.59)type='dirt';
