@@ -167,7 +167,7 @@ export class UrbanFacadeBatch{
           const px=face.front?x+Math.cos(face.rot)*side:
             x+Math.sin(face.rot)*face.depth;
           const pz=face.front?z+Math.cos(face.rot)*face.depth:
-            z+Math.cos(face.rot)*side;
+            z-Math.sin(face.rot)*side;
           const push=.13;
           const nx=Math.sin(face.rot),nz=Math.cos(face.rot);
           const ww=Math.min(1.45,face.width/face.columns*.6),hh=Math.min(2.05,floorSize*.64);

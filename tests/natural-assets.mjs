@@ -25,6 +25,9 @@ const facades=new UrbanFacadeBatch(scene);
 facades.building({x:0,z:0,baseY:0,width:17,height:17,depth:11,seed:17});
 facades.building({x:24,z:0,baseY:0,width:12,height:10,depth:13,seed:18});
 facades.finalize();
+const sideWindows=facades.pending.pane.filter(p=>Math.abs(Math.abs(p.rotation)-Math.PI/2)<.02);
+assert.ok(new Set(sideWindows.map(p=>p.z.toFixed(3))).size>=3,
+  'Building side façades must spread individual windows along Z, not stack them');
 assert.equal(facades.buildingCount,2);
 assert.ok(facades.windowCount>20,'Buildings need separate framed window panels');
 assert.equal(facades.meshes.length,5,'Facades should use five instanced materials');
