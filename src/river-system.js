@@ -374,6 +374,86 @@ export class RiverSystem {
       lower.z+tangent.z*4);
     pool.rotation.y=Math.atan2(tangent.x,tangent.z);
     pool.renderOrder=3;this.group.add(pool);this.waterfallPool=pool;
+    this.waterfallPosition=new THREE.Vector3(lower.x,lower.y,lower.z);
+    // The spray is animated entirely on GPU: no per-frame particles, mesh
+    // creation, or physics bodies. Mist rises and disperses at the impact.
+    const random=seedRandom(20261011);
+    const particleCount=this.quality==='low'?85:
+      this.quality==='medium'?145:this.quality==='ultra'?370:240;
+    const mistPositions=[],phases=[],speeds=[];
+    for(let i=0;i<particleCount;i++){
+      const side=(random()*2-1)*halfWidth*.88;
+      mistPositions.push(lower.x+lower.nx*side+(random()-.5)*2.6,
+        lower.y+.22+random()*.65,
+        lower.z+lower.nz*side+(random()-.5)*2.6);
+      phases.push(random());
+      speeds.push(.24+random()*.55);
+    }
+    const sprayGeo=new THREE.BufferGeometry();
+    sprayGeo.setAttribute('position',
+      new THREE.Float32BufferAttribute(mistPositions,3));
+    sprayGeo.setAttribute('phase',new THREE.Float32BufferAttribute(phases,1));
+    sprayGeo.setAttribute('speed',new THREE.Float32BufferAttribute(speeds,1));
+    sprayGeo.computeBoundingSphere();this.geometries.push(sprayGeo);
+    const sprayMat=new THREE.ShaderMaterial({
+      uniforms:{uTime:{value:0},uRain:{value:0}},
+      vertexShader:`
+      uniform float uTime;attribute float phase;attribute float speed;
+      varying float vOpacity;
+      void main(){
+        float rise=fract(phase+uTime*speed);
+        vec3 p=position;
+        p.y+=rise*3.1;
+        p.x+=sin(uTime*.8+phase*13.0)*rise*1.4;
+        p.z+=cos(uTime*.6+phase*9.0)*rise*1.2;
+        vec4 view=modelViewMatrix*vec4(p,1.0);
+        gl_Position=projectionMatrix*view;
+        gl_PointSize=clamp(9.0*(95.0/max(1.0,-view.z)),1.0,26.0);
+        vOpacity=sin(rise*3.14159)*.53;
+      }`,
+      fragmentShader:`
+      varying float vOpacity;uniform float uRain;
+      void main(){
+        float r=length(gl_PointCoord-.5);
+        float a=(1.0-smoothstep(.14,.5,r))*vOpacity*(.8+uRain*.2);
+        if(a<.01)discard;
+        gl_FragColor=vec4(.82,.92,.93,a);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+      depthWrite:false,transparent:true,blending:THREE.NormalBlending
+    });
+    this.materials.push(sprayMat);this.waterfallSprayMaterial=sprayMat;
+    this.waterfallSpray=new THREE.Points(sprayGeo,sprayMat);
+    this.waterfallSpray.name='Cascata · névoa dinâmica da queda de água';
+    this.waterfallSpray.renderOrder=4;
+    this.group.add(this.waterfallSpray);
+    const stoneGeo=new THREE.IcosahedronGeometry(1,2);
+    const stoneMat=new THREE.MeshStandardMaterial({
+      color:0x687068,roughness:.95,flatShading:false,metalness:0
+    });
+    this.geometries.push(stoneGeo);this.materials.push(stoneMat);
+    const stones=new THREE.InstancedMesh(stoneGeo,stoneMat,36);
+    const dummy=new THREE.Object3D();
+    for(let i=0;i<36;i++){
+      const side=i%2===0?1:-1;
+      const t=random();
+      const p=this.points[Math.round(THREE.MathUtils.lerp(start-4,end+5,t))];
+      const scale=.8+random()*2.4;
+      const bank=p.width+random()*3.5;
+      dummy.position.set(p.x+p.nx*bank*side,p.y+scale*.09,
+        p.z+p.nz*bank*side);
+      dummy.rotation.set(random()*.8,random()*6.28,random()*.8);
+      dummy.scale.set(scale*(.8+random()*.5),scale*.82,scale*(.65+random()*.7));
+      dummy.updateMatrix();stones.setMatrixAt(i,dummy.matrix);
+      stones.setColorAt(i,new THREE.Color(
+        [0x7b817a,0x56635f,0x92968d][i%3]));
+    }
+    stones.instanceMatrix.needsUpdate=true;
+    if(stones.instanceColor)stones.instanceColor.needsUpdate=true;
+    stones.receiveShadow=true;stones.castShadow=this.quality==='ultra';
+    stones.name='Cascata · rochedos nas duas margens';
+    this.group.add(stones);this.waterfallRocks=stones;
   }
   buildBanks(){
     const positions=[],colors=[],indices=[];
@@ -525,8 +605,10 @@ export class RiverSystem {
     this.waterMaterial.uniforms.uTime.value=this.time;
     this.waterfallMaterial.uniforms.uTime.value=this.time;
     this.waterfallFoamMaterial.uniforms.uTime.value=this.time;
+    this.waterfallSprayMaterial.uniforms.uTime.value=this.time;
     this.waterfallMaterial.uniforms.uRain.value=rain?1:0;
     this.waterfallFoamMaterial.uniforms.uRain.value=rain?1:0;
+    this.waterfallSprayMaterial.uniforms.uRain.value=rain?1:0;
     this.waterMaterial.uniforms.uRain.value=rain?1:0;
     if(sun)this.waterMaterial.uniforms.uSun.value.copy(sun).normalize();
   }
