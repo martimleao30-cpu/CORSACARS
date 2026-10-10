@@ -19,6 +19,8 @@ import {RegionalRailway} from './regional-railway.js';
 import {RiverSystem} from './river-system.js';
 import {WildGroundcover} from './wild-groundcover.js';
 import {RainStreaks} from './atmosphere-effects.js';
+import {WeatherSystem} from './weather-system.js';
+import {VolumetricMist,WetRoadPuddles} from './weather-visuals.js';
 import {createWeatheredRockGeometry,UrbanFacadeBatch,createWeatheredWallMaterial} from './natural-assets.js';
 
 export const WORLD_SIZE=4100;
@@ -125,6 +127,8 @@ export class DrivingWorld {
     this.quality = quality;
     this.hour = 14;
     this.weather = 'clear';
+    this.weatherSystem=new WeatherSystem('clear');
+    this.weatherState=this.weatherSystem.update(0,false,this.hour);
     this.sunSpeed = 1.2; // simulated hours per real minute: full 24h cycle in ~20 real minutes
     this.roadWidth = 14; // four urban ring-road lanes × 3.50 m
     this.terrainMaterial = new CANNON.Material('ground');
@@ -481,19 +485,23 @@ export class DrivingWorld {
   buildRain() {
     this.rainEffect=new RainStreaks(this.scene,this.quality);
     this.rain=this.rainEffect.mesh;
+    this.volumetricMist=new VolumetricMist(this.scene,groundHeight,this.quality);
+    this.roadPuddles=new WetRoadPuddles(this.scene,this.network,groundHeight,this.quality);
   }
 
   surfaceAt(x,z) {
     return this.network.query(x,z,this.weather);
   }
 
-    setWeather(weather) {
-    if (!['clear', 'rain', 'fog'].includes(weather)) return;
+  setWeather(weather) {
+    if(!this.weatherSystem.setWeather(weather))return false;
     this.weather = weather;
-    this.rain.visible = weather === 'rain';
+    // The existing rain and road wetness are driven by continuous weather
+    // intensity on each tick, not toggled instantly by a menu change.
     // Wetness now rises and dries gradually in update(), including puddles.
     // Avoid forcing instantaneous material changes when it starts raining.
     this.updateAtmosphere();
+    return true;
   }
 
   configureShadows(quality=this.quality,shadowQuality='high'){
@@ -502,7 +510,7 @@ export class DrivingWorld {
   }
 
   updateAtmosphere() {
-    const state=evaluateAtmosphere(this.hour,this.weather);
+    const state=evaluateAtmosphere(this.hour,this.weatherState);
     this.atmosphere=state;
     this.cinematicSky.update(state);
     const blend=this.frameDt?Math.min(1,this.frameDt*3):1;
@@ -518,19 +526,20 @@ export class DrivingWorld {
     this.sun.shadow.radius=state.shadowRadius;
     this.ambient.intensity=state.ambientIntensity;
     this.ambient.color.copy(state.ambientColor);
-    this.ambient.groundColor.set(this.weather==='rain'?0x59616a:0x6c6758);
+    this.ambient.groundColor.set(0x6c6758).lerp(new THREE.Color(0x59616a),this.weatherState.rain);
     // ModernRoadLighting owns LED emission and turns it on only at night.
     // Atmosphere updates must never re-illuminate street lamps by day.
-    this.stars.visible=state.sunHeight<-.1&&this.weather==='clear';
+    this.stars.visible=state.sunHeight<-.1&&this.weatherState.clouds<.45;
   }
 
   update(dt, vehiclePosition, paused = false) {
     this.frameDt = paused ? 0 : dt;
-    if (!paused) {
-      this.hour = (this.hour + dt * this.sunSpeed / 60) % 24;
-      this.rainEffect?.update(dt,false);
-    }
-    const wetness = this.details?.update(dt, vehiclePosition, this.weather, this.hour, paused) || 0;
+    if (!paused) this.hour = (this.hour + dt * this.sunSpeed / 60) % 24;
+    this.weatherState=this.weatherSystem.update(dt,paused,this.hour);
+    this.rain.visible=this.weatherState.rain>.025;
+    this.rain.material.opacity=.43*this.weatherState.rain;
+    if(!paused)this.rainEffect?.update(dt,false);
+    const wetness = this.details?.update(dt, vehiclePosition, this.weather, this.hour, paused,this.weatherState) || 0;
     if (this.roadMaterial) {
       this.roadMaterial.clearcoat = 0.08 + .82 * wetness;
       this.roadMaterial.clearcoatRoughness = .23 - .12 * wetness;
@@ -540,8 +549,10 @@ export class DrivingWorld {
     this.network?.setWetness(wetness);
     this.roadEnvironment?.update(dt,paused);
     this.railway?.update(dt,paused);
-    this.river?.update(dt,paused,this.weather==='rain',this.atmosphere?.sunDirection);
+    this.river?.update(dt,paused,this.weatherState.rain>.32,this.atmosphere?.sunDirection);
     this.updateAtmosphere();
+    this.volumetricMist?.update(dt,this.weatherState,this.atmosphere,paused);
+    this.roadPuddles?.update(wetness,this.atmosphere);
     if (vehiclePosition) {
       this.sectors.update(vehiclePosition,performance.now()/1000,this.hour,paused);
       this.rain.position.set(vehiclePosition.x, vehiclePosition.y - 3, vehiclePosition.z);
