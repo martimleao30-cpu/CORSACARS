@@ -40,6 +40,8 @@ for(const specie of TREE_SPECIES)for(const age of TREE_AGES){
 }
 assert.ok(forest.materials.bark.map && forest.materials.bark.bumpMap,
   'Procedural bump-mapped bark must exist');
+assert.equal(forest.materials.distantLeaves.map,null,
+  'Distant canopy must not be punctured by near leaf alpha masks');
 assert.ok(forest.materials.leaves.alphaTest>0,
   'Near leaf geometry must use masked foliage rather than opaque spheres');
 const camera=new THREE.PerspectiveCamera(70,16/9,.2,1600);

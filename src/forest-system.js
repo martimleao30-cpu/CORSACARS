@@ -208,7 +208,18 @@ function prototype(species,age,lod){
     leafCluster(foliage,V(0,height*.86,0),V(crownRadius*.63,height*.19,crownRadius*.63),
       lod===0?100:32,random,leafPalette,species);
   }
-  return {wood:woody.build(),leaves:foliage.build(),height,crownRadius};
+  const wood=woody.build(),leaves=foliage.build();
+  // Flexible young shoots, moderately rigid adult crowns and comparatively
+  // stable old trunks. Pines additionally resist sway more than broadleaf.
+  const ageResponse=age==='young'?1.23:age==='ancient'?.62:1;
+  const speciesResponse=species==='pine'?.76:species==='birch'?1.12:1;
+  const response=ageResponse*speciesResponse;
+  for(const geometry of [wood,leaves]){
+    const weights=geometry.getAttribute('aWindWeight');
+    for(let i=0;i<weights.count;i++)weights.setX(i,weights.getX(i)*response);
+    weights.needsUpdate=true;
+  }
+  return {wood,leaves,height,crownRadius};
 }
 
 function canvasTexture(kind){
@@ -277,8 +288,16 @@ function makeMaterials(wind){
     };
     material.customProgramCacheKey=()=>flutter?'corsaforest-foliage-v1':'corsaforest-branches-v1';
   };
-  windShader(bark,false);windShader(leaves,true);
-  return {bark,leaves,barkTexture,leafTexture};
+  // Far silhouettes have their own opaque vertex-coloured material: the
+  // detailed leaf alpha stamp must not perforate the coarsened LOD2/LOD3 mesh.
+  const distantLeaves=new THREE.MeshStandardMaterial({
+    color:0xffffff,roughness:.93,metalness:0,vertexColors:true,
+    side:THREE.DoubleSide
+  });
+  windShader(bark,false);
+  windShader(leaves,true);
+  windShader(distantLeaves,false);
+  return {bark,leaves,distantLeaves,barkTexture,leafTexture};
 }
 
 export class ForestSystem {
@@ -368,7 +387,7 @@ export class ForestSystem {
       const model=this.getPrototype(id,lod);
       for(const kind of ['wood','leaves']){
         const geometry=model[kind];
-        const material=kind==='wood'?this.materials.bark:this.materials.leaves;
+        const material=kind==='wood'?this.materials.bark:(lod>=2?this.materials.distantLeaves:this.materials.leaves);
         const mesh=new THREE.InstancedMesh(geometry,material,items.length);
         mesh.name=id+' '+kind+' LOD '+lod;
         mesh.castShadow=this.quality!=='low'&&lod<=1;
@@ -413,7 +432,9 @@ export class ForestSystem {
     const weatherStrength=weather==='rain'?1.55:weather==='fog'?.45:1;
     this.wind.strength.value=.12*weatherStrength*gust;
     this.wind.flutter.value=.017*weatherStrength*gust;
-    this.materials.leaves.color.setScalar(weather==='rain'?.78:weather==='fog'?.89:1);
+    const foliageLight=weather==='rain'?.78:weather==='fog'?.89:1;
+    this.materials.leaves.color.setScalar(foliageLight);
+    this.materials.distantLeaves.color.setScalar(foliageLight);
     if(!camera)return;
     this.elapsedSinceCull+=dt;
     if(this.elapsedSinceCull<.16)return;
@@ -459,7 +480,7 @@ export class ForestSystem {
     for(const proto of this.prototypes.values()){
       proto.wood.dispose();proto.leaves.dispose();
     }
-    for(const material of [this.materials.bark,this.materials.leaves])material.dispose();
+    for(const material of [this.materials.bark,this.materials.leaves,this.materials.distantLeaves])material.dispose();
     this.materials.barkTexture?.dispose();
     this.materials.leafTexture?.dispose();
     this.chunks.clear();this.prototypes.clear();
