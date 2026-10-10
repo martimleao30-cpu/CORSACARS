@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {UrbanFacadeBatch} from './natural-assets.js';
 import {buildHighwayService} from './highway-services.js';
+import {buildRuralSettlement} from './rural-settlements.js';
 
 // A first region of reachable named locations. The static geometry and its
 // rigid-body colliders enter/leave memory with the nearest sector, not at boot.
@@ -10,7 +11,10 @@ const DESCRIPTORS = [
   {id:'town',name:'Vila Nova · Praça Central',kind:'town',road:'nacional',at:.55,side:1},
   {id:'mountain',name:'Miradouro Serra Alta',kind:'lookout',road:'montanha',at:.46,side:-1},
   {id:'farm',name:'Quinta do Pinhal',kind:'farm',road:'rural',at:.54,side:1},
-  {id:'quarry',name:'Zona Industrial · Pedreira',kind:'industrial',road:'gravilha',at:.57,side:-1}
+  {id:'quarry',name:'Zona Industrial · Pedreira',kind:'industrial',road:'gravilha',at:.57,side:-1},
+  {id:'herdade',name:'Herdade do Souto',kind:'farmstead',road:'planicie-sul',at:.49,side:1},
+  {id:'ribeira',name:'Quinta da Ribeira',kind:'farmstead',road:'vale-leste',at:.49,side:-1},
+  {id:'aldeia',name:'Aldeia da Serra Norte',kind:'hamlet',road:'serra-norte',at:.52,side:1}
 ];
 const mat=(c,roughness=.75,metalness=0)=>new THREE.MeshStandardMaterial({
   color:c,roughness,metalness
@@ -63,7 +67,10 @@ export class WorldSectors {
     const bodies=[];
     const base=region.point;
     const x=base.x,z=base.z,y=this.groundHeight(x,z);
-    if(region.kind==='service'){
+    if(region.kind==='farm'||region.kind==='farmstead'||region.kind==='hamlet'){
+      group.userData.rural=buildRuralSettlement(group,this.physics,bodies,
+        region,this.groundHeight);
+    }else if(region.kind==='service'){
       // Streaming, collider-backed service station with shop, pumps, driveways,
       // canopy and real (nearby-only) lights.
       group.userData.service=buildHighwayService(
@@ -112,12 +119,6 @@ export class WorldSectors {
         box(group,this.physics,bodies,x-9,y,z+dz,2.4,2.2,2.3,
           dz===1?RED:CONCRETE);
       }
-    }else if(region.kind==='farm'){
-      box(group,this.physics,bodies,x+13,y,z+4,13,5,9,RED);
-      box(group,this.physics,bodies,x+13,y+5,z+4,15,.9,10,ROOF,false);
-      for(const dz of [-11,-7,-3]){
-        box(group,this.physics,bodies,x-10,y,z+dz,.2,1.05,3,STEEL,false);
-      }
     }
     // Small unnamed POIs continue to use their own simple roadside markers.
     box(group,this.physics,bodies,x-9,y,z+10,.15,2.4,.14,STEEL,false);
@@ -157,7 +158,7 @@ export class WorldSectors {
   update(carPosition,elapsed=0,hour=14){
     if(elapsed-this.lastUpdate<.85)return;
     this.lastUpdate=elapsed;
-    const nearSq=470*470,farSq=600*600;
+    const nearSq=530*530,farSq=680*680;
     for(const region of this.regions){
       const dist=region.point.distanceToSquared(carPosition);
       if(dist<nearSq&&!this.active.has(region.id))this.load(region);
