@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {roadDeckHeight} from './road-upgrades.js';
 import {roadProfile} from './road-standards.js';
+import {clipGeometryAtJunctions} from './road-junctions.js';
 
 // Road-class-dependent paved shoulders and highway central reservation.
 // Reuses each road's static physics body, avoiding thousands of new bodies.
@@ -28,7 +29,7 @@ const beside=(road,i,lateral,terrainY,height=0)=>{
   const x=p.x+n.x*lateral,z=p.z+n.z*lateral;
   return [x,roadDeckHeight(terrainY,x,z,lateral,road.width)+height,z];
 };
-const unionMesh=(scene,road,terrainY,offset,extents,color=1)=>{
+const unionMesh=(scene,road,terrainY,offset,extents,color=1,cuts=[])=>{
   const pos=[],uv=[],colors=[],idx=[];
   let along=0;
   for(let i=0;i<road.points.length;i++){
@@ -50,9 +51,18 @@ const unionMesh=(scene,road,terrainY,offset,extents,color=1)=>{
   }
   const mesh=buildMesh(pos,uv,colors,idx,
     road.mesh.material,road.name+' · Berma pavimentada de emergência');
+  // Both the painted shoulder and its collision triangles must be removed
+  // from the conflict polygon at every at-grade crossroads.
+  const clipped=cuts.length?clipGeometryAtJunctions(mesh.geometry,cuts):null;
+  if(clipped){mesh.geometry.dispose();mesh.geometry=clipped;}
   mesh.geometry.userData.roadShoulderWidth=extents.at(-1);
   scene.add(mesh);
-  if(road.body)road.body.addShape(new CANNON.Trimesh(pos,idx));
+  if(road.body){
+    const finalGeo=mesh.geometry;
+    road.body.addShape(new CANNON.Trimesh(
+      Array.from(finalGeo.getAttribute('position').array),
+      Array.from(finalGeo.index.array)));
+  }
   return mesh;
 };
 const nearIntersection=(road,p,junctions,radius)=>{
@@ -117,9 +127,10 @@ export function buildRoadProfileGeometry(scene,road,terrainY,junctions=[]){
   // four-lane section. Also provide EN hard shoulders on national routes.
   if(profile.median>0||road.id==='nacional'||road.id==='circular'||
     road.category==='ring'){
+    const cuts=junctions.filter(j=>j.secondary===road||j.primary===road);
     for(const side of [-1,1])
       paved.push(unionMesh(scene,road,terrainY,side,
-        [.055,profile.outerShoulder],.93));
+        [.055,profile.outerShoulder],.93,cuts));
   }
   const median=profile.median?highwayMedian(scene,road,terrainY,junctions):null;
   return {paved,median,profile};
