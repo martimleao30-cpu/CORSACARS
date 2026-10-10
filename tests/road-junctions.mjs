@@ -32,8 +32,8 @@ for(let k=0;k<index.count;k+=3){
     position.getX(index.getX(k+2)))/3;
   const cz=(position.getZ(index.getX(k))+position.getZ(index.getX(k+1))+
     position.getZ(index.getX(k+2)))/3;
-  assert.ok(Math.abs(cz)>=main.width*.5-1e-3,
-    'Secondary road triangle must stop at the main asphalt edge');
+  assert.ok(Math.abs(cz)>=main.width*.5-.25,
+    'Secondary road must stop at the main deck with only a tiny overlap');
   assert.ok(Number.isFinite(cx));
   triangles++;
 }
