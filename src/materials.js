@@ -28,8 +28,10 @@ export function createAsphaltMaterial(quality = 'high', variant = 'aged') {
   const key=quality+':'+variant;
   let maps=asphaltCache.get(key);
   if(!maps){
-    const size=quality==='ultra'?1536:quality==='high'?768:
-      quality==='low'?256:512;
+    // Higher-resolution fallback for offline play: crisp aggregate even when
+    // the optional photographic 2K/4K texture cannot be downloaded.
+    const size=quality==='ultra'?2048:quality==='high'?1024:
+      quality==='low'?384:768;
     const diffuse=document.createElement('canvas');
     const normal=document.createElement('canvas');
     const roughness=document.createElement('canvas');
@@ -74,7 +76,10 @@ export function createAsphaltMaterial(quality = 'high', variant = 'aged') {
     roughness.getContext('2d').putImageData(r,0,0);
     maps={map:canvasTexture(diffuse,true),
       normalMap:canvasTexture(normal),roughnessMap:canvasTexture(roughness)};
-    for(const texture of Object.values(maps))texture.userData.corsaShared=true;
+    for(const texture of Object.values(maps)){
+      texture.repeat.set(1,2); // Same real-world texel scale on every PBR map.
+      texture.userData.corsaShared=true;
+    }
     asphaltCache.set(key,maps);
   }
   const material=new THREE.MeshPhysicalMaterial({
