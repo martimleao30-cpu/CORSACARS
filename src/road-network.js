@@ -56,7 +56,8 @@ function materialFor(surface,quality,routeId='') {
     if(surface==='dirt')mat.color.set(0xbca17d);
     return mat;
   }
-  return createAsphaltMaterial(quality,routeId==='autoestrada'||routeId==='provas'?'fresh':(routeId==='montanha'||routeId==='rural')?'worn':'aged');
+  // Continuous asphalt colour and roughness across roads and junctions.
+  return createAsphaltMaterial(quality,'aged');
 }
 function terrainRoadCurve(p,geometryHeight) {
   const point=p.clone();
@@ -186,7 +187,7 @@ export class RoadNetwork {
       const points=Array.from({length:count+1},(_,index)=>
         terrainRoadCurve(curve.getPoint(index/count),this.terrainY));
       const bed=createRoadBed(points,def.width,this.terrainY,def.seed,'dry');
-      const mat=createAsphaltMaterial(this.quality,def.category==='urban'?'aged':'fresh');
+      const mat=createAsphaltMaterial(this.quality,'aged');
       const mesh=new THREE.Mesh(bed.top,mat);
       mesh.name=def.name;mesh.receiveShadow=true;this.scene.add(mesh);
       const sides=addRoadSides(this.scene,bed.sides,def.name);
