@@ -42,7 +42,12 @@ export const REGIONAL_LINKS = Object.freeze([
   {id:'vale-leste',name:'Estrada da Ribeira Leste',category:'rural',surface:'dry',
     width:8,from:245,to:295,
     via:[[440,-400],[700,-700],[1070,-1040],[1390,-920],
-      [1410,-540],[1050,-260],[690,-280]]}
+      [1410,-540],[1050,-260],[690,-280]]},
+  // Outer western agricultural loop stays within the 4.1 km terrain.
+  {id:'campos-oeste',name:'Estrada dos Campos do Oeste',
+    category:'rural',surface:'dry',width:7.8,from:67,to:143,
+    via:[[-650,80],[-1080,200],[-1520,320],[-1800,430],
+      [-1710,780],[-1270,830],[-720,620]]}
 ]);
 
 function materialFor(surface,quality,routeId='') {
@@ -89,7 +94,7 @@ export class RoadNetwork {
         to.center.clone()
       ];
       const curve=new THREE.CatmullRomCurve3(corners,false,'centripetal',.4);
-      const extended=['serra-norte','planicie-sul','vale-leste'].includes(route.id);
+      const extended=['serra-norte','planicie-sul','vale-leste','campos-oeste'].includes(route.id);
       const count=extended?240:route.id==='montanha'?175:route.id==='rural'?140:130;
       const points=[];
       for(let i=0;i<=count;i++){
@@ -200,6 +205,16 @@ export class RoadNetwork {
     // Grid accelerator avoids scanning 1000+ road segments at every fixed tick.
     const cellSize=65;
     this.cellSize=cellSize;
+    this.junctionCells=new Map();
+    for(const j of this.junctions||[]){
+      const bound=Math.hypot(j.halfU,j.halfV)+1;
+      for(let ix=Math.floor((j.x-bound)/cellSize);ix<=Math.floor((j.x+bound)/cellSize);ix++)
+        for(let iz=Math.floor((j.z-bound)/cellSize);iz<=Math.floor((j.z+bound)/cellSize);iz++){
+          const key=ix+','+iz;
+          if(!this.junctionCells.has(key))this.junctionCells.set(key,[]);
+          this.junctionCells.get(key).push(j);
+        }
+    }
     for(const road of this.roads) {
       for(let i=0;i<road.points.length-1;i++) {
         const a=road.points[i],b=road.points[i+1];
@@ -221,6 +236,20 @@ export class RoadNetwork {
     const key=Math.floor(x/this.cellSize)+','+Math.floor(z/this.cellSize);
     const candidates=this.cells.get(key)||[];
     let road=null, min=Infinity, closestSegment=null;
+    // At junctions the higher-priority road owns the asphalt and its grip.
+    // The secondary deck has been physically removed from the overlap.
+    // Sample the same ownership rule so traction matches visible geometry.
+    const joins=this.junctionCells?.get(key)||[];
+    for(const j of joins){
+      const dx=x-j.x,dz=z-j.z;
+      const u=dx*j.ux+dz*j.uz;
+      const v=-dx*j.uz+dz*j.ux;
+      if(Math.abs(u)<=j.halfU&&Math.abs(v)<=j.primary.width*.5){
+        const road=j.primary;
+        let type=road.surface==='dry'&&weather==='rain'?'wet':road.surface;
+        return {surface:type,road:road.name,distance:Math.abs(v)};
+      }
+    }
     for(const link of candidates){
       const distanceSq=sqDistanceToSegment(x,z,link.a,link.b);
       if(distanceSq<min) {min=distanceSq;road=link.road;closestSegment=link;}

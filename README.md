@@ -556,3 +556,18 @@ mediante recolha em conjuntos. Os testes `tests/keybindings.mjs` e
 `tests/sector-lifecycle.mjs` verificam normalização, limpeza gráfica e
 colisões libertadas. A geometria das estradas e os limites físicos do BMW
 continuam cobertos pela suite de regressão.
+
+
+## Expansão rural 4.1 km, paragens contextualizadas e superfícies consistentes
+
+O terreno passa a **4.1 × 4.1 km**, preservando o anel original e as posições
+salvas. A nova Estrada dos Campos do Oeste prolonga a rede transitável, com a
+Quinta dos Campos do Oeste. Duas povoações rurais adicionais (Aldeia das
+Herdades e Aldeia da Ribeira) são destinos GPS e contam com paragens junto dos
+respetivos acessos, não em posições arbitrárias no campo. As paragens têm
+acessos pedonais conformados ao terreno; os campos de cultivo e vedações
+respeitam as máscaras de estradas e interseções. A função de deteção de piso
+agora consulta primeiro a prioridade real do pavimento nos cruzamentos:
+o carro deixa de receber o atrito do asfalto secundário que foi recortado
+fisicamente. As sessões gravadas em estradas exteriores ao mapa anterior
+passam a ser restauradas até à nova fronteira.

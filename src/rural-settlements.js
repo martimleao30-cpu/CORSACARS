@@ -26,13 +26,23 @@ function localFrame(region,terrain){
   };
   return {yaw,factor,origin,ground};
 }
-export function buildRuralSettlement(group,physics,bodies,region,terrain){
+export function buildRuralSettlement(group,physics,bodies,region,terrain,clearance=null){
   const frame=localFrame(region,terrain);
   const root=new THREE.Group();
   root.name=region.kind==='hamlet'?'Aldeia habitada · casas e largos':'Exploração agrícola · estruturas rurais';
   root.position.set(frame.origin.x,terrain(frame.origin.x,frame.origin.z),frame.origin.z);
   root.rotation.y=frame.yaw;
   group.add(root);
+  const safePlot=(out,along,radius=2)=>{
+    if(!clearance)return true;
+    const p=frame.ground(out,along);
+    const nearby=clearance.roadProximity(p.x,p.z);
+    // The parent farm access is public; allow our own entrance, but not
+    // planting beds, sheds or fence rails through any carriageway.
+    return nearby.edge>radius+2.4&&
+      !clearance.insideService(p.x,p.z,radius)&&
+      !clearance.nearJunction(p.x,p.z,radius);
+  };
   const ownedGeometries=[],stats={buildings:0,fields:0,hayBales:0,objects:0,
     fenceSections:0,colliders:0};
   function box(name,out,along,w,h,d,material,collision=false,raise=0){
@@ -132,15 +142,19 @@ export function buildRuralSettlement(group,physics,bodies,region,terrain){
     for(let row=0;row<12;row++){
       const out=80+row*4.2;
       const along=55;
+      // Test centre and both ends: no 51-metre crop slab crosses an outer road.
+      if(![-25,0,25].every(d=>safePlot(out,along+d,1.6)))continue;
       const crop=box('Campo cultivado · talhão',out,along,1.45,.25,51,
         row%3===0?'cropDry':'crop');
       crop.castShadow=false;
       stats.fields++;
     }
     // Boundary fencing stops at the vehicle gate between ±7 m.
-    for(const z of [-70,70])fence(25,132,z,z);
-    fence(132,132,-70,70);
-    fence(25,25,-70,-8);fence(25,25,8,70);
+    for(const z of [-70,70])if([25,78,132].every(v=>safePlot(v,z,1.1)))
+      fence(25,132,z,z);
+    if([-70,0,70].every(z=>safePlot(132,z,1.1)))fence(132,132,-70,70);
+    if([-70,-39,-8].every(z=>safePlot(25,z,1.1)))fence(25,25,-70,-8);
+    if([8,39,70].every(z=>safePlot(25,z,1.1)))fence(25,25,8,70);
     for(const along of [-8,8]){
       box('Quinta · portão aberto',25,along,.23,1.65,.22,'steel');
     }

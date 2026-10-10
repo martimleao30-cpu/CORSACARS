@@ -14,7 +14,10 @@ const DESCRIPTORS = [
   {id:'quarry',name:'Zona Industrial · Pedreira',kind:'industrial',road:'gravilha',at:.57,side:-1},
   {id:'herdade',name:'Herdade do Souto',kind:'farmstead',road:'planicie-sul',at:.49,side:1},
   {id:'ribeira',name:'Quinta da Ribeira',kind:'farmstead',road:'vale-leste',at:.49,side:-1},
-  {id:'aldeia',name:'Aldeia da Serra Norte',kind:'hamlet',road:'serra-norte',at:.52,side:1}
+  {id:'aldeia',name:'Aldeia da Serra Norte',kind:'hamlet',road:'serra-norte',at:.52,side:1},
+  {id:'aldeia-sul',name:'Aldeia das Herdades',kind:'hamlet',road:'planicie-sul',at:.76,side:-1},
+  {id:'aldeia-leste',name:'Aldeia da Ribeira',kind:'hamlet',road:'vale-leste',at:.77,side:1},
+  {id:'campos',name:'Quinta dos Campos do Oeste',kind:'farmstead',road:'campos-oeste',at:.51,side:1}
 ];
 const mat=(c,roughness=.75,metalness=0)=>new THREE.MeshStandardMaterial({
   color:c,roughness,metalness
@@ -69,7 +72,7 @@ export class WorldSectors {
     const x=base.x,z=base.z,y=this.groundHeight(x,z);
     if(region.kind==='farm'||region.kind==='farmstead'||region.kind==='hamlet'){
       group.userData.rural=buildRuralSettlement(group,this.physics,bodies,
-        region,this.groundHeight);
+        region,this.groundHeight,this.clearance);
     }else if(region.kind==='service'){
       // Streaming, collider-backed service station with shop, pumps, driveways,
       // canopy and real (nearby-only) lights.

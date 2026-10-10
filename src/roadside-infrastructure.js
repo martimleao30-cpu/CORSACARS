@@ -166,6 +166,17 @@ export class RoadsideInfrastructure{
     root.userData.servesPOI=region.id;
     root.userData.poiDistance=p.poiDistance;
     root.userData.roadId=road.id;
+    // Marked pedestrian link from the shelter to the road shoulder. Small
+    // segments follow the actual terrain; never a floating 10m slab.
+    for(let step=1;step<=5;step++){
+      const localX=p.side*(step*1.55);
+      const direction=new THREE.Vector3(Math.cos(p.yaw),0,-Math.sin(p.yaw));
+      const px=p.x+direction.x*localX,pz=p.z+direction.z*localX;
+      const top=this.terrainY(px,pz)-p.y+.06;
+      this.mesh(root,'Acesso pedonal · paragem','box','concrete',
+        localX,top,0,1.75,.12,1.45);
+    }
+    root.userData.pedestrianAccess=true;
     // 3.8 m shelter, structural steel, tempered glass, accessible threshold.
     this.mesh(root,'Paragem · laje','box','concrete',0,.11,0,4.3,.21,5.25);
     this.mesh(root,'Paragem · cobertura metálica','box','dark',0,3.08,0,4.5,.21,5.20);
@@ -323,6 +334,10 @@ export class RoadsideInfrastructure{
         this.direction(road,.24,1,['MIRADOURO','ATENÇÃO: CURVAS']);
         this.markers(road,'mountain',8);
       }else if(road.category==='rural'){
+        for(const village of this.clearance?.regions||[]){
+          if(village.road===road.id&&village.kind==='hamlet')
+            this.shelter(road,village,-village.sideSign,-1);
+        }
         this.kiosk(road,.27,1,'CAMINHO DO PINHAL');
         this.direction(road,.65,-1,['QUINTA DO PINHAL','ESTRADA RURAL']);
         this.markers(road,'rural',11);

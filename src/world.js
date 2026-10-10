@@ -18,6 +18,8 @@ import {WildGroundcover} from './wild-groundcover.js';
 import {RainStreaks} from './atmosphere-effects.js';
 import {createWeatheredRockGeometry,UrbanFacadeBatch,createWeatheredWallMaterial} from './natural-assets.js';
 
+export const WORLD_SIZE=4100;
+export const WORLD_HALF=WORLD_SIZE/2;
 const TAU = Math.PI * 2;
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -90,6 +92,7 @@ export class DrivingWorld {
     // Roads, junctions and POI entrances share ONE clearance mask.
     this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
     this.roadside=new RoadsideClearance(this.network,this.sectors.regions);
+    this.sectors.clearance=this.roadside;
     this.railway=new RegionalRailway(this.scene,this.physics,groundHeight,
       this.roadside,this.quality);
     this.buildRoadside();
@@ -147,7 +150,7 @@ export class DrivingWorld {
 
   buildTerrain() {
     const subdivisions = this.quality === 'ultra' ? 236 : this.quality === 'high' ? 188 : this.quality==='medium'?150:118;
-    const geometry = new THREE.PlaneGeometry(3400, 3400,
+    const geometry = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE,
       Math.round(subdivisions*1.38),Math.round(subdivisions*1.38));
     geometry.rotateX(-Math.PI / 2);
     const positions = geometry.getAttribute('position');
@@ -347,7 +350,7 @@ export class DrivingWorld {
         vertexColors:true}), 140);
     let count = 0;
     for (let i = 0; i < 500 && count < 140; i++) {
-      const x = (random() - 0.5) * 3060, z = (random() - 0.5) * 3060;
+      const x = (random() - 0.5) * (WORLD_SIZE-220), z = (random() - 0.5) * (WORLD_SIZE-220);
       const size = 0.4 + random() * 2.4;
       if (this.railway.nearestTrack(x,z)<5||
           !this.roadside.plantAllowed(x,z,'rock',size*.75)||

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { DrivingWorld } from './world.js';
+import { DrivingWorld, WORLD_HALF } from './world.js';
 import { PlayerVehicle } from './vehicle.js';
 import { GraphicsPipeline } from './graphics.js';
 import { AssetUpgrade } from './assets.js';
@@ -397,8 +397,8 @@ function restoreSession() {
     const state=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
     const a=state?.position,b=state?.quaternion;
     if(state?.v!==1||!Array.isArray(a)||a.length!==3||!Array.isArray(b)||b.length!==4||
-       ![...a,...b].every(Number.isFinite)||Math.max(Math.abs(a[0]),Math.abs(a[2]))>1670||
-       a[1]<-10||a[1]>300)return;
+       ![...a,...b].every(Number.isFinite)||Math.max(Math.abs(a[0]),Math.abs(a[2]))>WORLD_HALF-25||
+       a[1]<-10||a[1]>500)return;
     car.chassis.position.set(...a);
     car.chassis.quaternion.set(...b);
     car.chassis.velocity.set(0,0,0);
