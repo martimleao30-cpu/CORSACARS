@@ -30,13 +30,13 @@ function setupUpdates({ app, ipcMain, getWindow }) {
     if (!canUpdate) return send('unavailable');
     if (checking) return checking;
     if (downloading || downloaded) return status;
-    if (!silent) send('checking');
+    send('checking');
     checking = autoUpdater.checkForUpdates().then(result => {
       // The library emits update-available/update-not-available asynchronously.
       return status;
     }).catch(error => {
       console.warn('[CORSACARS] Falha ao procurar atualizações:', error?.message);
-      if (!silent) send('error', { message: 'Não foi possível verificar atualizações. Tenta novamente mais tarde.' });
+      send('error', { message: 'Falha ao consultar as versões publicadas. Verifica a Internet e o GitHub Releases.' });
       return status;
     }).finally(() => { checking = null; });
     return checking;
@@ -80,7 +80,7 @@ function setupUpdates({ app, ipcMain, getWindow }) {
   autoUpdater.allowDowngrade = false;
   autoUpdater.allowPrerelease = false;
 
-  autoUpdater.on('checking-for-update', () => { /* checks can run silently */ });
+  autoUpdater.on('checking-for-update', () => send('checking'));
   autoUpdater.on('update-available', info =>
     send('available', { nextVersion: info.version }));
   autoUpdater.on('update-not-available', () =>
@@ -98,15 +98,18 @@ function setupUpdates({ app, ipcMain, getWindow }) {
   autoUpdater.on('error', error => {
     downloading = false;
     console.warn('[CORSACARS] Serviço de atualização:', error?.message);
-    // Transient network failures do not interrupt gameplay.
-    if (status.state !== 'idle' && status.state !== 'current') {
-      send('error', { message: 'Erro ao procurar ou descarregar atualização.' });
+    // Failed startup checks must be visible in Settings rather than remain
+    // permanently "idle" until the next hourly poll.
+    if (status.state !== 'ready' && status.state !== 'current') {
+      send('error', { message: 'Não foi possível contactar o servidor de atualizações. Volta a tentar nas Definições.' });
     }
   });
 
   // Startup delay prevents update checks from blocking boot/WebGL initialisation.
   const initial = setTimeout(() => { void check(true); }, 8000);
-  const interval = setInterval(() => { void check(true); }, 60 * 60 * 1000);
+  // New GitHub builds can take a while to publish. Retry automatically even
+  // if the first check happened before the release completed.
+  const interval = setInterval(() => { void check(true); }, 15 * 60 * 1000);
   app.on('before-quit', () => {
     clearTimeout(initial);
     clearInterval(interval);
