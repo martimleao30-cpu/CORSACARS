@@ -161,12 +161,21 @@ export class NavigationHUD{
     return Boolean(region);
   }
   closestNode(position){
+    const {nodes,spatialCells,cellSize}=this.graph;
+    const cx=Math.floor(position.x/cellSize),cz=Math.floor(position.z/cellSize);
     let best=-1,distance=Infinity;
-    for(const node of this.graph.nodes){
-      const p=node.point;
-      const d=(p.x-position.x)**2+(p.z-position.z)**2;
-      if(d<distance){distance=d;best=node.id;}
-    }
+    const scan=candidates=>{
+      for(const node of candidates){
+        const dx=node.point.x-position.x,dz=node.point.z-position.z;
+        const d=dx*dx+dz*dz;
+        if(d<distance){distance=d;best=node.id;}
+      }
+    };
+    for(let x=cx-1;x<=cx+1;x++)for(let z=cz-1;z<=cz+1;z++)
+      scan(spatialCells.get(x+','+z)||[]);
+    // Guaranteed exact when the closest candidate lies inside one cell:
+    // any still-closer candidate must occupy one of these nine cells.
+    if(distance>cellSize*cellSize)scan(nodes);
     return best;
   }
   update(position,quaternion,elapsed=0){
