@@ -45,7 +45,7 @@ export function createRoadBed(samples, width, terrainY, seed=31, surface='dry') 
         (.035*Math.sin(progress*.27+f*4.3)+.017*Math.sin(progress*.74-f*7.9)):0;
       vertices.push(x,roadDeckHeight(terrainY,x,z,offset,width)+uneven,z);
       uvs.push((offset+width*.5)/metresPerTile,progress/metresPerTile);
-      const shade=tint(progress,offset,width,seed);
+      const shade=tint(progress,offset,width,surface==='dry'?29:seed);
       colors.push(shade,shade*(.994+Math.sin(progress*.019)*.006),shade*.987);
     }
     for (const sign of [-1,1]) {
