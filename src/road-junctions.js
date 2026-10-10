@@ -134,8 +134,11 @@ export function clipGeometryAtJunctions(geometry,cuts){
     let shapes=[[get(index.getX(i)),get(index.getX(i+1)),get(index.getX(i+2))]];
     for(const cut of cuts){
       const margin=Math.hypot(cut.halfU,cut.halfV)+12;
-      if(shapes.every(poly=>poly.every(v=>Math.abs(v.p[0]-cut.x)>margin||
-         Math.abs(v.p[2]-cut.z)>margin)))continue;
+      const coords=shapes.flatMap(poly=>poly.map(v=>v.p));
+      if(coords.every(p=>p[0]<cut.x-margin)||
+         coords.every(p=>p[0]>cut.x+margin)||
+         coords.every(p=>p[2]<cut.z-margin)||
+         coords.every(p=>p[2]>cut.z+margin))continue;
       const next=[];
       for(const shape of shapes){
         const result=subtractRect(shape,cut);
