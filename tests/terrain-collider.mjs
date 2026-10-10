@@ -18,7 +18,13 @@ const collider=createTerrainCollider(physics,geometry,new CANNON.Material('grass
 assert.ok(collider.shapes[0] instanceof CANNON.Heightfield,
   'Off-road terrain needs a proper heightfield, not one huge Trimesh');
 assert.equal(physics.bodies.includes(collider),true);
-for(const [x,z] of [[0,0],[65,-40],[-55,60],[97,97],[-92,-70]]){
+assert.ok(Math.abs(collider.position.x+size*.5)<.25,
+  'Collision lattice must not visibly separate from rendered terrain');
+// Cover exact visual grid vertices (which previously gave intermittent
+// Cannon heightfield ray misses), cells interiors and both boundaries.
+for(const [x,z] of [[0,0],[65,-40],[-55,60],[97,97],[-92,-70],
+  [65.05,-39.95],[-55.05,60.05],[99.5,99.5],[-99.5,-99.5],
+  [2.5,-7.5],[-37.4,-64.2]]){
   const result=new CANNON.RaycastResult();
   const hit=physics.raycastClosest(new CANNON.Vec3(x,40,z),
     new CANNON.Vec3(x,-40,z),{},result);
