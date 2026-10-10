@@ -108,6 +108,13 @@ assert.ok(network.roads.some(r=>r.surface==='dirt'),
 network.setWetness(1);
 assert.ok(network.materials.get('nacional').clearcoat>.7,
   'Rain should wet regional road materials, not just circular road');
+const wetRoad=network.roads.find(r=>r.id==='nacional');
+const wetPoint=wetRoad.points[Math.floor(wetRoad.points.length*.30)];
+assert.equal(network.query(wetPoint.x,wetPoint.z,'clear').surface,'wet',
+  'The tyres must use retained ground wetness when the rain has stopped');
+network.setWetness(0);
+assert.equal(network.query(wetPoint.x,wetPoint.z,'clear').surface,'dry',
+  'Wet grip must return to dry after the asphalt has dried');
 const testRoad=network.roads.find(r=>r.id==='provas');
 assert.ok(testRoad,'Physics test area must join the road network');
 // A single vertex at 64% can land exactly on another road's junction;
