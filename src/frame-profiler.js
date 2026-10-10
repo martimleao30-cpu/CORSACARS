@@ -35,17 +35,22 @@ export class FrameProfiler{
   pollGpu(){
     if(!this.query||this.collecting)return;
     const gl=this.gl,ext=this.extension;
+    let available=false;
     try{
-      if(!gl.getQueryParameter(this.query,gl.QUERY_RESULT_AVAILABLE))return;
+      available=gl.getQueryParameter(this.query,gl.QUERY_RESULT_AVAILABLE);
+      if(!available)return;
       const valid=!gl.getParameter(ext.GPU_DISJOINT_EXT);
       if(valid){
         this.lastGpuMs=gl.getQueryParameter(this.query,gl.QUERY_RESULT)/1000000;
         this.push('gpu',this.lastGpuMs);
       }
-    }catch{/* Some drivers do not support timer queries correctly. */}
-    finally{
-      if(gl.getQueryParameter(this.query,gl.QUERY_RESULT_AVAILABLE)){
-        gl.deleteQuery(this.query);this.query=null;
+    }catch{
+      // A lost WebGL context can invalidate the query mid-frame.
+      available=true;
+    }finally{
+      if(available){
+        try{gl.deleteQuery(this.query);}catch{/* Context already lost. */}
+        this.query=null;
       }
     }
   }
