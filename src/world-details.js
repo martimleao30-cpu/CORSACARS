@@ -398,7 +398,7 @@ export class WorldDetails {
     const target=climate?climate.rain:(weather==='rain'?1:0);
     const drying=.038*(1-(climate?.fog||0)*.6);
     this.wetness=THREE.MathUtils.damp(this.wetness,target,
-      target>this.wetness?.21:drying,delta);
+      target>this.wetness ? .21 : drying,delta);
     if(this.puddles){
       this.puddles.visible=this.wetness>.045;
       this.puddles.material.opacity=.48*this.wetness;
