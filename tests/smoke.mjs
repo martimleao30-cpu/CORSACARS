@@ -12,7 +12,7 @@ const performance = readFileSync(new URL('../src/performance.js', import.meta.ur
 const ids = [
   'game', 'startButton', 'resumeButton', 'pauseButton', 'restartButton',
   'settingsBack', 'qualitySelect', 'fpsSelect', 'weatherSelect',
-  'fullscreenButton', 'speedValue', 'rpmValue', 'gearValue',
+  'fullscreenButton', 'gpsCanvas', 'gpsReference', 'gpsStatus', 'speedValue', 'rpmValue', 'gearValue',
   'modelToggle', 'autoQualityToggle', 'perfValue', 'assetStatus'
 ];
 for (const id of ids) {
@@ -71,5 +71,7 @@ assert.match(vehicle,/contactShadow/);
 assert.match(vehicle,/tireTreads/);
 assert.match(vehicle,/dashLight/);
 assert.match(premium,/style-glass/);
+assert.match(premium,/new NavigationHUD/);
+assert.match(premium,/gpsDestination/);
 assert.match(premiumCss,/style-glass/);
 console.log('PASS: vehicle, road, 3D vegetation, wet weather, clouds and translucent HUD integrations.');

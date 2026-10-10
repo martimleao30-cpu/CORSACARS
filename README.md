@@ -454,3 +454,16 @@ marcações e colisores Cannon são igualmente recortados. Os pavimentos
 originais são preservados como fonte de amostragem das marcações para não
 perder a precisão das faixas em curvas. A separação por altura impede
 tratar falsamente passagens superiores como cruzamentos ao mesmo nível.
+
+
+## GPS transparente e rotas ativas
+
+O novo módulo `src/gps-navigation.js` mostra um mapa dinâmico, transparente,
+com ruas próximas a cinzento claro, orientação do automóvel e trajeto em azul
+luminoso como na referência enviada. No menu de pausa → MAPA é possível
+escolher um destino (vila, área de serviço, quinta, miradouro, pedreira).
+O GPS calcula uma rota curta por uma rede de caminhos ligada nos
+cruzamentos ao mesmo nível e reajusta a rota quando o automóvel muda de via.
+A imagem transparente `assets/ui/gps-reference.svg` mantém o estilo do
+exemplo em modo de exploração sem rota. Sem serviços externos ou localização
+pessoal. Testes: `node tests/gps-navigation.mjs`.

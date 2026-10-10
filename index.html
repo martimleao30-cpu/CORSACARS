@@ -30,6 +30,12 @@
   </header>
 
   <aside id="hud" class="hud hidden" aria-live="off">
+    <section id="gpsHud" class="gps-hud" aria-label="GPS do veículo">
+      <div class="gps-heading"><strong>GPS</strong><span>OPEN ROAD</span></div>
+      <img id="gpsReference" class="gps-reference" src="./assets/ui/gps-reference.svg" alt="" aria-hidden="true">
+      <canvas id="gpsCanvas" width="240" height="240" aria-label="Mini mapa transparente e rota de navegação"></canvas>
+      <div id="gpsStatus" class="gps-status">EXPLORAÇÃO LIVRE</div>
+    </section>
     <div class="speed-dial">
       <div class="speed-caption">VELOCIDADE</div>
       <div class="speed-row"><strong id="speedValue">0</strong><span>KM/H</span></div>

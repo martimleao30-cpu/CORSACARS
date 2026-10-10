@@ -1,3 +1,4 @@
+import {NavigationHUD} from './gps-navigation.js';
 const $ = id => document.getElementById(id);
 const HUD_KEY = 'corsacars.hud.v2';
 const PROFILES_KEY = 'corsacars.hud.profiles.v1';
@@ -45,6 +46,8 @@ export class PremiumInterface {
     this.buildPages();
     this.buildSettingsTabs();
     this.createHud();
+    this.navigation=new NavigationHUD($('gpsCanvas'),
+      this.api.world.network,this.api.world.sectors.regions,$('gpsStatus'));
     this.bindPages();
     this.setHud(this.prefs);
     this.bindDragging();
@@ -161,7 +164,9 @@ export class PremiumInterface {
       <section id="mapScreen" class="screen hidden" aria-label="Mapa do mundo">
         <div class="darken"></div><div class="panel premium-panel">
           <div class="eyebrow">CORSACARS / NAVEGAÇÃO</div><h2>MAPA<span>.</span></h2>
-          <p class="secondary-info">Circuito atual do mundo aberto. O marcador luminoso indica a posição do automóvel.</p>
+          <p class="secondary-info">Escolhe um destino para ativar o GPS transparente com rota azul-turquesa e orientação em tempo real.</p>
+          <label>DESTINO DO GPS <select id="gpsDestination" aria-label="Escolher destino"><option value="">Exploração livre</option></select></label>
+          <div class="button-row"><button class="primary" id="gpsGo">INICIAR ROTA <span>↗</span></button><button class="outline" id="gpsClear">LIMPAR</button></div>
           <canvas id="roadMap" width="480" height="400" style="width:100%;height:auto;background:#13232a;border:1px solid rgba(255,255,255,.2)" aria-label="Mapa do circuito"></canvas>
           <button class="outline ui-back" data-ui-back>VOLTAR <span>←</span></button>
         </div>
@@ -287,6 +292,23 @@ export class PremiumInterface {
       this.api.toast('Num navegador, fecha o separador para sair. O progresso local mantém-se.');
     });
     $('testTrackPause').addEventListener('click',()=>this.api.teleportToTests());
+    for(const region of this.api.world.sectors.regions)
+      $('gpsDestination').add(new Option(region.name,region.id));
+    $('gpsGo').addEventListener('click',()=>{
+      const id=$('gpsDestination').value;
+      if(this.navigation.setDestination(id)){
+        $('gpsReference').classList.add('hidden');
+        this.api.toast('GPS ATIVO · '+this.navigation.destination.name.toUpperCase());
+        this.back();
+      }else this.api.toast('ESCOLHE UM DESTINO NO MAPA');
+    });
+    $('gpsClear').addEventListener('click',()=>{
+      $('gpsDestination').value='';
+      this.navigation.setDestination(null);
+      $('gpsReference').classList.remove('hidden');
+      this.api.toast('GPS · EXPLORAÇÃO LIVRE');
+      this.drawMap();
+    });
     $('garageSelect').addEventListener('click',()=>{
       this.api.toast('CONCEPT COUPÉ SELECIONADO');
       this.back();
@@ -403,7 +425,10 @@ export class PremiumInterface {
       $('hud').classList.add('editing');
     }
     if(page==='garageScreen') $('garagePaint').value=this.api.settings.paint||'#29445d';
-    if(page==='mapScreen') this.drawMap();
+    if(page==='mapScreen'){
+      $('gpsDestination').value=this.navigation.destinationId||'';
+      this.drawMap();
+    }
     $(page).querySelector('button,select,input')?.focus();
   }
 
@@ -555,6 +580,8 @@ export class PremiumInterface {
   }
 
   updateTelemetry(data,handbrake=false) {
+    this.navigation?.update(this.api.vehicle.getPosition(),
+      this.api.vehicle.chassis.quaternion,performance.now());
     const p=this.editorOpen?this.draft:this.prefs;
     const speed=p.unit==='mph'?data.speed/1.609344:data.speed;
     $('speedValue').textContent=String(Math.max(0,Math.round(speed)));
@@ -591,6 +618,15 @@ export class PremiumInterface {
       ctx.lineWidth=road.width*.285+1.2;ctx.stroke();
       ctx.strokeStyle=road.surface==='dry'?'#d8d6bc':'#776a53';
       ctx.lineWidth=1;ctx.stroke();
+    }
+    if(this.navigation.route?.points.length>1){
+      ctx.beginPath();
+      this.navigation.route.points.forEach((p,i)=>{
+        const [x,y]=project(p);
+        if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      });
+      ctx.strokeStyle='#21e7fa';ctx.lineWidth=4;
+      ctx.shadowColor='#14dbff';ctx.shadowBlur=12;ctx.stroke();ctx.shadowBlur=0;
     }
     const sites=this.api.world.sectors?.regions||[];
     for(const site of sites) {

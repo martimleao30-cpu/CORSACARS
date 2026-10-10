@@ -161,3 +161,5 @@
  .hud .speed-dial.style-glass::before{left:-40px;height:6px;bottom:-9px}
  .hud .speed-dial.style-glass::after{left:-42px;width:30px;height:83px;border-width:4px}
 }
+
+.hud.editing .gps-hud{display:none}

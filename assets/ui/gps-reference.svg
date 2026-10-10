@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+<defs><filter id="g" x="-70%" y="-70%" width="240%" height="240%">
+<feGaussianBlur stdDeviation="5"/></filter>
+<linearGradient id="b" x1="0" y1="1" x2="0" y2="0"><stop stop-color="#38f3ff"/><stop offset="1" stop-color="#00b8e5" stop-opacity=".15"/></linearGradient>
+</defs>
+<path d="M119 224V161Q119 123 90 92T18 51" fill="none" stroke="#00dfff" stroke-width="21" stroke-linecap="round" opacity=".45" filter="url(#g)"/>
+<path d="M119 224V161Q119 123 90 92T18 51" fill="none" stroke="url(#b)" stroke-width="10" stroke-linecap="round"/>
+<path d="M119 224V161Q119 123 90 92T18 51" fill="none" stroke="#efffff" stroke-opacity=".8" stroke-width="2" stroke-linecap="round"/>
+<path d="M119 218V161Q122 122 155 115L221 93" fill="none" stroke="#eff8fa" stroke-opacity=".3" stroke-width="5" stroke-linecap="round"/>
+<g transform="translate(120 191)"><path d="M0-18L12 11 0 5-12 11Z" fill="#fbfdff" stroke="#18233f" stroke-width="3.4" stroke-linejoin="round"/></g>
+<text x="192" y="203" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" font-weight="bold" fill="white">N</text>
+</svg>
