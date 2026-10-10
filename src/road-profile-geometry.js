@@ -43,8 +43,10 @@ const unionMesh=(scene,road,terrainY,offset,extents,color=1)=>{
     }
     if(!i)continue;
     const a=(i-1)*extents.length,b=i*extents.length;
-    for(let j=0;j<extents.length-1;j++)
-      idx.push(a+j,a+j+1,b+j,a+j+1,b+j+1,b+j);
+    for(let j=0;j<extents.length-1;j++){
+      if(offset>0)idx.push(a+j,a+j+1,b+j,a+j+1,b+j+1,b+j);
+      else idx.push(a+j,b+j,a+j+1,a+j+1,b+j,b+j+1);
+    }
   }
   const mesh=buildMesh(pos,uv,colors,idx,
     road.mesh.material,road.name+' · Berma pavimentada de emergência');
