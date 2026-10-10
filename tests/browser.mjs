@@ -46,6 +46,14 @@ try {
   await page.locator('#garageStart').click();
   assert.equal(await page.locator('#garageScreen').isVisible(), true);
   await page.locator('#garagePaint').fill('#cc5533');
+  await page.locator('#garageModel').selectOption('m4');
+  assert.equal(await page.locator('#garageVmax').textContent(),'250 km/h');
+  await page.locator('#garageSelect').click();
+  assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('corsacars.settings.v1')).selectedVehicle),'m4',
+    'Chosen BMW M4 must be saved');
+  await page.locator('#garageStart').click();
+  assert.equal(await page.locator('#garageModel').inputValue(),'m4');
+  await page.locator('#garageModel').selectOption('coupe');
   await page.locator('#garageSelect').click();
   assert.equal(await page.locator('#startScreen').isVisible(), true);
 

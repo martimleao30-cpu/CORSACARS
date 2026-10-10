@@ -492,3 +492,22 @@ instancing e culling são preservados. `src/wild-groundcover.js` adiciona
 arbustos, flores espontâneas e relva em blocos naturais, com centenas de
 aglomerados independentes no mapa, excluindo vias rodoviárias, acessos e
 carril ferroviário. A opção de densidade da vegetação atua sobre ambos.
+
+
+## BMW M4 Competition M xDrive — 2025
+
+A garagem inclui o Coupé original e o BMW M4 Competition M xDrive 2025, com
+modelo 3D procedural original inspirado nas proporções reais, incluindo
+grelha dupla, faróis LED, vidro, spoiler, saídas de escape e tejadilho.
+Não é um modelo digital oficial da BMW nem uma digitalização fotorrealista.
+A escolha e a cor da carroçaria persistem nas definições locais.
+
+Dados oficiais BMW Portugal: 390 kW (530 cv), 650 Nm, motor de seis cilindros
+3.0 biturbo, caixa automática M Steptronic 8, tração M xDrive AWD, massa de
+referência 1850 kg (EU), aceleração homologada 0–100 km/h em 3,5 s e limite
+de velocidade de fábrica 250 km/h. A física simula o binário, relações,
+travagem, suspensão, resistência aerodinâmica e um limitador físico de 250
+km/h; o valor 3,5 s é o dado do fabricante, não um tempo exato garantido
+pela física Cannon do jogo.
+
+Fonte: https://www.bmw.pt/pt/all-models/m-series/4-modelos/bmw-m4-coupe-technical-data.html
