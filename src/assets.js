@@ -28,6 +28,7 @@ export class AssetUpgrade {
     this.started = false;
     this.carLoaded = false;
     this.textureLoaded = false;
+    this.asphaltRequest = 0;
     this.modelEnabled = true;
   }
 
@@ -52,13 +53,19 @@ export class AssetUpgrade {
   }
 
   async loadPhotographicAsphalt(quality) {
-    // Correctly licensed 1K or 2K photographic albedo replaces procedural albedo.
-    // Normal/roughness procedural maps remain as reliable fallback.
-    const resolution = quality === 'ultra' ? '2k' : '1k';
+    // Three true texture resolutions, independent of frame rendering scale.
+    // Retain the procedural normal/roughness maps as an offline fallback.
+    const resolution = quality === 'ultra' ? '4k' : quality === 'high' ? '2k' : '1k';
+    const request = ++this.asphaltRequest;
     try {
       const url = ASPHALT_BASE +
         resolution + '/asphalt_02/asphalt_02_diff_' + resolution + '.jpg';
       const albedo = await fetchTexture(url, true);
+      if (request !== this.asphaltRequest) { albedo.dispose(); return; }
+      albedo.anisotropy = this.renderer?.capabilities?.getMaxAnisotropy
+        ? Math.min(16,this.renderer.capabilities.getMaxAnisotropy()) : 16;
+      albedo.minFilter=THREE.LinearMipmapLinearFilter;
+      albedo.magFilter=THREE.LinearFilter;
       const roadMaterials=new Set([
         this.world.roadMaterial,
         ...(this.world.network?.materials?.values()||[])
@@ -77,6 +84,7 @@ export class AssetUpgrade {
       if(this.asphaltTexture&&this.asphaltTexture!==albedo)
         this.asphaltTexture.dispose();
       this.asphaltTexture=albedo;
+      this.asphaltResolution=resolution;
       this.textureLoaded=true;
     } catch (e) {
       console.warn('[CORSACARS] Textura fotográfica indisponível; asfalto original ativo.', e);
