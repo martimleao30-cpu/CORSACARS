@@ -11,6 +11,8 @@ on:
       - "package.json"
       - "tests/desktop-build.mjs"
       - "tests/updates.mjs"
+      - "tests/road-signage.mjs"
+      - "tests/road-environments.mjs"
       - ".github/workflows/windows-desktop.yml"
   workflow_dispatch:
 
