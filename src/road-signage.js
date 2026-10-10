@@ -349,7 +349,10 @@ export class RoadSignage {
     if(highway){
       // Centreline belongs to the median barrier. Mark real lane divisions
       // only; never paint a fictional double line under the central rail.
-      for(const lateral of [-w*.25,w*.25]){
+      const median=road.profile?.median??4;
+      const laneWidth=(w-median)/4;
+      const division=median*.5+laneWidth;
+      for(const lateral of [-division,division]){
         this.add(createLineGeometry(sampler,{style:'dashed',lateral,
           width:.13,start,end,dash:5.6,gap:7.4,excluded:gaps}),
           road.name+' · Linha entre vias');
@@ -378,7 +381,12 @@ export class RoadSignage {
     }else if(highway||connector){
       for(let d=28;d<length-16;d+=Math.max(85,length/4)){
         if(!clean(d,8))continue;
-        const lanes=highway?[-w*.36,w*.36]:[0];
+        const median=road.profile?.median??4;
+        const laneWidth=(w-median)/4;
+        const lanes=highway?[
+          -(median*.5+laneWidth*.5),-(median*.5+laneWidth*1.5),
+          median*.5+laneWidth*.5,median*.5+laneWidth*1.5
+        ]:[0];
         for(const lateral of lanes)this.add(createArrowGeometry(sampler,d,lateral,
           connector?'right':'straight'),road.name+' · Seta de orientação');
       }
