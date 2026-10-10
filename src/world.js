@@ -58,6 +58,18 @@ function meshCollider(world, geometry, frictionMaterial) {
   world.addBody(body);
   return body;
 }
+// cannon-es 0.20 computes its per-cell heightfield AABB from only two
+// diagonal vertices. This misses peaks and valleys at the OTHER two corners,
+// causing wheel suspension rays to skip otherwise solid sloping terrain.
+class ReliableTerrainHeightfield extends CANNON.Heightfield {
+  getAabbAtIndex(x,y,{lowerBound,upperBound}){
+    const data=this.data,size=this.elementSize;
+    const values=[data[x][y],data[x+1][y],data[x][y+1],data[x+1][y+1]];
+    lowerBound.set(x*size,y*size,Math.min(...values));
+    upperBound.set((x+1)*size,(y+1)*size,Math.max(...values));
+  }
+}
+
 // A dedicated heightfield is far more reliable for off-road wheels than one
 // enormous Trimesh. Read the *rendered* vertices so contact matches the grass.
 export function createTerrainCollider(physics, geometry, frictionMaterial) {
@@ -84,7 +96,7 @@ export function createTerrainCollider(physics, geometry, frictionMaterial) {
       const upper=at(x,nz)*(1-xMix)+at(nx,nz)*xMix;
       return lower*(1-zMix)+upper*zMix;
     }));
-  const shape=new CANNON.Heightfield(heights,{elementSize:step});
+  const shape=new ReliableTerrainHeightfield(heights,{elementSize:step});
   const body=new CANNON.Body({mass:0,material:frictionMaterial});
   body.addShape(shape);
   body.position.set(-width*.5+shift,0,height*.5-shift);
