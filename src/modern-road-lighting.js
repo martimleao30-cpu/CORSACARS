@@ -61,7 +61,7 @@ export class ModernRoadLighting{
       head:new THREE.MeshStandardMaterial({color:0x454f57,roughness:.52,metalness:.69}),
       trim:new THREE.MeshStandardMaterial({color:0x9fa9ab,roughness:.38,metalness:.71}),
       lens:new THREE.MeshStandardMaterial({
-        color:0xe7f0ed,emissive:0xd6eeeb,emissiveIntensity:.08,
+        color:0xf9eee2,emissive:0xffe6c9,emissiveIntensity:0,
         roughness:.21,metalness:.03,side:THREE.DoubleSide
       })
     };
@@ -71,7 +71,7 @@ export class ModernRoadLighting{
     const maxReal=quality==='ultra'?8:quality==='low'?4:6;
     this.lights=[];
     for(let i=0;i<maxReal;i++){
-      const light=new THREE.SpotLight(0xf0f3ec,0,46,Math.PI/2.9,.65,1.5);
+      const light=new THREE.SpotLight(0xfff1df,0,46,Math.PI/2.9,.65,1.5);
       light.castShadow=false;
       light.visible=false;
       scene.add(light,light.target);this.lights.push(light);
