@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
+import {buildRuralWildlife} from './rural-wildlife.js';
 
 // Streamed rural architecture: original farm buildings, working yards, fields,
 // machinery, hay stacks and village houses. All buildings sit above terrain,
@@ -26,7 +27,7 @@ function localFrame(region,terrain){
   };
   return {yaw,factor,origin,ground};
 }
-export function buildRuralSettlement(group,physics,bodies,region,terrain,clearance=null){
+export function buildRuralSettlement(group,physics,bodies,region,terrain,clearance=null,quality='high'){
   const frame=localFrame(region,terrain);
   const root=new THREE.Group();
   root.name=region.kind==='hamlet'?'Aldeia habitada · casas e largos':'Exploração agrícola · estruturas rurais';
@@ -159,9 +160,12 @@ export function buildRuralSettlement(group,physics,bodies,region,terrain,clearan
       box('Quinta · portão aberto',25,along,.23,1.65,.22,'steel');
     }
   }
+  const wildlife=buildRuralWildlife(root,region,terrain,quality);
+  Object.assign(stats,wildlife.stats);
+  root.userData.ruralWildlife=wildlife;
   root.userData.ruralStats=stats;
   root.userData.ruralDispose=()=>{
     for(const geo of ownedGeometries)geo.dispose();
   };
-  return {root,stats};
+  return {root,stats,wildlife};
 }
