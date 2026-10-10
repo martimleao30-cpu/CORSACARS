@@ -96,6 +96,7 @@ export class RoadsideClearance{
       }
     }
     this.busBays=this.planBusBays();
+    this.network.busBays=this.busBays;
   }
   // Reserve a pull-out beside a REAL town or hamlet. Nothing is placed at an
   // arbitrary percentage of the map: the nearest drivable route, nearby
