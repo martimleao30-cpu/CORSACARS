@@ -56,8 +56,24 @@ const sideMesh=addRoadSides(scene,bed.sides,'Teste');
 assert.equal(sideMesh.geometry,bed.sides);
 const wear=addRoadWear(scene,points,width,ground,'low',27);
 assert.ok(wear.patches.count>0 && wear.skids.count>=2 && wear.dirt.count>=2);
-const shoulders=addRoadShoulders(scene,points,width,ground,createGravelMaterial());
+const gravel=createGravelMaterial();
+assert.equal(gravel.map.image.width,512,'Gravel should have more than 128 pixels');
+assert.ok(gravel.normalMap?.isCanvasTexture,'Fine stone relief normal map required');
+assert.equal(createGravelMaterial().map,gravel.map,'Gravel texture must be cached globally');
+const shoulders=addRoadShoulders(scene,points,width,ground,gravel);
 assert.equal(shoulders.length,2);
 assert.ok(shoulders.every(m=>m.geometry.index.count>0));
+for(const shoulder of shoulders){
+  const geometry=shoulder.geometry;
+  assert.equal(geometry.getAttribute('position').count,points.length*4);
+  assert.equal(geometry.getAttribute('color').count,points.length*4);
+  assert.ok(geometry.index.count>12,'A shoulder must have graded material bands');
+  assert.equal(shoulder.material.vertexColors,true);
+  const uv=geometry.getAttribute('uv');
+  assert.ok(uv.getX(4)>uv.getX(0),'Gravel UV should tile along real metres');
+  const colors=geometry.getAttribute('color');
+  assert.notEqual(colors.getG(0),colors.getG(3),
+    'Outer verge must blend gravel into natural soil/grass');
+}
 assert.equal(scene.children.length,6);
 console.log('PASS: 3D road deck and sides, real-distance UVs, PBR aging, reuse, tire marks, patches and shoulders.');
