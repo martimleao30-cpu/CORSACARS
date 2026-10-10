@@ -547,8 +547,12 @@ export class RiverSystem {
       const point=this.points[Math.floor(random()*this.points.length)];
       const side=(random()*2-1)*point.width*1.12;
       const size=.30+random()*2.1;
-      obj.position.set(point.x+point.nx*side,
-        point.y+.08-size*.38,point.z+point.nz*side);
+      const x=point.x+point.nx*side,z=point.z+point.nz*side;
+      const base=this.channelHeight(this.terrainY(x,z),this.lookup(x,z));
+      // Large boulders must physically sit on the eroded riverbed.
+      // Previously their centres were placed at water level, visibly
+      // floating over the freshly carved channel.
+      obj.position.set(x,base+size*.25,z);
       obj.rotation.set(random()*2,random()*6.28,random()*2);
       obj.scale.set(size,size*.53,size*(.65+random()*.60));
       obj.updateMatrix();mesh.setMatrixAt(made,obj.matrix);
