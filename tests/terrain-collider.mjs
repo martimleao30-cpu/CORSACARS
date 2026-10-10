@@ -20,6 +20,14 @@ assert.ok(collider.shapes[0] instanceof CANNON.Heightfield,
 assert.equal(physics.bodies.includes(collider),true);
 assert.ok(Math.abs(collider.position.x+size*.5)<.25,
   'Collision lattice must not visibly separate from rendered terrain');
+// The four corners, not just the diagonal pair, must define each cell's
+// raycast bounding box. Required for mountain ridges and suspension rays.
+const cell=new CANNON.AABB(),field=collider.shapes[0];
+field.getAabbAtIndex(12,13,cell);
+const cellHeights=[field.data[12][13],field.data[13][13],
+  field.data[12][14],field.data[13][14]];
+assert.ok(cell.lowerBound.z<=Math.min(...cellHeights));
+assert.ok(cell.upperBound.z>=Math.max(...cellHeights));
 // Cover exact visual grid vertices (which previously gave intermittent
 // Cannon heightfield ray misses), cells interiors and both boundaries.
 for(const [x,z] of [[0,0],[65,-40],[-55,60],[97,97],[-92,-70],
