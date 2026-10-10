@@ -34,7 +34,13 @@ const tick=(input,surface='dry')=>{
 const neutral={steer:0,accelerate:0,brake:0,handbrake:false};
 for(let i=0;i<95;i++)tick(neutral);
 const initialZ=car.chassis.position.z;
-for(let i=0;i<250;i++)tick({...neutral,accelerate:1});
+let accelerationTransfer=0;
+for(let i=0;i<250;i++){
+  tick({...neutral,accelerate:1});
+  if(car.contactLoads[2]>car.contactLoads[0]+.006)accelerationTransfer++;
+}
+assert.ok(accelerationTransfer>0,
+  'During forward acceleration the physical rear tyres must gain normal load');
 const travelled=Math.abs(car.chassis.position.z-initialZ);
 const v1=car.chassis.velocity.length();
 assert.ok(travelled>2,'Physics must move the chassis rather than update numbers only: '+travelled);
@@ -42,7 +48,13 @@ assert.ok(v1>1,'Engine must accelerate the car with Cannon contact: '+v1);
 assert.ok(car.rpm>800);
 const wheel=car.vehicle.wheelInfos[0];
 const dryFriction=wheel.frictionSlip;
-for(let i=0;i<70;i++)tick({...neutral,brake:1},'wet');
+let brakingTransfer=0;
+for(let i=0;i<70;i++){
+  tick({...neutral,brake:1},'wet');
+  if(car.contactLoads[0]>car.contactLoads[2]+.006)brakingTransfer++;
+}
+assert.ok(brakingTransfer>0,
+  'During braking the front tyres must receive increased normal load');
 const wetFriction=car.vehicle.wheelInfos[0].frictionSlip;
 assert.ok(wetFriction<dryFriction,'Water must decrease effective wheel friction');
 assert.ok(car.chassis.velocity.length()<v1,'Braking must reduce physical velocity');
