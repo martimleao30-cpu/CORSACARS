@@ -38,4 +38,22 @@ for(const region of sector.regions){
     'Geometry objects remain inspectable despite GPU dispose');
 }
 sector.dispose();
-console.log('PASS: all five sector POIs load and unload physics and graphics resources.');
+// Eager mode constructs EVERY named location at startup and keeps it alive
+// while the player moves to another end of the map.
+const progress=[];
+const regionCount=await sector.preloadAll((done,total)=>
+  progress.push([done,total]),async()=>{});
+assert.equal(regionCount,sector.regions.length);
+assert.equal(sector.preloaded,true);
+assert.equal(progress.length,sector.regions.length);
+const eagerBodies=physics.bodies.length;
+assert.ok(eagerBodies>initial);
+sector.update(new THREE.Vector3(12000,0,12000),5,14);
+assert.equal(sector.active.size,sector.regions.length,
+  'Eager mode must not unload town, farm or service assets mid-drive');
+assert.equal(physics.bodies.length,eagerBodies,
+  'Eager mode retains POI collisions without rebuilding them while driving');
+sector.dispose();
+assert.equal(physics.bodies.length,initial,
+  'Eager POI cleanup must still remove static physics bodies');
+console.log('PASS: all POIs load/unload correctly and eager preload retains them during driving.');
