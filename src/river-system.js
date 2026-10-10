@@ -368,7 +368,6 @@ export class RiverSystem {
       lower.z+tangent.z*4);
     pool.rotation.y=Math.atan2(tangent.x,tangent.z);
     pool.renderOrder=3;this.group.add(pool);this.waterfallPool=pool;
-    this.statistics.waterfallDropM=drop;
   }
   buildBanks(){
     const positions=[],colors=[],indices=[];
