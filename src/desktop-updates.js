@@ -54,9 +54,16 @@ if (api) {
   const label = document.createElement('p');
   label.style.cssText = 'color:#d2b493;font-size:11px;margin:8px 0 14px;';
   label.setAttribute('aria-live', 'polite');
-  label.textContent = 'Versão Windows instalada';
+  label.textContent = 'A consultar a versão instalada e as atualizações...';
   settings?.insertBefore(manual, settings.querySelector('#settingsBack'));
   settings?.insertBefore(label, settings.querySelector('#settingsBack'));
+  const releases = document.createElement('a');
+  releases.href = 'https://github.com/martimleao30-cpu/CORSACARS/releases/latest';
+  releases.target = '_blank';
+  releases.rel = 'noopener noreferrer';
+  releases.textContent = 'VER ÚLTIMA VERSÃO PUBLICADA';
+  releases.style.cssText = 'display:inline-block;color:#d2b493;font-size:11px;margin-bottom:14px;';
+  settings?.insertBefore(releases, settings.querySelector('#settingsBack'));
 
   function present(state) {
     current = state;
@@ -65,7 +72,7 @@ if (api) {
     action.hidden = false;
     later.hidden = false;
     if (state.state === 'available') {
-      label.textContent = 'Nova versão ' + next + ' disponível';
+      label.textContent = 'Instalada: ' + (state.version||'?') + ' · Disponível: ' + next;
       if (dismissedVersion === next) return;
       heading.textContent = 'ATUALIZAÇÃO DISPONÍVEL';
       message.textContent = 'CORSACARS ' + next + ' está disponível. Queres atualizar agora?';
@@ -91,9 +98,11 @@ if (api) {
       later.hidden = false;
       label.textContent = 'Atualização pronta para instalar';
     } else if (state.state === 'checking') {
-      label.textContent = 'A procurar atualizações...';
+      label.textContent = 'A procurar atualizações (instalada: ' + (state.version||'?') + ')...';
     } else if (state.state === 'current') {
-      label.textContent = 'O CORSACARS está atualizado (versão ' + (state.version || '') + ')';
+      label.textContent = 'Nenhuma atualização mais recente encontrada · versão ' + (state.version || '?') + '. Confirma também em VER ÚLTIMA VERSÃO PUBLICADA.';
+    } else if (state.state === 'idle') {
+      label.textContent = 'Versão instalada: ' + (state.version || '?') + ' · Aguardando verificação.';
     } else if (state.state === 'error') {
       label.textContent = state.message || 'Não foi possível atualizar.';
       if (!box.hidden) {
