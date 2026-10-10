@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {roadDeckHeight} from './road-upgrades.js';
 import {RoadsideInfrastructure} from './roadside-infrastructure.js';
+import {RoadsidePowerLines} from './roadside-power-lines.js';
 import {createNaturalShrubGeometry,createWeatheredRockGeometry} from './natural-assets.js';
 
 // Route-specific, real Three.js scenery. Shared mesh geometries and instanced
@@ -61,7 +62,7 @@ const deterministic=seed=>{
 export const ROAD_CATEGORIES=Object.freeze(['urban','highway','mountain','rural','dirt']);
 
 export class RoadEnvironment {
-  constructor(scene,physics,network,terrainY,quality='high',clearance=null){
+  constructor(scene,physics,network,terrainY,quality='high',clearance=null,railway=null){
     this.scene=scene;this.physics=physics;this.network=network;
     this.terrainY=terrainY;this.quality=quality;this.clearance=clearance;
     this.objects=[];this.bodies=[];this.trafficLights=[];
@@ -94,6 +95,9 @@ export class RoadEnvironment {
     this.infrastructure=new RoadsideInfrastructure(
       this.scene,this.physics,this.network,this.terrainY,this.clearance,this.quality);
     Object.assign(this.statistics,this.infrastructure.stats);
+    this.powerLines=new RoadsidePowerLines(this.scene,this.physics,
+      this.network,this.terrainY,this.clearance,railway,this.quality);
+    Object.assign(this.statistics,this.powerLines.statistics);
     this.elapsed=0;
   }
 
@@ -675,6 +679,7 @@ export class RoadEnvironment {
     if(this.disposed)return;
     this.disposed=true;
     this.infrastructure?.dispose();
+    this.powerLines?.dispose();
     for(const body of this.bodies)this.physics.removeBody(body);
     const shared=new Set(Object.values(materials));
     const geometries=new Set(),ownedMaterials=new Set(),ownedMaps=new Set();
