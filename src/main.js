@@ -467,6 +467,13 @@ function createDiagnostics(){
       'Render: '+renderer.info.render.calls+' draw calls · '+renderer.info.render.triangles+' tri',
       'Memória GPU aprox.: '+renderer.info.memory.textures+' texturas / '+renderer.info.memory.geometries+' geometrias',
       'Estradas da região: '+roadCount,
+      'Drenagem A/E: '+(world.highwayDrainage?.meshCount||0)+
+        ' canais · '+(world.highwayDrainage?.inletCount||0)+
+        ' coletores · caudal '+Math.round((world.highwayDrainage?.level||0)*100)+'%',
+      'Qualidade: '+settings.quality.toUpperCase()+
+        ' · sombras '+(settings.shadowQuality||'high')+
+        ' · AO '+(settings.ao?'sim':'não')+
+        ' · reflexos '+(graphics.reflectionEnabled?'sim':'não'),
       'Mapa auditado: '+(world.mapAudit?.metrics.roads??0)+' vias · '+
         (world.mapAudit?.issues.length??0)+' alertas',
       'Alertas principais: '+
