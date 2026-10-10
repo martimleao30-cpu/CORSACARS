@@ -512,7 +512,10 @@ export class PlayerVehicle {
     // Surface is sampled independently below the four suspension contact points.
     const rightVec=this.chassis.quaternion.vmult(new CANNON.Vec3(1,0,0));
     const lateralVelocity=this.chassis.velocity.dot(rightVec);
-    const longAccel=clamp((forwardSpeed-this.prevForwardSpeed)/Math.max(dt,.001),-18,18);
+    // Cannon RaycastVehicle applies negative engine force for forward drive,
+    // so actual forward motion is local -Z; invert its signed velocity before
+    // calculating longitudinal load transfer.
+    const longAccel=clamp((this.prevForwardSpeed-forwardSpeed)/Math.max(dt,.001),-18,18);
     const lateralAccel=clamp((lateralVelocity-this.prevLateralSpeed)/Math.max(dt,.001),-16,16);
     this.prevForwardSpeed=forwardSpeed;this.prevLateralSpeed=lateralVelocity;
     this.longAcceleration=THREE.MathUtils.damp(this.longAcceleration,longAccel,6,dt);
