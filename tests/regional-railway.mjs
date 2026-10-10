@@ -59,6 +59,25 @@ assert.equal(bases.length,piers.length,
   'Railway piers must have terrain-grounded foundations');
 assert.ok(beams.length>0,
   'Elevated track should use connected viaduct girders, not floating rail');
+const embankments=rail.group.children.filter(o=>
+  o.name==='Talude ferroviário · aterro ligado ao terreno');
+assert.equal(embankments.length,1,
+  'Low railway sections must use continuous earth/rock formations');
+const fill=embankments[0].geometry;
+assert.equal(fill.userData.corsaRailway,'terrain-founded-embankment');
+assert.ok(fill.index.count>100,'Railway embankments must connect to the landscape');
+assert.ok(rail.statistics.embankmentSections>5,
+  'The rail route must contain substantial ground-supported sections');
+const positions=fill.getAttribute('position');
+for(let i=0;i<positions.count;i+=6){
+  for(const j of [0,5]){
+    const x=positions.getX(i+j),z=positions.getZ(i+j);
+    assert.ok(Math.abs(positions.getY(i+j)-terrain(x,z))<.06,
+      'Rail embankment outer edges must meet actual ground, not float');
+  }
+}
+assert.ok(rail.statistics.bridges>=1,
+  'Elevated spans must retain their own structural supports');
 for(const base of bases)
   assert.ok(Math.abs(base.position.y-terrain(base.position.x,base.position.z))<.6,
     'Viaduct foundation must meet the terrain');
