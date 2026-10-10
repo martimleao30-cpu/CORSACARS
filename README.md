@@ -571,3 +571,13 @@ agora consulta primeiro a prioridade real do pavimento nos cruzamentos:
 o carro deixa de receber o atrito do asfalto secundário que foi recortado
 fisicamente. As sessões gravadas em estradas exteriores ao mapa anterior
 passam a ser restauradas até à nova fronteira.
+
+### Curvas das estradas e estrada versus terreno
+
+Os troços regionais usam amostragem por comprimento (~5–6 m por secção),
+limitando triângulos compridos que atravessavam curvas mais fechadas. Os
+colisores Cannon e as malhas visuais são construídos com a mesma geometria.
+A subdivisão do terreno aumenta proporcionalmente com os 4,1 km, evitando
+perder precisão por vértice em zonas de encosta. Estas mudanças implicam
+mais geometria carregada, mas não multiplicam as chamadas de desenho por
+estrada. Os testes medem também a distância máxima entre secções.

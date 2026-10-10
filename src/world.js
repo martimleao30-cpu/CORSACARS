@@ -151,7 +151,11 @@ export class DrivingWorld {
   buildTerrain() {
     const subdivisions = this.quality === 'ultra' ? 236 : this.quality === 'high' ? 188 : this.quality==='medium'?150:118;
     const geometry = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE,
-      Math.round(subdivisions*1.38),Math.round(subdivisions*1.38));
+      // Preserve the previous metres-per-vertex spacing as the world grows;
+      // otherwise the expanded terrain would turn into giant triangles that
+      // visibly intersect and bury the detailed roadbed on steep slopes.
+      Math.round(subdivisions*1.38*WORLD_SIZE/3400),
+      Math.round(subdivisions*1.38*WORLD_SIZE/3400));
     geometry.rotateX(-Math.PI / 2);
     const positions = geometry.getAttribute('position');
     const colors = [];

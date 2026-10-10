@@ -29,6 +29,12 @@ for(const road of network.roads){
   if(road.id==='circular')continue;
   if(road.from!==undefined)assert.equal(road.points[0].x,ring[road.from].center.x);
   assert.ok(road.mesh.geometry.index.count>30);
+  if(road.from!==undefined){
+    let biggest=0;
+    for(let i=1;i<road.points.length;i++)
+      biggest=Math.max(biggest,road.points[i].distanceTo(road.points[i-1]));
+    assert.ok(biggest<13,'Long or folded curved deck segment on '+road.name+': '+biggest);
+  }
   assert.equal((road.sourceGeometry||road.mesh.geometry).getAttribute('position').count,
     road.points.length*7,'Road cross-section source must be actual 3D geometry');
   if(road.junctionCuts?.length){

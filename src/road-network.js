@@ -94,8 +94,13 @@ export class RoadNetwork {
         to.center.clone()
       ];
       const curve=new THREE.CatmullRomCurve3(corners,false,'centripetal',.4);
-      const extended=['serra-norte','planicie-sul','vale-leste','campos-oeste'].includes(route.id);
-      const count=extended?240:route.id==='montanha'?175:route.id==='rural'?140:130;
+      // Sample every ~5-6 metres instead of using a fixed 130-point deck for
+      // routes that may span several kilometres. Long, under-sampled curved
+      // quads used to fold across hairpins and appear as buggy overlapping
+      // road triangles; physics and visual deck use identical new samples.
+      const distanceStep=route.category==='mountain'?5.2:6;
+      const count=Math.max(140,Math.min(700,
+        Math.ceil(curve.getLength()/distanceStep)));
       const points=[];
       for(let i=0;i<=count;i++){
         points.push(terrainRoadCurve(curve.getPoint(i/count),this.terrainY));
