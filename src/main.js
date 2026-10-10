@@ -466,7 +466,7 @@ function createCoordinateOverlay() {
     if(node.hidden)return;
     const fmt=value=>Number.isFinite(value)?value.toFixed(2):'—';
     node.textContent=[
-      'COORDENADAS · F6 PARA FECHAR',
+      'COORDENADAS · P PARA FECHAR',
       'X: '+fmt(position.x),
       'Y: '+fmt(position.y)+' (ALTURA)',
       'Z: '+fmt(position.z)
@@ -477,7 +477,7 @@ const coordinates=createCoordinateOverlay();
 window.addEventListener('keydown',e=>{
   if(e.repeat || ['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName))return;
   if(e.key==='F3'){e.preventDefault();diagnostics.node.hidden=!diagnostics.node.hidden;}
-  if(e.key==='F6'){e.preventDefault();coordinates.node.hidden=!coordinates.node.hidden;coordinates.update(car.getPosition());}
+  if(e.key.toLowerCase()==='p'){e.preventDefault();coordinates.node.hidden=!coordinates.node.hidden;coordinates.update(car.getPosition());}
 });
 
 function resize() {
