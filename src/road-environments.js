@@ -630,17 +630,15 @@ export class RoadEnvironment {
     // looking blocks. Small gaps and nonuniform widths keep the ruts natural.
     const vertices=[],uvs=[],colors=[],triangles=[];
     let distance=0,visible=0;
-    const texel=road.mesh.geometry.getAttribute('position');
-    const dirtPoint=(i,lateral)=>{
+    const dirtPoint=(i,lateral,metres)=>{
       const p=road.points[i],t=normal(road,i);
       const x=p.x-t.z*lateral,z=p.z+t.x*lateral;
       const f=2*lateral/road.width;
-      const uneven=.035*Math.sin(distance*.27+f*4.3)+
-        .017*Math.sin(distance*.74-f*7.9);
+      const uneven=.035*Math.sin(metres*.27+f*4.3)+
+        .017*Math.sin(metres*.74-f*7.9);
       return [x,roadDeckHeight(this.terrainY,x,z,lateral,road.width)+
         uneven+.028,z];
     };
-    void texel;
     for(let i=0;i<n;i++){
       distance+=i?road.points[i].distanceTo(road.points[i-1]):0;
       const nextDistance=distance+road.points[i].distanceTo(road.points[i+1]);
@@ -652,7 +650,7 @@ export class RoadEnvironment {
         const width=.30+.04*Math.sin(distance*.19+lateral);
         for(const [row,along] of [[i,distance],[i+1,nextDistance]]){
           for(const sign of [-1,1]){
-            const point=dirtPoint(row,lateral+sign*width*.5);
+            const point=dirtPoint(row,lateral+sign*width*.5,along);
             vertices.push(...point);
             uvs.push(sign<0?0:1,along*.35);
             const shade=.79+.07*Math.sin(along*.12+sign);
