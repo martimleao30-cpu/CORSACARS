@@ -301,21 +301,23 @@ export class RegionalRailway{
       if(Math.min(a.height,b.height)<3.0)continue;
       const mid=profile(d+span*.5);
       const length=a.point.distanceTo(b.point);
+      const horizontal=Math.hypot(b.point.x-a.point.x,b.point.z-a.point.z);
       const yaw=Math.atan2(b.point.x-a.point.x,b.point.z-a.point.z);
+      const pitch=-Math.atan2(b.point.y-a.point.y,horizontal);
       const girder=this.createBox('Viaduto · viga contínua de betão',
         a.point.clone().lerp(b.point,.5).add(new THREE.Vector3(0,-.78,0)),
         [4.1,.60,length+.24],this.materials.concrete);
-      girder.rotation.y=yaw;
+      girder.rotation.set(pitch,yaw,0,'YXZ');
       const lip=this.createBox('Viaduto · bordo de segurança',
         a.point.clone().lerp(b.point,.5).addScaledVector(mid.side,2.05)
           .add(new THREE.Vector3(0,-.36,0)),
         [.18,.56,length+.20],this.materials.structure);
-      lip.rotation.y=yaw;
+      lip.rotation.set(pitch,yaw,0,'YXZ');
       const opposite=this.createBox('Viaduto · bordo de segurança',
         a.point.clone().lerp(b.point,.5).addScaledVector(mid.side,-2.05)
           .add(new THREE.Vector3(0,-.36,0)),
         [.18,.56,length+.20],this.materials.structure);
-      opposite.rotation.y=yaw;
+      opposite.rotation.set(pitch,yaw,0,'YXZ');
       this.bridgeDeckSegments++;
     }
     for(let d=pierSpacing*.5;d<total;d+=pierSpacing){
