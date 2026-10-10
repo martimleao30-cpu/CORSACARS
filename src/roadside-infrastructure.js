@@ -57,6 +57,7 @@ export class RoadsideInfrastructure{
     // A station is not a traffic sign: its building/collider requires a broad
     // clean apron. No road, junction, side street or POI driveway is occupied.
     return !mask.insideService(p.x,p.z,buffer)&&
+      !mask.insideBusBay(p.x,p.z,buffer)&&
       !mask.nearJunction(p.x,p.z,buffer)&&
       !mask.nearAccess(p.x,p.z,buffer)&&
       mask.roadProximity(p.x,p.z).edge>=buffer;
