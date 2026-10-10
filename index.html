@@ -56,16 +56,14 @@
   </section>
 
   <header id="topbar" class="topbar hidden">
-    <div class="brand">CORSA<span>CARS</span><small> OPEN ROAD / ALPHA</small></div>
     <div class="top-right"><span id="assetStatus" title="Estado dos recursos gráficos">VISUAIS BASE</span><span id="worldTime">14:00</span><span id="weatherLabel">CÉU LIMPO</span><button class="glass small" id="pauseButton">PAUSA <kbd>ESC</kbd></button></div>
   </header>
 
   <aside id="hud" class="hud hidden" aria-live="off">
     <section id="gpsHud" class="gps-hud" aria-label="GPS do veículo">
-      <div class="gps-heading"><strong>GPS</strong><span>OPEN ROAD</span></div>
-      <img id="gpsReference" class="gps-reference" src="./assets/ui/gps-reference.webp" alt="" aria-hidden="true">
+      <img id="gpsReference" class="gps-reference" hidden src="./assets/ui/gps-reference.webp" alt="" aria-hidden="true">
       <canvas id="gpsCanvas" width="240" height="240" aria-label="Mini mapa transparente e rota de navegação"></canvas>
-      <div id="gpsStatus" class="gps-status">EXPLORAÇÃO LIVRE</div>
+      <div id="gpsStatus" class="gps-status" hidden>EXPLORAÇÃO LIVRE</div>
     </section>
     <div class="speed-dial">
       <div class="speed-caption">VELOCIDADE</div>
@@ -74,7 +72,7 @@
       <div class="dial-footer"><span id="rpmValue">850 RPM</span><b id="gearValue">N</b></div>
     </div>
     <div class="hud-hints"><span><kbd>W</kbd> ACELERAR</span><span><kbd>S</kbd> TRAVAR / RÉ</span><span><kbd>A</kbd> <kbd>D</kbd> VIRAR</span><span><kbd>C</kbd> CÂMARA</span><span><kbd>ESPAÇO</kbd> TRAVÃO MÃO</span></div>
-    <div class="hud-state" id="hudState">AUTO · RWD · FÍSICA ALPHA</div>
+    <div class="hud-state" id="hudState" hidden aria-hidden="true"></div>
     <div id="perfValue" class="perf-value" aria-live="off">A medir desempenho...</div>
   </aside>
 
