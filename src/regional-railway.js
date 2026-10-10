@@ -13,6 +13,60 @@ const TAU=Math.PI*2;
 function material(color,roughness=.84,metalness=0,extras={}){
   return new THREE.MeshStandardMaterial({color,roughness,metalness,...extras});
 }
+// Fine, locally generated aggregate texture: visible 3D grain on top of the
+// individually scattered stones, without introducing any external downloads.
+export function createRailwayBallastSurface(quality='high'){
+  if(typeof document==='undefined')
+    return {material:material(0x96938a,.99,0,{vertexColors:true}),textures:[]};
+  const size=quality==='low'?384:quality==='ultra'?1024:768;
+  const canvas=document.createElement('canvas'),normal=document.createElement('canvas');
+  canvas.width=canvas.height=normal.width=normal.height=size;
+  const ctx=canvas.getContext('2d'),normalCtx=normal.getContext('2d');
+  const diffuse=ctx.createImageData(size,size);
+  const normalData=normalCtx.createImageData(size,size);
+  const heights=new Float32Array(size*size);
+  let seed=128991;const random=()=>{
+    seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+    return seed/4294967296;
+  };
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const i=y*size+x,p=i*4;
+    const grain=random();
+    const coarse=Math.sin(x*.17+Math.cos(y*.09))*
+      Math.cos(y*.20-Math.sin(x*.06));
+    const stones=Math.max(0,Math.sin(x*.72+y*.32)*Math.cos(y*.61-x*.21));
+    heights[i]=grain*.63+coarse*.17+stones*.44;
+    const tone=Math.min(216,Math.max(73,Math.round(104+grain*63+
+      coarse*23+stones*36)));
+    diffuse.data[p]=tone+5;
+    diffuse.data[p+1]=tone+1;
+    diffuse.data[p+2]=Math.max(0,tone-8);
+    diffuse.data[p+3]=255;
+  }
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+    const i=y*size+x,p=i*4;
+    const dx=(heights[y*size+(x+1)%size]-
+      heights[y*size+(x+size-1)%size])*.7;
+    const dy=(heights[((y+1)%size)*size+x]-
+      heights[((y+size-1)%size)*size+x])*.7;
+    const inv=1/Math.hypot(dx,dy,1);
+    normalData.data[p]=Math.round((1-dx*inv)*127.5);
+    normalData.data[p+1]=Math.round((1-dy*inv)*127.5);
+    normalData.data[p+2]=Math.round((1+inv)*127.5);
+    normalData.data[p+3]=255;
+  }
+  ctx.putImageData(diffuse,0,0);normalCtx.putImageData(normalData,0,0);
+  const map=new THREE.CanvasTexture(canvas),normalMap=new THREE.CanvasTexture(normal);
+  for(const tex of [map,normalMap]){
+    tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.anisotropy=8;
+  }
+  map.colorSpace=THREE.SRGBColorSpace;
+  const mat=material(0xd8d5cb,.99,0,{
+    map,normalMap,vertexColors:true
+  });
+  mat.normalScale.set(.75,.75);
+  return {material:mat,textures:[map,normalMap]};
+}
 export function generateRailwayAlignment(terrainY,roadside,steps=950){
   const curve=new THREE.CatmullRomCurve3(
     ROUTE.map(([x,z])=>new THREE.Vector3(x,0,z)),true,'centripetal',.32);
@@ -126,8 +180,10 @@ export class RegionalRailway{
     this.line=generateRailwayAlignment(terrainY,roadside,quality==='low'?650:1000);
     this.group=new THREE.Group();this.group.name='Linha Ferroviária Regional · Vale-Serra';
     scene.add(this.group);
+    const ballastSurface=createRailwayBallastSurface(this.quality);
+    this.textures=ballastSurface.textures;
     this.materials={
-      ballast:material(0x96938a,.99,0,{vertexColors:true}),sleeper:material(0xb3b1a8,.91),
+      ballast:ballastSurface.material,sleeper:material(0xb3b1a8,.91),
       rail:material(0x89949b,.27,.88,{side:THREE.DoubleSide}),
       stones:material(0xffffff,.98,0),insulator:material(0x73776f,.54,.18),
       wire:new THREE.LineBasicMaterial({color:0x747e80}),
@@ -462,5 +518,6 @@ export class RegionalRailway{
     for(const body of this.stationBodies)this.physics.removeBody(body);
     for(const geometry of this.geometry)geometry.dispose();
     for(const mat of Object.values(this.materials))mat.dispose();
+    for(const texture of this.textures)texture.dispose();
   }
 }
