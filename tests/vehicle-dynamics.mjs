@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {CAR_SPECS,SURFACES,TYRES,torqueAtRpm,powerKW,tyreGrip,
   normalizedTyreForce,contactSlip,ackermannAngles,aerodynamicDrag,
-  brakingAssist,tractionAssist} from '../src/vehicle-dynamics.js';
+  brakingAssist,tractionAssist,axleLoadTransfers,combinedSlipFactor} from '../src/vehicle-dynamics.js';
 
 const spec=CAR_SPECS.coupe;
 assert.equal(spec.massKg,1370);
@@ -26,4 +26,22 @@ assert.ok(tractionAssist(1,.9,true)<tractionAssist(1,.9,false));
 assert.equal(tractionAssist(.8,.9,false),.8);
 assert.ok(Math.abs(normalizedTyreForce(.4))<1.1);
 assert.ok(Math.abs(contactSlip(20,21,2).lateral)>0);
+for(const vehicle of Object.values(CAR_SPECS)){
+  assert.deepEqual(axleLoadTransfers(vehicle,0,0),[1,1,1,1],
+    'At rest each axle must retain its design static normal load');
+  const braking=axleLoadTransfers(vehicle,-7,0);
+  const accelerating=axleLoadTransfers(vehicle,7,0);
+  assert.ok(braking[0]>1&&braking[1]>1&&braking[2]<1&&braking[3]<1,
+    'During braking the front tyres must receive extra normal load');
+  assert.ok(accelerating[0]<1&&accelerating[2]>1,
+    'Acceleration must transfer weight to the rear axle');
+  const cornering=axleLoadTransfers(vehicle,0,5);
+  assert.ok(cornering[0]>cornering[1]&&cornering[2]>cornering[3],
+    'Cornering must alter left/right contact loads consistently');
+  assert.ok(axleLoadTransfers(vehicle,-30,30).every(n=>n>=.65&&n<=1.35),
+    'Transient load is bounded for physics stability');
+}
+assert.equal(combinedSlipFactor(0,0),1);
+assert.ok(combinedSlipFactor(.5,.2)<combinedSlipFactor(0,.2));
+assert.ok(combinedSlipFactor(.9,.7)>=.75);
 console.log('PASS: vehicle physics SI profiles, torque/power, independent tyre compounds, slip, ABS/TCS, drag, Ackermann.');
