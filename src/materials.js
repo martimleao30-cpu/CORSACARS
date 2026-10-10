@@ -95,23 +95,60 @@ export function createAsphaltMaterial(quality = 'high', variant = 'aged') {
   return material;
 }
 
+// The road verge needs fine stones and rough soil, not a stretched 128px
+// grey noise texture. Cache the high-resolution maps across all road chunks.
+let gravelTextures;
 export function createGravelMaterial() {
-  const size = 128, canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const context = canvas.getContext('2d');
-  const data = context.createImageData(size, size);
-  const rng = randomGenerator(45213);
-  for (let i = 0; i < data.data.length; i += 4) {
-    const stone = 115 + Math.round(rng() * 76);
-    data.data[i] = stone;
-    data.data[i + 1] = stone - 7;
-    data.data[i + 2] = stone - 21;
-    data.data[i + 3] = 255;
+  if(!gravelTextures){
+    const size=512;
+    const canvas=document.createElement('canvas');
+    const normal=document.createElement('canvas');
+    canvas.width=canvas.height=normal.width=normal.height=size;
+    const ctx=canvas.getContext('2d'),normalCtx=normal.getContext('2d');
+    const albedo=ctx.createImageData(size,size);
+    const normals=normalCtx.createImageData(size,size);
+    const rng=randomGenerator(45213);
+    const heights=new Float32Array(size*size);
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const i=y*size+x,p=i*4;
+      const coarse=Math.sin(x*.083+Math.sin(y*.041))*
+        Math.cos(y*.097-Math.cos(x*.037));
+      const stones=Math.sin(x*.59+y*.27)*Math.cos(y*.61-x*.15);
+      const grain=rng();
+      const chips=Math.max(0,stones-.48);
+      const h=grain*.55+coarse*.19+chips*.45;
+      heights[i]=h;
+      const tone=Math.max(55,Math.min(225,
+        Math.round(119+grain*55+coarse*28+chips*45)));
+      albedo.data[p]=tone+8;
+      albedo.data[p+1]=tone+2;
+      albedo.data[p+2]=Math.max(0,tone-13);
+      albedo.data[p+3]=255;
+    }
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const i=y*size+x,p=i*4;
+      const dx=(heights[y*size+(x+1)%size]-
+        heights[y*size+(x+size-1)%size])*.65;
+      const dy=(heights[((y+1)%size)*size+x]-
+        heights[((y+size-1)%size)*size+x])*.65;
+      const inv=1/Math.hypot(dx,dy,1);
+      normals.data[p]=Math.round((1-dx*inv)*127.5);
+      normals.data[p+1]=Math.round((1-dy*inv)*127.5);
+      normals.data[p+2]=Math.round((1+inv)*127.5);
+      normals.data[p+3]=255;
+    }
+    ctx.putImageData(albedo,0,0);
+    normalCtx.putImageData(normals,0,0);
+    gravelTextures={map:canvasTexture(canvas,true),normalMap:canvasTexture(normal)};
+    for(const texture of Object.values(gravelTextures))texture.userData.corsaShared=true;
   }
-  context.putImageData(data, 0, 0);
-  return new THREE.MeshStandardMaterial({
-    map: canvasTexture(canvas, true), color: 0xc9c9c9, roughness: 1
+  const mat=new THREE.MeshStandardMaterial({
+    ...gravelTextures,color:0xe4e1d7,roughness:.97,metalness:0,
+    side:THREE.DoubleSide
   });
+  mat.normalScale.set(.65,.65);
+  mat.userData.corsaGravel=true;
+  return mat;
 }
 
 export function makeCarPaint(color = 0x284b63) {
