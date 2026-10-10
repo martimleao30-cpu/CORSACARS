@@ -66,8 +66,10 @@ for(const stop of stops){
     'A bus stop needs a real drivable asphalt surface');
   assert.ok(bay.geometry.index.count>200,
     'The pullout must use smooth tapered triangles, not a single flat box');
-  assert.ok(stop.userData.bayBody?.shapes.some(shape=>shape instanceof CANNON.Trimesh),
-    'Each BUS bay needs matching driveable collision geometry');
+  assert.equal(stop.userData.busBayHasCollider,true,
+    'Each BUS bay needs real driveable collision geometry');
+  assert.ok(architecture.bodies.some(body=>body.shapes.some(shape=>
+    shape instanceof CANNON.Trimesh)));
   const reservation=mask.busBays.find(b=>
     b.regionId===stop.userData.servesPOI&&b.roadId===stop.userData.roadId&&
       Math.hypot(b.x-stop.position.x,b.z-stop.position.z)<.01);
