@@ -74,6 +74,15 @@ for(const stop of stops){
     b.regionId===stop.userData.servesPOI&&b.roadId===stop.userData.roadId&&
       Math.hypot(b.x-stop.position.x,b.z-stop.position.z)<.01);
   assert.ok(reservation,'A stop must match a named settlement and reserved roadside space');
+  const center=reservation.road.points[reservation.index];
+  const x=center.x+reservation.outward.x*(reservation.road.width*.5+1.7);
+  const z=center.z+reservation.outward.z*(reservation.road.width*.5+1.7);
+  assert.equal(network.query(x,z).surface,'dry',
+    'The drivable bus bay should have asphalt traction');
+  assert.equal(network.query(x,z,'rain').surface,'wet',
+    'Bus bays should have wet asphalt grip during rain');
+  assert.equal(network.query(x,z).busBay,true,
+    'Physics must recognize the separate BUS parking bay');
   assert.equal(mask.nearAccess(stop.position.x,stop.position.z,2),false);
   assert.equal(mask.nearJunction(stop.position.x,stop.position.z,2),false);
 }
