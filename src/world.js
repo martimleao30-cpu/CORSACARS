@@ -4,6 +4,7 @@ import { createAsphaltMaterial, createGravelMaterial, createTerrainMaterial } fr
 import { WorldDetails } from './world-details.js';
 import { RoadNetwork } from './road-network.js';
 import { WorldSectors } from './world-sectors.js';
+import {RoadsideClearance} from './roadside-clearance.js';
 import { DrivingTestArea } from './driving-test-area.js';
 import {createRoadBed,addRoadSides,addRoadWear} from './road-upgrades.js';
 import {RoadEnvironment} from './road-environments.js';
