@@ -32,6 +32,12 @@ const architecture=env.infrastructure,stats=architecture.stats;
 assert.ok(stats.stops>=1,'Accessible glass-and-steel bus shelters should exist');
 const stops=architecture.groups.filter(g=>g.name.startsWith('Paragem de autocarro'));
 assert.ok(stops.length>=2,'There should be stops for actual urban and rural settlements');
+assert.equal(stats.busBays,stops.length,
+  'Every shelter must have its own full pullout bay');
+assert.equal(stats.busPainted,stops.length,
+  'Every bay must have a visible BUS road marking');
+assert.ok(mask.busBays.length>=stops.length,
+  'The clearances must be planned before barriers and buildings');
 for(const stop of stops){
   assert.ok(Number.isFinite(stop.position.x)&&Number.isFinite(stop.position.z),
     'Bus stop position must be finite, not a Vector3 multiplied by a number');
@@ -49,6 +55,25 @@ for(const stop of stops){
     'Stop must be connected to the edge of its road');
   const settlement=sectors.regions.find(r=>r.id===stop.userData.servesPOI);
   assert.ok(settlement&&stop.userData.roadId===settlement.road);
+  assert.equal(stop.userData.busBay,true);
+  assert.equal(stop.userData.bayLengthM,44);
+  assert.ok(stop.userData.bayWidthM>=3.5);
+  assert.ok(stop.children.some(mesh=>mesh.name==='BUS · inscrição branca no pavimento'),
+    'The word BUS must be painted on each stop bay');
+  const bay=stop.children.find(mesh=>
+    mesh.name==='Baía de autocarro · asfalto transitável');
+  assert.ok(bay?.geometry.userData.corsaBusBay,
+    'A bus stop needs a real drivable asphalt surface');
+  assert.ok(bay.geometry.index.count>200,
+    'The pullout must use smooth tapered triangles, not a single flat box');
+  assert.ok(stop.userData.bayBody?.shapes.some(shape=>shape instanceof CANNON.Trimesh),
+    'Each BUS bay needs matching driveable collision geometry');
+  const reservation=mask.busBays.find(b=>
+    b.regionId===stop.userData.servesPOI&&b.roadId===stop.userData.roadId&&
+      Math.hypot(b.x-stop.position.x,b.z-stop.position.z)<.01);
+  assert.ok(reservation,'A stop must match a named settlement and reserved roadside space');
+  assert.equal(mask.nearAccess(stop.position.x,stop.position.z,2),false);
+  assert.equal(mask.nearJunction(stop.position.x,stop.position.z,2),false);
 }
 assert.ok(stats.emergencyCabinets>=1,'Motorway needs emergency SOS cabinets');
 assert.ok(stats.directionBoards>=5,'Direction signs must be legible');
