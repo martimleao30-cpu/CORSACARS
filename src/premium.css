@@ -1,5 +1,5 @@
 /* CORSACARS Premium menus and configurable driving instruments. */
-:root{--accent:#c9f173;--hud-accent:#c9f173}
+:root{--accent:#d2b493;--hud-accent:#d2b493}
 .screen:not(.hidden){animation:screenEnter .19s ease-out both}
 @keyframes screenEnter{from{opacity:.55}to{opacity:1}}
 .screen-content,.panel{animation:panelEnter .35s cubic-bezier(.2,.75,.2,1) both}

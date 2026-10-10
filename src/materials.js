@@ -9,7 +9,7 @@ function randomGenerator(seed) {
 function wrap(texture, repeatX = 1, repeatY = 1, srgb = false) {
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(repeatX, repeatY);
-  texture.anisotropy = 8;
+  texture.anisotropy = 16;
   if (srgb) texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
@@ -28,7 +28,8 @@ export function createAsphaltMaterial(quality = 'high', variant = 'aged') {
   const key=quality+':'+variant;
   let maps=asphaltCache.get(key);
   if(!maps){
-    const size = quality === 'ultra' ? 1024 : quality === 'low' ? 256 : 512;
+    const size=quality==='ultra'?1536:quality==='high'?768:
+      quality==='low'?256:512;
     const diffuse=document.createElement('canvas');
     const normal=document.createElement('canvas');
     const roughness=document.createElement('canvas');
@@ -130,7 +131,7 @@ export function makeAutomotiveGlass() {
 // Tiled ground detail near the player. The vertex colors still control the
 // large-scale transition from green lowlands to stony mountain slopes.
 export function createTerrainMaterial() {
-  const size = 256;
+  const size = 512;
   const noise = document.createElement('canvas');
   const bump = document.createElement('canvas');
   noise.width = noise.height = bump.width = bump.height = size;

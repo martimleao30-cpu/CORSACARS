@@ -12,7 +12,7 @@ function fetchTexture(url, color = false) {
     loader.load(url, texture => {
       texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
       texture.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-      texture.anisotropy = 8;
+      texture.anisotropy = 16;
       resolve(texture);
     }, undefined, reject);
   });

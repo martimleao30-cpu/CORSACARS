@@ -10,7 +10,7 @@ const lighting = readFileSync(new URL('../src/lighting.js', import.meta.url), 'u
 const performance = readFileSync(new URL('../src/performance.js', import.meta.url), 'utf8');
 
 const ids = [
-  'game', 'startButton', 'resumeButton', 'pauseButton', 'restartButton',
+  'game', 'entryScreen', 'entryContinue', 'entryCheckUpdate', 'entryUpdateStatus', 'entryUpdateAction', 'startButton', 'resumeButton', 'pauseButton', 'restartButton',
   'settingsBack', 'qualitySelect', 'fpsSelect', 'weatherSelect',
   'fullscreenButton', 'gpsCanvas', 'gpsReference', 'gpsStatus', 'speedValue', 'rpmValue', 'gearValue',
   'modelToggle', 'autoQualityToggle', 'perfValue', 'assetStatus'
@@ -53,6 +53,8 @@ assert.match(premium,/data-bind/);
 assert.match(premiumCss,/style-analog/);
 assert.match(premiumCss,/style-racing/);
 assert.match(main,/ui\.updateTelemetry/);
+assert.match(main,/setupPCEntry/);
+assert.match(main,/5120\/screen/);
 assert.match(main,/saveSession/);
 assert.match(main,/settings\.bindings/);
 const details=readFileSync(new URL('../src/world-details.js',import.meta.url),'utf8');

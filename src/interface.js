@@ -6,7 +6,7 @@ const pages = ['startScreen','pauseScreen','settingsScreen','garageScreen',
   'hudEditorScreen','mapScreen','creditsScreen'];
 const validStyle = ['glass','digital','analog','racing','minimal','custom'];
 const defaultHud = {
-  style:'glass',unit:'kmh',color:'#eab56e',scale:1,opacity:0.34,
+  style:'glass',unit:'kmh',color:'#d2b493',scale:1,opacity:0.34,
   showRpm:true,showGear:true,background:true,animations:true,
   posX:null,posY:null
 };
@@ -141,7 +141,7 @@ export class PremiumInterface {
             <label>Unidade
               <select id="hudUnit"><option value="kmh">km/h</option><option value="mph">mph</option></select>
             </label>
-            <label>Cor de destaque <input id="hudColor" type="color" value="#c9f173"></label>
+            <label>Cor de destaque <input id="hudColor" type="color" value="#d2b493"></label>
             <label>Posição
               <select id="hudPosition">
                 <option value="default">Canto inferior direito</option>
@@ -227,7 +227,7 @@ export class PremiumInterface {
     const mk=(id,label,html)=>`<label>${label} ${html.replace('%%',id)}</label>`;
     graphics.insertAdjacentHTML('beforeend',`
       <div class="option-grid">
-        ${mk('renderScale','ESCALA DE RESOLUÇÃO (RENDERIZAÇÃO)', '<select id="%%"><option value="0.6">60%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.15">115%</option></select>')}
+        ${mk('renderScale','ESCALA DE RESOLUÇÃO (RENDERIZAÇÃO)', '<select id="%%"><option value="0.6">60%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.15">115%</option><option value="1.25">125% · SUPERSAMPLING</option><option value="1.5">150% · ULTRA NÍTIDO</option></select>')}
         ${mk('antiAlias','ANTI-ALIASING', '<select id="%%"><option value="native">MSAA nativo</option><option value="fxaa">FXAA</option><option value="taa">TAA experimental</option></select>')}
         ${mk('shadowQuality','SOMBRAS', '<select id="%%"><option value="off">Desligadas</option><option value="low">Baixo</option><option value="medium">Médio</option><option value="high">Alto</option></select>')}
         ${mk('drawDistance','DISTÂNCIA DE RENDERIZAÇÃO', '<select id="%%"><option value="500">500 m</option><option value="950">950 m</option><option value="1500">1500 m</option><option value="1900">1900 m</option></select>')}
@@ -393,10 +393,13 @@ export class PremiumInterface {
       renderScale:1,antiAlias:'native',shadowQuality:'high',
       drawDistance:1500,vegetation:1,textureQuality:'low',bloom:'low',
       displayMode:'windowed',engineVolume:.7,steeringSensitivity:1,
-      gamepadDeadzone:.12,menuAccent:'#c9f173'
+      gamepadDeadzone:.12,menuAccent:'#d2b493'
     };
     for(const [key,value] of Object.entries(defaults)) {
       if(cfg[key]===undefined) cfg[key]=value;
+      // Migrate old lime-green defaults without overriding custom colours.
+      if(key==='menuAccent'&&['#c9f173','#b8ed51','#bdeb57','#c8ed61'].includes(
+        String(cfg[key]).toLowerCase()))cfg[key]='#d2b493';
       const element=$(key);
       element.value=String(cfg[key]);
       element.addEventListener('input',async()=>{
@@ -681,7 +684,7 @@ export class PremiumInterface {
       ctx.fillText(site.name.slice(0,22),Math.min(w-100,x+6),y-4);
     }
     const [x,y]=project(this.api.vehicle.getPosition());
-    ctx.fillStyle='#d8ff7c';ctx.beginPath();ctx.arc(x,y,7,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#d2b493';ctx.beginPath();ctx.arc(x,y,7,0,Math.PI*2);ctx.fill();
     ctx.strokeStyle='#ffffff';ctx.lineWidth=2;ctx.stroke();
     ctx.fillStyle='#e2f1f5';ctx.font='12px sans-serif';ctx.fillText('VEÍCULO',Math.min(w-60,x+12),y-8);
   }

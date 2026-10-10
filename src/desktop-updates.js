@@ -7,18 +7,18 @@ if (api) {
   style.textContent = [
     '#updateNotice{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);',
     'z-index:30000;background:rgba(10,22,34,.97);color:#f5f8fc;',
-    'border:1px solid rgba(195,236,136,.65);border-radius:12px;',
+    'border:1px solid rgba(210,180,147,.55);border-radius:12px;',
     'padding:16px 18px;box-shadow:0 20px 50px rgba(0,0,0,.5);',
     'width:min(480px,calc(100vw - 24px));font-family:inherit}',
     '#updateNotice[hidden]{display:none}',
-    '#updateNotice strong{display:block;color:#c9f173;font-size:15px;margin-bottom:5px}',
+    '#updateNotice strong{display:block;color:#d2b493;font-size:15px;margin-bottom:5px}',
     '#updateNotice p{font-size:12px;line-height:1.55;margin:5px 0 12px}',
     '#updateNotice .buttons{display:flex;gap:10px;align-items:center;flex-wrap:wrap}',
     '#updateNotice button{border:0;border-radius:6px;padding:10px 14px;',
-    'cursor:pointer;font-weight:700;background:#c9f173;color:#071220}',
+    'cursor:pointer;font-weight:700;background:#d2b493;color:#071220}',
     '#updateNotice button.secondary{background:transparent;color:#dde8ee;',
     'border:1px solid rgba(255,255,255,.28)}',
-    '#updateNotice progress{width:100%;accent-color:#c9f173;margin:4px 0 10px}'
+    '#updateNotice progress{width:100%;accent-color:#d2b493;margin:4px 0 10px}'
   ].join('');
   document.head.appendChild(style);
 
@@ -52,7 +52,7 @@ if (api) {
   manual.className = 'outline';
   manual.textContent = 'PROCURAR ATUALIZAÇÕES';
   const label = document.createElement('p');
-  label.style.cssText = 'color:#c9f173;font-size:11px;margin:8px 0 14px;';
+  label.style.cssText = 'color:#d2b493;font-size:11px;margin:8px 0 14px;';
   label.setAttribute('aria-live', 'polite');
   label.textContent = 'Versão Windows instalada';
   settings?.insertBefore(manual, settings.querySelector('#settingsBack'));

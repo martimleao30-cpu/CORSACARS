@@ -7,6 +7,7 @@ import { AssetUpgrade } from './assets.js';
 import { IndirectLighting } from './lighting.js';
 import { PerformanceMonitor } from './performance.js';
 import { PremiumInterface } from './interface.js';
+import {setupPCEntry} from './pc-entry.js';
 import { RoadDust } from './road-dust.js';
 import './desktop-updates.js';
 
@@ -361,9 +362,13 @@ function goHome() {
 }
 
 function applyQuality() {
-  const scales = { low: 0.67, medium: 0.83, high: 1, ultra: 1.3 };
-  const requestedScale=Math.max(.6,Math.min(1.15,Number(settings.renderScale)||1));
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.8) * scales[settings.quality] * requestedScale);
+  // Real supersampling, with a safety cap on 4K/high-DPI displays.
+  const scales={low:.70,medium:.88,high:1.12,ultra:1.40};
+  const requestedScale=Math.max(.6,Math.min(1.5,Number(settings.renderScale)||1));
+  const screen=Math.max(1,window.innerWidth,window.innerHeight);
+  const pixelRatio=Math.min(2.4,5120/screen,
+    Math.min(window.devicePixelRatio||1,2)*scales[settings.quality]*requestedScale);
+  renderer.setPixelRatio(pixelRatio);
   const shadowSetting=settings.shadowQuality || 'high';
   renderer.shadowMap.enabled = settings.quality !== 'low' && shadowSetting !== 'off';
   world.configureShadows(settings.quality,shadowSetting);
@@ -616,4 +621,5 @@ camera.position.copy(car.getPosition()).add(new THREE.Vector3(0, 5, -13));
 camera.lookAt(car.getPosition());
 $('loading').classList.add('hidden');
 showOnly('startScreen');
+setupPCEntry();
 requestAnimationFrame(frame);

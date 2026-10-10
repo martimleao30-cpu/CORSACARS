@@ -7,6 +7,7 @@
   <title>CORSACARS — Open Road</title>
   <link rel="stylesheet" href="./src/style.css">
   <link rel="stylesheet" href="./src/premium.css">
+  <link rel="stylesheet" href="./src/pc-menu.css">
   <script type="importmap">
     {
       "imports": {
@@ -23,6 +24,32 @@
     <div class="loading-mark">C<span>/</span>C</div>
     <p>Preparar o mundo e a física...</p>
   </div>
+
+  <section id="entryScreen" class="entry-screen hidden" aria-label="Ecrã de entrada de CORSACARS">
+    <div class="entry-top">
+      <div class="entry-logo">CORSA<span>CARS</span></div>
+      <div class="entry-build">OPEN ROAD <span aria-hidden="true">/</span> EDIÇÃO PC</div>
+    </div>
+    <div class="entry-hero">
+      <p class="entry-kicker">MUNDO ABERTO / CONDUÇÃO / LIBERDADE</p>
+      <h1>UM MUNDO.<em> INFINITAS ESTRADAS.</em></h1>
+      <p class="entry-description">A estrada espera por ti. Entra no mundo aberto, descobre novos caminhos e conduz à tua maneira.</p>
+      <button id="entryContinue" class="entry-continue" type="button">PREMIR PARA CONTINUAR <span class="enter-mark">↗</span></button>
+      <p class="entry-hint">ENTER OU CLICA PARA ENTRAR</p>
+    </div>
+    <section class="entry-updates" aria-label="Centro de atualizações">
+      <div class="entry-update-top"><span>CENTRO DE ATUALIZAÇÕES</span>
+        <small id="entryUpdateVersion">A INICIAR</small></div>
+      <strong id="entryUpdateStatus">A preparar informações...</strong>
+      <p id="entryUpdateDetail" aria-live="polite">Podes continuar a jogar normalmente.</p>
+      <div class="entry-update-actions">
+        <button id="entryCheckUpdate" type="button">PROCURAR ATUALIZAÇÕES ↗</button>
+        <button id="entryUpdateAction" type="button" hidden>VER NOVIDADES</button>
+      </div>
+    </section>
+    <div class="entry-bottom"><span>CONSTRUÍDO PARA PC <strong>/</strong> TECLADO + COMANDO</span>
+      <span>CORSACARS · MUNDO ABERTO EM DESENVOLVIMENTO</span></div>
+  </section>
 
   <header id="topbar" class="topbar hidden">
     <div class="brand">CORSA<span>CARS</span><small> OPEN ROAD / ALPHA</small></div>
@@ -52,13 +79,14 @@
   <section id="startScreen" class="screen hidden">
     <div class="darken"></div>
     <div class="screen-content">
-      <div class="eyebrow">UM NOVO CAMINHO COMEÇA AQUI <span class="line"></span> V0.4</div>
+      <div class="hero-stripe">OPEN ROAD / EXPERIENCE</div>
+      <div class="eyebrow">EXPLORA O TEU PRÓPRIO CAMINHO <span class="line"></span> EDIÇÃO PC</div>
       <h1>CORSA<span>CARS</span></h1>
       <p class="lead">A estrada é tua. Explora um território 3D, sente a suspensão e descobre cada curva.</p>
       <div class="button-stack"><button id="startButton" class="primary">COMEÇAR A CONDUZIR <span>↗</span></button><button class="outline" data-open-settings>DEFINIÇÕES <span>⚙</span></button></div>
-      <div class="start-footer"><span>TECLADO + COMANDO</span><span>FÍSICA COM SUSPENSÃO</span><span>SEM UNITY</span></div>
+      <div class="start-footer"><span>MUNDO ABERTO</span><span>FÍSICA DE CONDUÇÃO</span><span>NAVEGAÇÃO POR GPS</span><span>PC / WINDOWS</span></div>
     </div>
-    <div class="side-decoration">OPEN ROAD // PROTÓTIPO JOGÁVEL</div>
+    <div class="side-decoration">CORSA / OPEN ROAD / PC EDITION</div>
   </section>
 
   <section id="pauseScreen" class="screen hidden">

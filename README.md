@@ -511,3 +511,23 @@ km/h; o valor 3,5 s é o dado do fabricante, não um tempo exato garantido
 pela física Cannon do jogo.
 
 Fonte: https://www.bmw.pt/pt/all-models/m-series/4-modelos/bmw-m4-coupe-technical-data.html
+
+
+## Ecrã de entrada premium e renderização de alta definição
+
+O jogo abre num ecrã cinematográfico "Premir para continuar" (teclado/Enter
+ou rato) com centro de atualizações. No Windows, as operações reais de pesquisa,
+download e instalação utilizam a ponte segura do updater Electron existente,
+sem instalar nada sem confirmação. No navegador, o jogo atualiza ao reabrir a
+página e apresenta a informação da última release pública do GitHub.
+
+Os menus de início, pausa, garagem, mapa, definições e HUD seguem uma nova
+identidade de PC: azul-grafite e metal/âmbar, tipografia ampla, animações
+suaves e navegação por teclado e comando. Removido o antigo verde-lima.
+
+A renderização utiliza agora uma escala de 112% em Alto e 140% em Ultra,
+com escolha opcional de supersampling até 150% e segurança de framebuffer
+limitada a 5120 píxeis no maior lado. Texturas PBR procedurais: Alto 768,
+Ultra 1536, detalhe do terreno 512 e anisotropia 16. Estas alterações
+melhoram a nitidez mas aumentam o custo de GPU/VRAM e não transformam
+modelos 3D em digitalizações fotorrealistas.

@@ -37,6 +37,11 @@ try {
         '\nErros JavaScript: '+JSON.stringify(browserErrors)+
         '\nEstado da página: '+JSON.stringify(diagnostic));
     });
+  assert.equal(await page.locator('#entryScreen').isVisible(),true,
+    'PC game must start on a dedicated title gate');
+  assert.ok(await page.locator('#entryCheckUpdate').isVisible());
+  await page.locator('#entryContinue').click();
+  assert.equal(await page.locator('#entryScreen').isVisible(),false);
   assert.equal(await page.locator('#startButton').isVisible(), true);
   const hasWebGL = await page.evaluate(() =>
     Boolean(document.querySelector('#game').getContext('webgl2')));
@@ -136,6 +141,10 @@ try {
   assert.deepEqual(browserErrors, [], 'Unexpected JavaScript/browser errors');
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('#loading').waitFor({ state:'hidden', timeout:45000 });
+  await page.locator('#entryScreen').waitFor({state:'visible'});
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#entryScreen').isVisible(),false,
+    'Enter should also dismiss the title page');
   assert.equal(await page.locator('.speed-dial.style-racing').count(),1,
     'HUD style did not survive browser reload');
   assert.equal(await page.locator('#renderScale').inputValue(),'0.75',
