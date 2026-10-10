@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {buildNavigationGraph,shortestRoute,NavigationHUD}
+import {buildNavigationGraph,shortestRoute,NavigationHUD,gpsBearing,gpsProjection}
   from '../src/gps-navigation.js';
 
 const a={id:'street',category:'urban',width:8,points:[
@@ -36,9 +36,30 @@ assert.equal(gps.setDestination('cafe'),true);
 gps.update(new THREE.Vector3(-20,0,0),new THREE.Quaternion(),1000);
 assert.ok(gps.route?.points.length>=4);
 assert.ok(status.textContent.includes('CAFÉ'));
+assert.equal(status.hidden,false,'Route label visible only during navigation');
+const project=gpsProjection(new THREE.Vector3(0,0,0),240,240,1);
+assert.ok(project({x:30,z:0}).x>120,
+  'East/right on a north-up GPS must remain on screen right');
+assert.ok(project({x:-30,z:0}).x<120,
+  'West/left on a north-up GPS must remain on screen left');
+assert.ok(project({x:0,z:-30}).y<120,
+  'North must stay upwards even while the vehicle turns');
+const faceRight=new THREE.Quaternion().setFromAxisAngle(
+  new THREE.Vector3(0,1,0),Math.PI*.5);
+const faceLeft=new THREE.Quaternion().setFromAxisAngle(
+  new THREE.Vector3(0,1,0),-Math.PI*.5);
+assert.ok(Math.abs(gpsBearing(faceRight)-Math.PI*.5)<1e-6,
+  'Turning right must rotate the vehicle marker to screen right');
+assert.ok(Math.abs(gpsBearing(faceLeft)+Math.PI*.5)<1e-6,
+  'Turning left must rotate the vehicle marker to screen left');
+gps.draw(new THREE.Vector3(0,0,0),faceRight);
+assert.ok(cmds.some(c=>c.p==='clip'),'Minimap must clip to a circle');
+assert.ok(cmds.some(c=>c.p==='rotate'&&Math.abs(c.args[0]-Math.PI*.5)<1e-5),
+  'Actual arrow must rotate to the right on right-hand turns');
 assert.ok(cmds.some(c=>c.p==='clearRect'),'GPS must remain transparent');
 assert.equal(gps.setDestination('unknown'),false);
 assert.equal(gps.destinationId,null);
+assert.equal(status.hidden,true,'No GPS status label in free-drive mode');
 // The complete game's ring and all POI roads must form one navigable graph.
 globalThis.document={createElement(){return {width:64,height:64,getContext(){
   return {createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)}),
