@@ -76,8 +76,9 @@ assert.ok(signage.meshes.every(mesh=>mesh.material.polygonOffset &&
 assert.ok(signage.meshes.every(mesh=>mesh.geometry.getAttribute('position').count>3),
   'No pre-existing floating painted boxes');
 const paintMesh=signage.meshes[0],paintGeom=paintMesh.geometry;
+let disposed=false;
+paintGeom.addEventListener('dispose',()=>{disposed=true;});
 signage.dispose();
 assert.ok(!scene.children.includes(paintMesh),'Dispose must unlink road paint');
-assert.equal(paintGeom.getAttribute('position'),undefined,
-  'Dispose must free generated GPU vertex buffers');
+assert.equal(disposed,true,'Dispose must trigger GPU buffer release');
 console.log('PASS: conforming 3D linework, dashed/double, arrows, painted crosswalks, depth bias and cleanup.');
