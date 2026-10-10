@@ -130,6 +130,7 @@ export class DrivingWorld {
     this.weather = 'clear';
     this.weatherSystem=new WeatherSystem('clear');
     this.weatherState=this.weatherSystem.update(0,false,this.hour);
+    this.rainGroundColor=new THREE.Color(0x59616a);
     this.sunSpeed = 1.2; // simulated hours per real minute: full 24h cycle in ~20 real minutes
     this.roadWidth = 14; // four urban ring-road lanes × 3.50 m
     this.terrainMaterial = new CANNON.Material('ground');
@@ -538,7 +539,8 @@ export class DrivingWorld {
     this.sun.shadow.radius=state.shadowRadius;
     this.ambient.intensity=state.ambientIntensity;
     this.ambient.color.copy(state.ambientColor);
-    this.ambient.groundColor.set(0x6c6758).lerp(new THREE.Color(0x59616a),this.weatherState.rain);
+    this.ambient.groundColor.set(0x6c6758)
+      .lerp(this.rainGroundColor,this.weatherState.rain);
     // ModernRoadLighting owns LED emission and turns it on only at night.
     // Atmosphere updates must never re-illuminate street lamps by day.
     this.stars.visible=state.sunHeight<-.1&&this.weatherState.clouds<.45;
