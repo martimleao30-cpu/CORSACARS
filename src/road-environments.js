@@ -71,7 +71,8 @@ export class RoadEnvironment {
       highwayBarriers:0,mountainBarriers:0,roadSigns:0,stones:0,
       dirtRuts:0,physicalJunctions:network.connectors?.length||0,
       woodFencePosts:0,woodFenceRails:0,metalRailPosts:0,skippedFenceSegments:0,
-      motorwayServiceSigns:0};
+      motorwayServiceSigns:0,mountainMarkers:0,mountainRockCuts:0,
+      mountainRetainingWalls:0};
     for(const road of network.roads){
       if(road.category==='urban')this.urban(road);
       if(road.category==='highway')this.highway(road);
@@ -492,19 +493,95 @@ export class RoadEnvironment {
     const n=road.points.length-1;
     for(const side of [-1,1])
       this.barrier(road,side*(road.width*.5+1),9,n-9,4,'metal');
-    const rocks=[],rng=deterministic(7712),count=this.quality==='low'?24:70;
-    for(let i=0;i<count;i++){
-      const index=clamp(Math.floor(rng()*n),2,n-2);
+
+    const rng=deterministic(7712+(road.id==='serra-norte'?47:0));
+    const rockCount=this.quality==='low'?95:this.quality==='medium'?170:
+      this.quality==='ultra'?390:275;
+    const rocks=[],cuts=[],walls=[],posts=[],reflectors=[];
+    for(let i=0;i<rockCount;i++){
+      const index=clamp(Math.floor(rng()*n),4,n-4);
       const side=rng()>.5?1:-1;
-      const p=position(road,index,side*(road.width*.5+4+rng()*12),this.terrainY);
-      const size=.32+rng()*1.7;
-      if(this.clearance&&!this.clearance.plantAllowed(p.x,p.z,'rock',size*.5))continue;
-      rocks.push({...p,y:this.terrainY(p.x,p.z)+size*.24,
-        sx:size,sy:size*.67,sz:size*.92,yaw:rng()*Math.PI*2});
+      const offset=side*(road.width*.5+5.0+rng()*19);
+      const p=position(road,index,offset,this.terrainY);
+      const size=.42+rng()*2.65;
+      if(this.clearance&&!this.clearance.plantAllowed(p.x,p.z,'rock',size*.5))
+        continue;
+      rocks.push({...p,y:this.terrainY(p.x,p.z)+size*.12,
+        sx:size,sy:size*(.37+rng()*.52),sz:size*(.58+rng()*.8),
+        yaw:rng()*Math.PI*2,
+        color:rng()>.6?0xabb0a7:0x898f89});
+    }
+    // Jagged exposed rock outcrops grow only on the uphill side, and well
+    // beyond the carriageway. They visually anchor hairpins in the hillside.
+    for(let i=8;i<n-8;i+=this.quality==='low'?11:7){
+      const side=i%2===0?1:-1;
+      const outside=position(road,i,side*(road.width*.5+8),this.terrainY);
+      const near=position(road,i,side*(road.width*.5+3),this.terrainY);
+      const rise=this.terrainY(outside.x,outside.z)-
+        this.terrainY(near.x,near.z);
+      if(rise<.62||rng()<.18)continue;
+      const height=Math.min(5.5,Math.max(1.0,rise*1.15));
+      if(this.clearance&&!this.clearance.plantAllowed(outside.x,outside.z,
+        'rock',height*.5))continue;
+      cuts.push({x:outside.x,y:this.terrainY(outside.x,outside.z)+height*.18,
+        z:outside.z,sx:2.6+rng()*2.5,sy:height,
+        sz:2.2+rng()*3,yaw:rng()*Math.PI*2,
+        color:rng()>.5?0x929995:0xaaa99b});
+    }
+    // Stone retaining walls are placed only where there is a cut slope.
+    // They are deliberately discontinuous, avoiding junctions and entrances.
+    for(let i=10;i<n-11;i+=5){
+      const dx=normal(road,i);
+      for(const side of [-1,1]){
+        const a=position(road,i,side*(road.width*.5+4),this.terrainY);
+        const b=position(road,i+4,side*(road.width*.5+4),this.terrainY);
+        const near=position(road,i,side*(road.width*.5+1.9),this.terrainY);
+        const far=position(road,i,side*(road.width*.5+8.5),this.terrainY);
+        const rise=this.terrainY(far.x,far.z)-this.terrainY(near.x,near.z);
+        if(rise<1.6)continue;
+        const aa={x:a.x,z:a.z},bb={x:b.x,z:b.z};
+        if(this.clearance&&!this.clearance.fenceSegmentAllowed(aa,bb,road,1.5))
+          continue;
+        const length=Math.hypot(b.x-a.x,b.z-a.z);
+        if(length<1||length>35)continue;
+        const height=clamp(rise*.65,1.1,2.65);
+        walls.push({x:(a.x+b.x)*.5,y:
+          (this.terrainY(a.x,a.z)+this.terrainY(b.x,b.z))*.5+height*.46,
+          z:(a.z+b.z)*.5,
+          yaw:Math.atan2(b.x-a.x,b.z-a.z),
+          pitch:0,sx:.48,sy:height,sz:length+.14});
+      }
+    }
+    // White-and-red roadside reflector posts at regular realistic intervals.
+    for(let i=9;i<n-9;i+=11){
+      for(const side of [-1,1]){
+        const p=position(road,i,side*(road.width*.5+2.7),this.terrainY);
+        if(this.clearance&&(this.clearance.nearJunction(p.x,p.z,3)||
+          this.clearance.nearAccess(p.x,p.z,2)||
+          this.clearance.insideService(p.x,p.z,1)||
+          this.clearance.roadProximity(p.x,p.z,road).edge<.65))continue;
+        const y=this.terrainY(p.x,p.z);
+        posts.push({x:p.x,y:y+.44,z:p.z,sx:.115,sy:.88,sz:.13,yaw:p.yaw});
+        reflectors.push({x:p.x,y:y+.70,z:p.z,sx:.125,sy:.115,sz:.143,
+          yaw:p.yaw,color:side<0?0xf0ddd1:0xe3a1a0});
+      }
     }
     this.instances('Rochas · Serra',createWeatheredRockGeometry(1),
       new THREE.MeshStandardMaterial({color:0xa4a6a0,roughness:1,vertexColors:true}),rocks);
+    this.instances('Taludes rochosos · Serra',createWeatheredRockGeometry(1),
+      new THREE.MeshStandardMaterial({color:0x969b94,roughness:.98,vertexColors:true}),cuts);
+    this.instances('Muros de contenção em pedra · Serra',
+      new THREE.BoxGeometry(1,1,1),
+      new THREE.MeshStandardMaterial({color:0x888982,roughness:1}),walls);
+    this.instances('Estacas laterais refletoras · Serra',
+      new THREE.BoxGeometry(1,1,1),materials.white,posts);
+    this.instances('Refletores vermelhos e brancos · Serra',
+      new THREE.BoxGeometry(1,1,1),
+      new THREE.MeshStandardMaterial({color:0xffffff,roughness:.65}),reflectors);
     this.statistics.stones+=rocks.length;
+    this.statistics.mountainRockCuts+=cuts.length;
+    this.statistics.mountainRetainingWalls+=walls.length;
+    this.statistics.mountainMarkers+=posts.length;
     this.sign(road,clamp(Math.floor(n*.43),3,n-3),road.width*.5+5.6,
       'CURVAS DE SERRA','40');
     this.dangerSign(road,clamp(Math.floor(n*.24),3,n-3),road.width*.5+3.4,'CURVAS');
