@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import {RegionalRailway,generateRailwayAlignment,sampleAlignment}
+import {RegionalRailway,generateRailwayAlignment,sampleAlignment,
+  createBallastBedGeometry,createSteelRailGeometry}
   from '../src/regional-railway.js';
 const terrain=(x,z)=>2*Math.sin(x*.018)+2*Math.cos(z*.013);
 const clearance={roadProximity(x,z){
@@ -10,6 +11,19 @@ const clearance={roadProximity(x,z){
 const map=generateRailwayAlignment(terrain,clearance,650);
 assert.ok(map.total>3600,'Regional line must travel the entire playable map');
 assert.ok(map.points.length===651);
+const bed=createBallastBedGeometry(map);
+assert.equal(bed.userData.corsaRailway,'continuous-tapered-ballast');
+assert.equal(bed.getAttribute('position').count,map.points.length*5);
+assert.equal(bed.getAttribute('color').count,map.points.length*5);
+assert.ok(bed.index.count>8000,'Ballast should be one tessellated ribbon');
+for(const lateral of [-.7175,.7175]){
+  const steel=createSteelRailGeometry(map,lateral);
+  assert.equal(steel.userData.corsaRailway,'steel-rail-profile');
+  assert.equal(steel.userData.gaugeM,1.435);
+  assert.equal(steel.getAttribute('position').count,map.points.length*12);
+  steel.dispose();
+}
+bed.dispose();
 for(const x of [0,250,760,1700,map.total-.1]){
   const p=sampleAlignment(map,x);
   assert.ok(Number.isFinite(p.point.y));
@@ -22,6 +36,17 @@ assert.equal(rail.statistics.stations,2);
 assert.equal(rail.statistics.trainCars,3);
 assert.ok(rail.statistics.sleepers>3500);
 assert.ok(rail.statistics.railSegments>=650);
+assert.ok(rail.statistics.ballastStones>1000,
+  'Ballast should include scattered individual aggregate');
+assert.ok(rail.statistics.catenaryMasts>55,'Regional line requires overhead supply masts');
+const rails=rail.group.children.filter(m=>m.name==='Carril ferroviário perfilado · bitola 1435 mm');
+assert.equal(rails.length,2,'Both proper steel rails must remain visible');
+assert.ok(rail.group.children.some(m=>m.name==='Leito contínuo de balastro · taludes e drenagem'));
+assert.ok(rail.group.children.some(m=>m.name==='Pedras individuais do balastro'));
+assert.ok(rail.group.children.some(m=>m.name==='Fio de contacto elétrico'));
+assert.ok(rail.group.children.some(m=>m.name==='Cabo mensageiro da catenária'));
+assert.equal(rail.group.children.find(m=>m.name==='Travessas de betão · espaçamento 65 cm').count,
+  rail.statistics.sleepers);
 for(const station of rail.stations){
   assert.ok(station.group.children.length>0);
   assert.ok(rail.group.children.includes(station.group));
