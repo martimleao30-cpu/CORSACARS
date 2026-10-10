@@ -67,24 +67,48 @@ export function createRailwayBallastSurface(quality='high'){
   mat.normalScale.set(.75,.75);
   return {material:mat,textures:[map,normalMap]};
 }
-export function generateRailwayAlignment(terrainY,roadside,steps=950){
+export function generateRailwayAlignment(terrainY,roadside,steps=950,river=null){
   const curve=new THREE.CatmullRomCurve3(
     ROUTE.map(([x,z])=>new THREE.Vector3(x,0,z)),true,'centripetal',.32);
-  const points=[];
+  const points=[],heights=[];
   for(let i=0;i<steps;i++){
     const p=curve.getPoint(i/steps);
-    const y=terrainY(p.x,p.z);
+    const ground=terrainY(p.x,p.z);
     const edge=roadside?.roadProximity(p.x,p.z).edge??Infinity;
-    // Bridges begin >100m before carriageways: no rail/asphalt mesh overlap.
-    const bridge=smooth((96-edge)/76);
-    p.y=y+.58+bridge*7.4;
-    points.push(p);
+    const roadBridge=smooth((96-edge)/76);
+    const nearRiver=river?.lookup(p.x,p.z);
+    const riverApproach=nearRiver?
+      smooth((nearRiver.width+62-nearRiver.distance)/62):0;
+    // Reserve an actual bridge clearance over the excavated watercourse,
+    // including natural approach ramps. Never lay a ballast ribbon in water.
+    const elevation=ground+.64+Math.max(roadBridge*7.4,riverApproach*6.6);
+    points.push(p);heights.push(elevation);
   }
+  // Railway track grades must not jitter at every high-frequency terrain
+  // bump. Smooth the elevation target on a CLOSED loop; then enforce ground
+  // clearance without losing the overhead separation at bridges.
+  let smoothed=heights;
+  for(let pass=0;pass<8;pass++){
+    smoothed=smoothed.map((h,i)=>
+      (smoothed[(i-2+steps)%steps]+4*smoothed[(i-1+steps)%steps]+
+      6*h+4*smoothed[(i+1)%steps]+smoothed[(i+2)%steps])/16);
+  }
+  for(let i=0;i<steps;i++)
+    points[i].y=Math.max(terrainY(points[i].x,points[i].z)+.62,smoothed[i]);
   points.push(points[0].clone());
   const length=[0];
   for(let i=1;i<points.length;i++)
     length.push(length[i-1]+points[i].distanceTo(points[i-1]));
   return {points,length,total:length[length.length-1]};
+}
+// Shared closed-loop tangent: first and last duplicates MUST generate the
+// exact same normal or the track, sleepers and ballast split at the seam.
+export function railwayNormal(line,index){
+  const n=line.points.length-1,i=index===n?0:index;
+  const a=line.points[(i+n-1)%n],b=line.points[(i+1)%n];
+  const dx=b.x-a.x,dz=b.z-a.z;
+  const length=Math.hypot(dx,dz)||1;
+  return new THREE.Vector3(-dz/length,0,dx/length);
 }
 export function sampleAlignment(line,distance){
   const total=line.total;
@@ -104,10 +128,7 @@ export function createBallastBedGeometry(line){
   const cross=[[-2.25,-.60],[-1.86,-.38],[0,-.34],[1.86,-.38],[2.25,-.60]];
   const vertices=[],uv=[],colors=[],indices=[];
   for(let i=0;i<line.points.length;i++){
-    const a=line.points[Math.max(0,i-1)];
-    const b=line.points[Math.min(line.points.length-1,i+1)];
-    const direction=b.clone().sub(a).setY(0).normalize();
-    const side=new THREE.Vector3(-direction.z,0,direction.x);
+    const side=railwayNormal(line,i);
     const p=line.points[i],distance=line.length[i];
     for(let j=0;j<cross.length;j++){
       const [lateral,vertical]=cross[j];
@@ -145,10 +166,7 @@ export function createSteelRailGeometry(line,offset){
   ];
   const vertices=[],uv=[],indices=[];
   for(let i=0;i<line.points.length;i++){
-    const a=line.points[Math.max(0,i-1)];
-    const b=line.points[Math.min(line.points.length-1,i+1)];
-    const d=b.clone().sub(a).setY(0).normalize();
-    const side=new THREE.Vector3(-d.z,0,d.x),p=line.points[i];
+    const side=railwayNormal(line,i),p=line.points[i];
     for(const [w,h] of section){
       const lateral=offset+w;
       vertices.push(p.x+side.x*lateral,p.y+h,p.z+side.z*lateral);
@@ -174,10 +192,11 @@ export function createSteelRailGeometry(line,offset){
 
 const colored=(m)=>m.clone();
 export class RegionalRailway{
-  constructor(scene,physics,terrainY,roadside,quality='high'){
+  constructor(scene,physics,terrainY,roadside,quality='high',river=null){
     this.scene=scene;this.physics=physics;this.terrainY=terrainY;
-    this.roadside=roadside;this.quality=quality;
-    this.line=generateRailwayAlignment(terrainY,roadside,quality==='low'?650:1000);
+    this.roadside=roadside;this.quality=quality;this.river=river;
+    this.line=generateRailwayAlignment(terrainY,roadside,
+      quality==='low'?650:1000,river);
     this.group=new THREE.Group();this.group.name='Linha Ferroviária Regional · Vale-Serra';
     scene.add(this.group);
     const ballastSurface=createRailwayBallastSurface(this.quality);
@@ -220,6 +239,12 @@ export class RegionalRailway{
       this.physics.addBody(b);this.stationBodies.push(b);
     }
     return obj;
+  }
+  trackGround(x,z){
+    const original=this.terrainY(x,z);
+    const water=this.river?.lookup(x,z);
+    return water&&water.distance<water.width+8.5
+      ?Math.min(original,water.waterY-1.55):original;
   }
   buildTrack(){
     const total=this.line.total,up=new THREE.Vector3(0,1,0);
@@ -296,22 +321,19 @@ export class RegionalRailway{
     const widths=[-1,-.66,-.32,.32,.66,1];
     for(let i=0;i<steps;i++){
       const p=this.line.points[i];
-      const a=this.line.points[Math.max(0,i-1)];
-      const b=this.line.points[Math.min(steps-1,i+1)];
-      const dir=new THREE.Vector3(b.x-a.x,0,b.z-a.z);
-      if(dir.lengthSq()<.00001)dir.set(0,0,1);
-      dir.normalize();
-      const side=new THREE.Vector3(-dir.z,0,dir.x);
-      const ground=this.terrainY(p.x,p.z);
+      const side=railwayNormal(this.line,i);
+      const ground=this.trackGround(p.x,p.z);
       const rise=p.y-ground;
       const edge=this.roadside?.roadProximity(p.x,p.z).edge??Infinity;
-      valid.push(rise<=3.65&&edge>12);
+      const water=this.river?.lookup(p.x,p.z);
+      const onRiver=!!water&&water.distance<water.width+17;
+      valid.push(rise<=3.65&&edge>12&&!onRiver);
       const half=2.25+Math.min(7,Math.max(.45,rise*1.7));
       for(const u of widths){
         const distance=Math.abs(u)*half;
         const x=p.x+side.x*u*half,z=p.z+side.z*u*half;
-        const earth=this.terrainY(x,z)+.025;
-        const top=p.y-.58;
+        const earth=this.trackGround(x,z)+.025;
+        const top=p.y-.39; // Flush with the lower face of the 3D ballast
         const t=THREE.MathUtils.smoothstep(distance,2.10,half);
         const y=THREE.MathUtils.lerp(top,earth,t);
         positions.push(x,y,z);
@@ -346,7 +368,7 @@ export class RegionalRailway{
     const total=this.line.total;
     const profile=distance=>{
       const point=sampleAlignment(this.line,distance);
-      const ground=this.terrainY(point.point.x,point.point.z);
+      const ground=this.trackGround(point.point.x,point.point.z);
       const height=point.point.y-ground;
       const roadEdge=this.roadside?.roadProximity(point.point.x,point.point.z).edge??Infinity;
       return {...point,ground,height,roadEdge};
@@ -355,7 +377,11 @@ export class RegionalRailway{
     this.bridgeSupports=0;this.bridgeDeckSegments=0;
     for(let d=0;d<total-span;d+=span){
       const a=profile(d),b=profile(d+span);
-      if(Math.max(a.height,b.height)<2.65)continue;
+      const crossingRoad=Math.min(a.roadEdge,b.roadEdge)<13;
+      const water=this.river?.lookup((a.point.x+b.point.x)*.5,
+        (a.point.z+b.point.z)*.5);
+      const crossingRiver=!!water&&water.distance<water.width+16;
+      if(Math.max(a.height,b.height)<2.65&&!crossingRoad&&!crossingRiver)continue;
       const mid=profile(d+span*.5);
       const length=a.point.distanceTo(b.point);
       const horizontal=Math.hypot(b.point.x-a.point.x,b.point.z-a.point.z);
@@ -385,7 +411,7 @@ export class RegionalRailway{
       const top=p.point.y-.73;
       for(const offset of [-1.06,1.06]){
         const foot=p.point.clone().addScaledVector(p.side,offset);
-        const base=this.terrainY(foot.x,foot.z);
+        const base=this.trackGround(foot.x,foot.z);
         const columnHeight=Math.max(.4,top-base-.24);
         const footing=this.createBox('Viaduto · sapata de fundação',
           new THREE.Vector3(foot.x,base+.09,foot.z),
