@@ -230,9 +230,9 @@ export function blendJunctionHeights(geometry,cuts,terrainY){
       const v=-dx*cut.uz+dz*cut.ux;
       const dv=Math.abs(v)-cut.halfV;
       const du=Math.max(0,Math.abs(u)-cut.halfU);
-      if(dv<-.001||dv>2.8||du>3)continue;
-      const t=1-Math.min(1,Math.max(0,dv/2.8));
-      const end=1-Math.min(1,du/3);
+      if(dv<-.18||dv>3.6||du>3.8)continue;
+      const t=1-Math.min(1,Math.max(0,dv/3.6));
+      const end=1-Math.min(1,du/3.8);
       const blend=t*t*(3-2*t)*end*end*(3-2*end);
       const halfWidth=cut.primary.width*.5;
       const across=Math.min(1,Math.abs(v)/halfWidth);
@@ -304,9 +304,9 @@ export function resolveRoadJunctions(network,physics){
       const side=clipGeometryAtJunctions(road.sides.geometry,cuts);
       if(side){road.sides.geometry.dispose();road.sides.geometry=side;}
     }
-    for(const shoulder of road.shoulders||[]){
-      const trimmed=clipGeometryAtJunctions(shoulder.geometry,cuts);
-      if(trimmed){shoulder.geometry.dispose();shoulder.geometry=trimmed;}
+    for(const ribbon of [...(road.shoulders||[]),...(road.drainage||[])]){
+      const trimmed=clipGeometryAtJunctions(ribbon.geometry,cuts);
+      if(trimmed){ribbon.geometry.dispose();ribbon.geometry=trimmed;}
     }
     // Remove duplicate Cannon triangles: physics must match what the player
     // sees, rather than maintaining invisible overlapping collision decks.
