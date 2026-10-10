@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import {createAsphaltMaterial,createGravelMaterial} from './materials.js';
+import {createAsphaltMaterial,createGravelMaterial,createDirtRoadMaterial} from './materials.js';
 import {createRoadBed,addRoadSides,addRoadWear,addRoadShoulders,addRoadDrainage} from './road-upgrades.js';
 import {resolveRoadJunctions} from './road-junctions.js';
 
@@ -52,9 +52,7 @@ export const REGIONAL_LINKS = Object.freeze([
 
 function materialFor(surface,quality,routeId='',category='') {
   if(surface==='gravel'||surface==='dirt'){
-    const mat=createGravelMaterial();
-    if(surface==='dirt')mat.color.set(0xbca17d);
-    return mat;
+    return createDirtRoadMaterial(quality,surface);
   }
   // Higher native PBR texel density on mountainous roads, without changing
   // the albedo family used at the junctions or the road collision mesh.
@@ -136,6 +134,11 @@ export class RoadNetwork {
         append(a,points[points.length-1],b,sample(b));
       }
       const bed=createRoadBed(points,route.width,this.terrainY,route.from,route.surface);
+      if(route.category==='dirt'){
+        const uv=bed.top.getAttribute('uv');
+        for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*1.8,uv.getY(i)*1.8);
+        uv.needsUpdate=true;
+      }
       if(route.category==='mountain'){
         // More tiled photographic detail per metre than the wider highways.
         // Scale *only* UVs, never geometry/colliders.
