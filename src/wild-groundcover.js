@@ -14,11 +14,11 @@ export class WildGroundcover{
   build(){
     const random=rng(20261018),size=145;
     const max={
-      low:{shrub:680,flower:600,grass:1950},
-      medium:{shrub:1280,flower:1050,grass:3450},
-      high:{shrub:2080,flower:1510,grass:5400},
-      ultra:{shrub:2910,flower:2130,grass:7700}
-    }[this.quality]||{shrub:2080,flower:1510,grass:5400};
+      low:{shrub:680,flower:600,grass:4500},
+      medium:{shrub:1280,flower:1050,grass:9000},
+      high:{shrub:2080,flower:1510,grass:19000},
+      ultra:{shrub:2910,flower:2130,grass:32000}
+    }[this.quality]||{shrub:2080,flower:1510,grass:19000};
     const shrubGeo=createNaturalShrubGeometry('low');
     const flowerGeo=createNaturalFlowerGeometry();
     const grassGeo=createMeadowTuftGeometry(this.quality==='low'?'low':'medium');
@@ -34,6 +34,17 @@ export class WildGroundcover{
     const grassWind=createMeadowWindMaterial();
     this.winds.push(grassWind.wind);
     this.materials.push(shrubMat,flowerMat,grassWind.mat);
+    // Seed lush but irregular verges beside every regional road.
+    const roadSamples=[];
+    for(const road of this.clearance?.network?.roads||[]){
+      for(let i=1;i<road.points.length;i+=3){
+        const a=road.points[i-1].center||road.points[i-1];
+        const b=road.points[Math.min(i+2,road.points.length-1)].center||
+          road.points[Math.min(i+2,road.points.length-1)];
+        const dx=b.x-a.x,dz=b.z-a.z,dist=Math.hypot(dx,dz);
+        if(dist>1&&dist<45)roadSamples.push({a,dx,dz,dist,width:road.width});
+      }
+    }
     const groups=new Map();
     const geometries={shrub:shrubGeo,flower:flowerGeo,grass:grassGeo};
     const materials={shrub:shrubMat,flower:flowerMat,grass:grassWind.mat};
@@ -46,7 +57,15 @@ export class WildGroundcover{
     for(const kind of Object.keys(max)){
       let planted=0;
       for(let i=0;i<max[kind]*12&&planted<max[kind];i++){
-        const x=(random()-.5)*3900,z=(random()-.5)*3900;
+        let x=(random()-.5)*3900,z=(random()-.5)*3900;
+        if(kind==='grass'&&roadSamples.length&&random()<.65){
+          const segment=roadSamples[Math.floor(random()*roadSamples.length)];
+          const u=random(),side=random()<.5?-1:1;
+          const offset=side*(segment.width*.5+4.4+random()*23);
+          x=segment.a.x+segment.dx*u-segment.dz/segment.dist*offset;
+          z=segment.a.z+segment.dz*u+segment.dx/segment.dist*offset;
+        }
+        if(Math.abs(x)>1940||Math.abs(z)>1940)continue;
         const macro=Math.sin(x*.009+Math.cos(z*.011))*Math.cos(z*.011);
         const local=Math.sin(x*.037-z*.015)*Math.cos(z*.039+x*.014);
         const density=.49+.30*macro+.11*local;
@@ -62,10 +81,14 @@ export class WildGroundcover{
         const gx=Math.floor(x/size),gz=Math.floor(z/size),key=gx+','+gz+','+kind;
         if(!groups.has(key))groups.set(key,{kind,x:(gx+.5)*size,z:(gz+.5)*size,items:[]});
         const radius=scale[kind][0]+random()*(scale[kind][1]-scale[kind][0]);
-        const color=kind==='grass'?
-          meadowProfile(x,z,this.clearance.roadProximity(x,z).edge).color:
+        const profile=kind==='grass'?
+          meadowProfile(x,z,this.clearance?.roadProximity(x,z).edge??40):null;
+        if(profile&&random()>profile.density)continue;
+        const color=profile?profile.color.clone().multiplyScalar(.83+random()*.3):
           new THREE.Color(palettes[kind][Math.floor(random()*palettes[kind].length)]);
-        groups.get(key).items.push({x,y,z,scale:radius,yaw:random()*Math.PI*2,color});
+        groups.get(key).items.push({x,y,z,scale:radius,
+          height:profile?radius*profile.height*(.72+random()*.65):radius,
+          yaw:random()*Math.PI*2,color});
         planted++;
       }
       if(kind==='shrub')this.statistics.shrubs=planted;
@@ -81,7 +104,7 @@ export class WildGroundcover{
         const p=group.items[i];
         dummy.position.set(p.x,p.y-.02,p.z);
         dummy.rotation.set(0,p.yaw,0);
-        dummy.scale.setScalar(p.scale);
+        dummy.scale.set(p.scale,p.height,p.scale);
         dummy.updateMatrix();
         mesh.setMatrixAt(i,dummy.matrix);mesh.setColorAt(i,p.color);
       }
