@@ -77,8 +77,10 @@ export class AtmosphericClouds{
             y+layer*(2.5+r()*4),
             z+(r()-.5)*scale*.65);
           dummy.rotation.set(0,r()*Math.PI,0);
-          dummy.scale.set(scale*(1.15+r()*.65),
-            scale*(1.05+r()*.6),1);
+          // The plane geometry was rotated into X/Z. Its local Y is zero,
+          // so width/depth must scale X and Z, not X and Y.
+          dummy.scale.set(scale*(1.15+r()*.65),1,
+            scale*(1.05+r()*.6));
           dummy.updateMatrix();cloud.setMatrixAt(index,dummy.matrix);
           cloud.setColorAt(index,new THREE.Color(layer===2?0xf6f6f1:
             layer===0?0xc3ced6:0xe3e8eb));
