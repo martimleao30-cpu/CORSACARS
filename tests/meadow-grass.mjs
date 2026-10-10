@@ -51,7 +51,7 @@ const clearance={
 const details=new WorldDetails(scene,points,13.5,()=>0,'low',null,clearance);
 assert.ok(excluded>0,'Meadow candidates must consult road-clearance masks');
 assert.ok(details.grassStatistics.planted>100,'Allowed half of meadow must be populated');
-assert.ok(details.grassStatistics.planted<1300);
+assert.equal(details.grassStatistics.planted,1300,\n  'Permitted grass candidates should fill the configured density budget');
 assert.ok(details.grassStatistics.rejected>0);
 let checked=0;
 const matrix=new THREE.Matrix4(),place=new THREE.Vector3();
