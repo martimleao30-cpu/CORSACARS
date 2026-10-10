@@ -97,6 +97,73 @@ export function createAsphaltMaterial(quality = 'high', variant = 'aged') {
 
 // The road verge needs fine stones and rough soil, not a stretched 128px
 // grey noise texture. Cache the high-resolution maps across all road chunks.
+// High-frequency earth and aggregate at a fixed real-world UV scale.
+// Layered deterministic noise avoids the large repeating waves of the
+// shared roadside gravel texture seen on unpaved driving routes.
+const dirtRoadCache=new Map();
+export function createDirtRoadMaterial(quality='high',surface='dirt'){
+  const level=quality==='ultra'?'ultra':quality==='low'?'low':quality==='medium'?'medium':'high';
+  const key=level+':'+surface;
+  if(!dirtRoadCache.has(key)){
+    const size=level==='ultra'?1536:level==='high'?1024:level==='medium'?768:512;
+    const canvas=document.createElement('canvas'),normal=document.createElement('canvas');
+    const rough=document.createElement('canvas');
+    for(const item of [canvas,normal,rough])item.width=item.height=size;
+    const a=canvas.getContext('2d'),n=normal.getContext('2d'),r=rough.getContext('2d');
+    const image=a.createImageData(size,size),normalImage=n.createImageData(size,size);
+    const roughImage=r.createImageData(size,size);
+    const heights=new Float32Array(size*size),seed=surface==='gravel'?91911:73019;
+    const rand=randomGenerator(seed);
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const i=y*size+x,k=i*4;
+      const macro=Math.sin(x*.018+Math.cos(y*.011))*Math.cos(y*.021-Math.sin(x*.008));
+      const medium=Math.sin(x*.085+y*.023)*Math.cos(y*.106-x*.012);
+      const pebbles=Math.abs(Math.sin(x*.59+y*.71)*Math.cos(y*.63-x*.49));
+      const grit=rand();
+      const layer=.50*grit+.31*pebbles+.12*medium+.07*macro;
+      heights[i]=layer;
+      const tone=surface==='gravel'?128:111;
+      const v=Math.max(55,Math.min(207,
+        Math.round(tone+grit*57+medium*12+macro*17+pebbles*24)));
+      image.data[k]=Math.min(255,v+14);
+      image.data[k+1]=v;
+      image.data[k+2]=Math.max(0,v-(surface==='gravel'?12:25));
+      image.data[k+3]=255;
+      const q=Math.max(175,Math.min(253,Math.round(224+grit*24-medium*6)));
+      roughImage.data[k]=roughImage.data[k+1]=roughImage.data[k+2]=q;
+      roughImage.data[k+3]=255;
+    }
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
+      const i=y*size+x,k=i*4;
+      const dx=(heights[y*size+(x+1)%size]-heights[y*size+(x+size-1)%size])*.65;
+      const dy=(heights[((y+1)%size)*size+x]-heights[((y+size-1)%size)*size+x])*.65;
+      const inv=1/Math.hypot(dx,dy,1);
+      normalImage.data[k]=Math.round((1-dx*inv)*127.5);
+      normalImage.data[k+1]=Math.round((1-dy*inv)*127.5);
+      normalImage.data[k+2]=Math.round((1+inv)*127.5);
+      normalImage.data[k+3]=255;
+    }
+    a.putImageData(image,0,0);n.putImageData(normalImage,0,0);
+    r.putImageData(roughImage,0,0);
+    const maps={map:canvasTexture(canvas,true),
+      normalMap:canvasTexture(normal),roughnessMap:canvasTexture(rough)};
+    for(const tex of Object.values(maps)){
+      tex.repeat.set(1,1);
+      tex.userData.corsaShared=true;
+    }
+    dirtRoadCache.set(key,{maps,resolution:size});
+  }
+  const {maps,resolution}=dirtRoadCache.get(key);
+  const mat=new THREE.MeshStandardMaterial({
+    ...maps,color:surface==='dirt'?0xd0b79a:0xe0ded8,
+    roughness:.96,metalness:0,vertexColors:true,side:THREE.DoubleSide
+  });
+  mat.normalScale.set(.83,.83);
+  mat.userData.corsaDirtRoad=true;
+  mat.userData.textureResolution=resolution;
+  return mat;
+}
+
 let gravelTextures;
 export function createGravelMaterial() {
   if(!gravelTextures){
