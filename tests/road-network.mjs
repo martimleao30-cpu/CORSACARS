@@ -44,6 +44,18 @@ for(const road of network.roads){
   }
   assert.ok(road.sides.geometry.index.count>0,'Visible roadbed side walls required');
   assert.equal(road.shoulders.length,2,'Both road shoulders must exist');
+  if(road.id==='autoestrada'||road.id==='nacional'){
+    assert.equal(road.profileGeometry.paved.length,2,
+      'Major roads must have two physical paved shoulder lanes');
+    assert.ok(road.body.shapes.length>=3,
+      'Paved shoulder triangles must be added to the existing road collider');
+    if(road.id==='autoestrada'){
+      assert.equal(road.width,19);
+      assert.equal(road.profileGeometry.median.mesh.geometry.userData.medianWidth,4);
+      assert.ok(road.body.shapes.length>=4,
+        'Motorway central barrier must prevent crossing onto the opposite carriageway');
+    }else assert.equal(road.width,7);
+  }
   if(['rural','mountain'].includes(road.category)&&road.from!==undefined){
     assert.equal(road.drainage.length,2,
       'Rural and mountain routes need a ditch and embankment on both sides');
