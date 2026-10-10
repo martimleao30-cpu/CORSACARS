@@ -51,6 +51,7 @@ for(const name of ['Vedação rural · travessa superior','Vedação rural · tr
     'Missing realistic rural fence layer: '+name);
 }
 assert.ok(environment.statistics.roadSigns>=5);
+assert.equal(environment.statistics.motorwayServiceSigns,2,'Advance signage for rest area required');
 assert.ok(environment.statistics.speedSigns>=4,'Round maximum-speed signs required');
 assert.ok(environment.statistics.dangerSigns>=4,'Triangular hazard signs required');
 assert.ok(environment.statistics.stones>0 && environment.statistics.dirtRuts>0);

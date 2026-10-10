@@ -29,6 +29,14 @@ const mask=new RoadsideClearance(network,sectors.regions);
 assert.ok(mask.segments.length>1000,'All connected roads indexed');
 assert.ok(mask.junctions.length>=12,'Endpoints and crossings cut fence gaps');
 assert.equal(mask.openings.length,5,'Every named POI has a driveway');
+assert.equal(mask.serviceZones.length,1,'The entire station apron is reserved');
+const serviceRegion=sectors.regions.find(r=>r.kind==='service');
+const fuelCenter=serviceRegion.roadPoint.clone()
+  .addScaledVector(serviceRegion.side,42)
+  .addScaledVector(serviceRegion.tangent, -21);
+assert.equal(mask.insideService(fuelCenter.x,fuelCenter.z),true);
+assert.equal(mask.plantAllowed(fuelCenter.x,fuelCenter.z,'grass'),false);
+
 for(const road of network.roads){
   const mid=road.points[Math.floor(road.points.length*.52)];
   assert.equal(mask.plantAllowed(mid.x,mid.z,'grass'),false,
