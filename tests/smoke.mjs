@@ -38,6 +38,8 @@ assert.match(lighting, /RGBELoader/);
 assert.match(lighting, /LightProbeGenerator/);
 assert.match(performance, /drawCalls/);
 assert.match(vehicle, /setVisualDetail/);
+assert.match(world,/new ModernRoadLighting/);
+assert.match(world,/this\.roadLighting\?\.update/);
 assert.match(vehicle, /this\.wheelModels/);
 const premium=readFileSync(new URL('../src/interface.js',import.meta.url),'utf8');
 const premiumCss=readFileSync(new URL('../src/premium.css',import.meta.url),'utf8');

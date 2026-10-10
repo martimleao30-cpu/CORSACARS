@@ -11,6 +11,7 @@ import {RoadEnvironment} from './road-environments.js';
 import {ForestSystem} from './forest-system.js';
 import {RoadSignage} from './road-signage.js';
 import {CinematicSky,evaluateAtmosphere,configureCinematicShadows} from './cinematic-lighting.js';
+import {ModernRoadLighting} from './modern-road-lighting.js';
 import {RainStreaks} from './atmosphere-effects.js';
 import {createWeatheredRockGeometry,UrbanFacadeBatch,createWeatheredWallMaterial} from './natural-assets.js';
 
@@ -248,40 +249,13 @@ export class DrivingWorld {
   }
 
   buildStreetLights() {
-    const post = new THREE.CylinderGeometry(0.11, 0.16, 7, 8);
-    const arm = new THREE.CylinderGeometry(0.07, 0.07, 2.1, 8);
-    const poleMaterial = material(0x5d6770, 0.49, 0.7);
-    this.bulbMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffeac8, emissive: 0xffd9a4, emissiveIntensity: 0.1
-    });
-    const up = new THREE.Vector3(0, 1, 0);
-    for (let i = 5; i < this.roadPoints.length; i += 18) {
-      const road = this.roadPoints[i];
-      const side = road.side.clone().multiplyScalar(i % 2 === 0 ? 1 : -1);
-      const location = road.center.clone().addScaledVector(side, 10);
-      location.y = groundHeight(location.x, location.z);
-      const upright = new THREE.Mesh(post, poleMaterial);
-      upright.position.copy(location).add(new THREE.Vector3(0, 3.5, 0));
-      upright.castShadow = true;
-      this.scene.add(upright);
-      const lampPos = location.clone().add(new THREE.Vector3(0, 6.86, 0))
-        .addScaledVector(side, -1.92);
-      const crossbar = new THREE.Mesh(arm, poleMaterial);
-      crossbar.position.copy(location).add(new THREE.Vector3(0, 6.86, 0))
-        .addScaledVector(side, -0.96);
-      crossbar.quaternion.setFromUnitVectors(up, side.clone().negate());
-      crossbar.castShadow = true;
-      this.scene.add(crossbar);
-      const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.15, 0.55),
-        this.bulbMaterial);
-      bulb.position.copy(lampPos);
-      this.scene.add(bulb);
-      const light = new THREE.PointLight(0xffddb0, 0, 27, 2);
-      light.position.copy(lampPos);
-      light.castShadow = false;
-      this.scene.add(light);
-      this.streetLights.push(light);
-    }
+    // All styles share instanced metallic fixtures with modern LED heads.
+    // At most 4–8 real dynamic lights are recycled around the car, rather
+    // than dozens of expensive lights that persist all night.
+    this.roadLighting=new ModernRoadLighting(
+      this.scene,this.network,groundHeight,this.roadside,this.quality);
+    this.streetLights=this.roadLighting.lights;
+    this.bulbMaterial=this.roadLighting.glowMaterial;
   }
 
   distanceToRoad(x, z) {
@@ -433,13 +407,7 @@ export class DrivingWorld {
         this.atmosphere.sunDirection,275);
       this.sun.target.updateMatrixWorld();
       this.cinematicSky.mesh.position.copy(vehiclePosition);
-      // Keep only a small number of nearby streetlights active.
-      const nighttime = this.hour < 6.3 || this.hour > 18.9;
-      for (const lamp of this.streetLights) {
-        const dx = lamp.position.x - vehiclePosition.x;
-        const dz = lamp.position.z - vehiclePosition.z;
-        lamp.intensity = nighttime && dx * dx + dz * dz < 8100 ? 30 : 0;
-      }
+      this.roadLighting?.update(dt,this.hour,vehiclePosition);
     }
   }
 }

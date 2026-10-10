@@ -422,3 +422,22 @@ as dimensões da praça para impedir vegetação no parque e nas bombas.
 Ficheiros: `src/highway-services.js`, `src/world-sectors.js`,
 `src/road-environments.js` e `src/roadside-clearance.js`.
 Testes: `node tests/highway-services.mjs` e `npm run test:roads`.
+
+
+## Iluminação LED moderna — ruas, estradas e acessos
+
+`src/modern-road-lighting.js` substitui os postes simples da estrada
+circular por candeeiros metálicos contemporâneos, com corpo cónico,
+base, colar, braço inclinado e luminárias LED detalhadas. A iluminação
+estende-se à EN 201, rua lateral da vila, acessos, rampas e troços da A1
+junto à área de serviço, sem iluminar artificialmente toda a autoestrada.
+A colocação respeita a rede de estradas, entradas e cruzamentos, evitando
+postes no asfalto ou a obstruir acessos.
+
+Os elementos são `InstancedMesh` agrupados por material: centenas de peças
+visuais custam poucas chamadas à GPU. Apenas os 4–8 postes mais próximos do
+carro utilizam luzes dinâmicas reais, sem sombras em tempo real; ao amanhecer,
+as lentes LED deixam de emitir luz e as luzes reais desligam. A estação de
+serviço mantém a sua iluminação específica. Tudo é configurável por
+qualidade gráfica; o teste `tests/modern-road-lighting.mjs` valida
+posicionamento, geometria, alternância dia/noite e limpeza dos recursos.
