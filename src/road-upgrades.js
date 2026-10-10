@@ -176,36 +176,59 @@ export function addRoadWear(scene,samples,width,terrainY,quality='high',seed=21)
   return {patches,skids,dirt};
 }
 
+// Three softly graded verge materials occupy the same mesh: dusty compacted
+// gravel at the road, mixed mineral soil, and an irregular grass/earth edge.
+// Vertex colours don't require extra draw calls; geometry follows terrain.
 export function addRoadShoulders(scene,samples,width,terrainY,material) {
-  const shoulders=[];
+  const shoulders=[],bands=[.025,.68,1.50,2.35];
+  const palette=[
+    [.77,.76,.72], [.90,.85,.75], [.70,.65,.51], [.60,.63,.48]
+  ];
   for(const sign of [-1,1]){
-    const positions=[],uv=[],indices=[];
+    const positions=[],uv=[],colors=[],indices=[];
     let distance=0;
     for(let i=0;i<samples.length;i++){
-      const p=centerOf(samples[i]);
-      const t=tangentOf(samples,i);
+      const p=centerOf(samples[i]),t=tangentOf(samples,i);
       if(i>0){
         const prev=centerOf(samples[i-1]);
         distance+=Math.hypot(p.x-prev.x,p.z-prev.z);
       }
-      for(const lateral of [width*.5+.03,width*.5+2.35]){
-        const off=lateral*sign;
+      const ripple=Math.sin(distance*.29+sign*3)*.10+
+        Math.sin(distance*.74-sign*4)*.055;
+      for(let j=0;j<bands.length;j++){
+        const shift=j===3?ripple:j===2?ripple*.35:0;
+        const off=sign*(width*.5+bands[j]+shift);
         const x=p.x-t.z*off,z=p.z+t.x*off;
-        positions.push(x,terrainY(x,z)+(lateral<width*.5+1?.11:.04),z);
-        uv.push(lateral/4,distance/4);
+        const lift=[.11,.085,.05,.018][j];
+        const micro=Math.sin(distance*.34+j*2.3)*.012;
+        positions.push(x,terrainY(x,z)+lift+micro,z);
+        // Physical 2.2m/metre tiling instead of a smeared single texture
+        // across the entire shoulder length.
+        uv.push(distance/2.2,(bands[j]+shift)/2.2);
+        const color=palette[j],shade=.95+.045*Math.sin(distance*.17+j*1.7);
+        colors.push(color[0]*shade,color[1]*shade,color[2]*shade);
       }
       if(i<samples.length-1){
-        const a=i*2;
-        indices.push(a,a+2,a+1,a+1,a+2,a+3);
+        const row=i*bands.length,next=row+bands.length;
+        for(let j=0;j<bands.length-1;j++){
+          // Both signs use the same double-sided material; winding is kept
+          // consistent so computed normals face the sky.
+          indices.push(row+j,next+j,row+j+1,
+            row+j+1,next+j,next+j+1);
+        }
       }
     }
     const geometry=new THREE.BufferGeometry();
     geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+    geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
-    const shoulder=new THREE.Mesh(geometry,material);
-    shoulder.material.side=THREE.DoubleSide;
+    geometry.computeBoundingSphere();
+    const shoulderMaterial=material.clone();
+    shoulderMaterial.vertexColors=true;
+    const shoulder=new THREE.Mesh(geometry,shoulderMaterial);
+    shoulder.name='Berma natural · gravilha, terra e vegetação';
     shoulder.receiveShadow=true;
     scene.add(shoulder);shoulders.push(shoulder);
   }
