@@ -66,6 +66,15 @@ const network={roads:[
 const signage=new RoadSignage(scene,network,'low');
 assert.ok(signage.statistics.continuous>=10,'Continuous edge lines on each road');
 assert.ok(signage.statistics.dashed>0,'Dashed centre and lane separation lines');
+const motorwayMarkings=signage.meshes.filter(mesh=>
+  mesh.name.includes('autoestrada')&&mesh.name.includes('Linha entre vias'));
+assert.equal(motorwayMarkings.length,2,
+  'Motorway needs one proper lane separator on each carriageway');
+const motorwayWidth=network.roads[2].width;
+const expectedDivision=(motorwayWidth+4)/4;
+assert.ok(motorwayMarkings.every(mesh=>
+  Math.abs(Math.abs(mesh.geometry.userData.lateral)-expectedDivision)<.00001),
+  'Paint must align with the actual lane profile and central separator');
 assert.equal(signage.statistics.double,0,
   'No arbitrary continuous double centre lines across rural or motorway routes');
 assert.ok(signage.statistics.arrows>0,'Painted straight/turning arrows must exist');
