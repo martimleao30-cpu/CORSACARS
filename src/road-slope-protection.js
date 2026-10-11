@@ -40,8 +40,10 @@ export class RoadSlopeProtection {
       if(!['mountain','rural','highway'].includes(road.category))continue;
       const pts=road.points.map(center);
       const stride=road.category==='mountain'?4:3;
-      const body=new CANNON.Body({mass:0,
-        material:new CANNON.Material('reinforced-earthwork')});
+      // Limit Cannon collision bodies to ~100 m sections. One enormous
+      // static body covering the whole 4 km map would have an enormous AABB
+      // and force the car to test unrelated walls on every physics frame.
+      const chunks=new Map();
       for(let i=5;i+stride<pts.length-4;i+=stride){
         const a=pts[i],b=pts[i+stride];
         const length=Math.hypot(b.x-a.x,b.z-a.z);
@@ -72,15 +74,25 @@ export class RoadSlopeProtection {
               sx:.70,sy:height+.05,sz:.22});
           const rotation=new CANNON.Quaternion();
           rotation.setFromAxisAngle(new CANNON.Vec3(0,1,0),yaw);
+          const chunkKey=Math.floor(i/(stride*12))+':'+sign;
+          let body=chunks.get(chunkKey);
+          if(!body){
+            body=new CANNON.Body({mass:0,
+              material:new CANNON.Material('reinforced-earthwork')});
+            body.position.set(a.x,0,a.z);
+            chunks.set(chunkKey,body);
+          }
           body.addShape(new CANNON.Box(
             new CANNON.Vec3(.24,height*.5,(length+.22)*.5)),
-            new CANNON.Vec3(cx,midY,cz),rotation);
+            new CANNON.Vec3(cx-body.position.x,midY,cz-body.position.z),
+            rotation);
           this.statistics[isCut?'cutWalls':'fillWalls']++;
           this.statistics.wallColliders++;
           this.statistics.protectedMetres+=length;
         }
       }
-      if(body.shapes.length){
+      for(const body of chunks.values()){
+        if(!body.shapes.length)continue;
         this.physics.addBody(body);
         this.bodies.push(body);
       }
