@@ -52,7 +52,8 @@ const normal=(road,i)=>{
 const position=(road,index,lateral,terrainY,height=0)=>{
   const p=road.points[index],t=normal(road,index);
   const x=p.x-t.z*lateral,z=p.z+t.x*lateral;
-  const roadHeight=roadDeckHeight(terrainY,x,z,lateral,road.width);
+  const roadHeight=roadDeckHeight(road.gradeTerrain||terrainY,
+    x,z,lateral,road.width);
   return {x,z,y:roadHeight+height,yaw:Math.atan2(t.x,t.z),t};
 };
 const deterministic=seed=>{
@@ -633,7 +634,7 @@ export class RoadEnvironment {
       const f=2*lateral/road.width;
       const uneven=.035*Math.sin(metres*.27+f*4.3)+
         .017*Math.sin(metres*.74-f*7.9);
-      return [x,roadDeckHeight(this.terrainY,x,z,lateral,road.width)+
+      return [x,roadDeckHeight(road.gradeTerrain||this.terrainY,x,z,lateral,road.width)+
         uneven+.028,z];
     };
     for(let i=0;i<n;i++){

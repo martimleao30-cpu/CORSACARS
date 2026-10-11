@@ -42,7 +42,7 @@ export function planRoadManholes(network,terrainY,river=null){
       if(junctionConflict(network,x,z,road)||
         river?.contains(x,z,road.width*.55+3))continue;
       // The covers follow the existing cambered and height-mapped asphalt.
-      const deckY=roadDeckHeight(terrainY,x,z,lateral,road.width);
+      const deckY=roadDeckHeight(road.gradeTerrain||terrainY,x,z,lateral,road.width);
       placements.push({roadId:road.id,category:road.category,
         distance,x,z,y:deckY+.015,yaw:Math.atan2(dx,dz),deckY});
     }
