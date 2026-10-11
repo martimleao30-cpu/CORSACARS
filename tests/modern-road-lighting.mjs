@@ -47,7 +47,18 @@ for(const p of lighting.placements){
     (Math.floor(p.stationM/ROAD_LAMP_SPACING_METRES)+.5))<.00001,
     'Every pole must be on the same 34-metre road chainage grid');
 }
-assert.ok(lighting.meshes.length>=7,'Detailed posts use seven instanced parts');
+assert.ok(lighting.meshes.length>=15,
+  'Architectural posts require detailed instanced bases, curved arms and optics');
+assert.ok(lighting.stats.details.diode>=lighting.stats.total*12,
+  'Every LED head must contain individual optical modules');
+assert.ok(lighting.stats.details.bolt>=lighting.stats.total*4,
+  'Each mast must visibly be anchored with a four-bolt plinth');
+assert.ok(lighting.meshes.some(mesh=>mesh.name.includes('housing')&&
+  mesh.geometry.isExtrudeGeometry),
+  'Aerodynamic LED heads must be physically bevelled, not stretched spheres');
+assert.ok(lighting.meshes.some(mesh=>mesh.name.includes('arm')&&
+  mesh.geometry.isTubeGeometry),
+  'Lighting arms must be curved 3D metal tubing, not rigid rectangular sticks');
 assert.ok(lighting.meshes.every(m=>m.isInstancedMesh),'Fixture should use GPU instancing');
 assert.ok(lighting.lights.every(l=>l.isSpotLight),
   'Luminaires must illuminate the tarmac with downward LED beams');
@@ -65,14 +76,21 @@ for(const fixture of lighting.placements){
 }
 const urban=lighting.placements.find(p=>p.kind==='urban');
 assert.ok(urban);
+assert.equal(urban.architecture,'city-led');
+assert.ok(lighting.placements.some(p=>p.kind==='highway'&&
+  p.architecture==='dual-led'),
+  'Motorway fixtures should have separate dual-head architecture');
 const player=new THREE.Vector3(urban.x,1,urban.z);
 lighting.update(.2,22,player);
 assert.ok(lighting.lights.some(l=>l.visible&&l.intensity>0),
   'Nearby real lights must come on at night');
 assert.ok(lighting.materials.lens.emissiveIntensity>1,'LED lens glows at night');
+assert.ok(lighting.materials.optic.emissiveIntensity>1,
+  'Individual LED modules must illuminate at night');
 lighting.update(.2,18.8,player);
 assert.ok(lighting.lights.every(l=>!l.visible)&&
-  lighting.materials.lens.emissiveIntensity===0,
+  lighting.materials.lens.emissiveIntensity===0&&
+  lighting.materials.optic.emissiveIntensity===0,
   'LEDs must not switch on before true night');
 lighting.update(.2,13,player);
 assert.ok(lighting.lights.every(l=>!l.visible&&l.intensity===0),

@@ -19,6 +19,10 @@ assert.equal(drainage.waterMat.uniforms.fogColor,undefined,
   'Runoff has local colour grading; it does not supply engine fog uniforms');
 assert.equal(drainage.channels.length,2,
   'Motorway should have two independent concrete drainage channels');
+assert.ok(drainage.outletCount>0,
+  'Downhill verge sections must receive real gravity-fed culvert pipes');
+assert.ok(drainage.geometryStats.culverts===drainage.outletCount,
+  'Culvert counts must match the generated pipe instances');
 assert.ok(drainage.inletCount>4,
   'Drainage requires grated runoff inlets along both shoulders');
 assert.equal(highway.body.shapes.length,2,
@@ -44,6 +48,25 @@ for(const channel of drainage.channels){
       'Concrete drainage must stop around bridge/junction zones');
   }
   assert.equal(channel.water.visible,false,'Dry channels show no flowing water');
+  assert.equal(channel.outletFlow.visible,false,
+    'Culvert outlets cannot flow when the sky is dry');
+  assert.equal(channel.pipes.count,channel.outlets.length,
+    'Each downhill outlet should have one correctly oriented cylindrical pipe');
+  assert.equal(channel.rims.count,channel.outlets.length,
+    'Each pipe mouth needs a cast protective circular rim');
+  assert.equal(channel.basins.count,channel.grates.count,
+    'Collector chambers must match all surface grates');
+  assert.ok(channel.grates.geometry.getAttribute('position').count>150,
+    'Grates must have real open slats and bolted metal detailing');
+  assert.ok(channel.pipes.geometry.isCylinderGeometry&&
+    channel.pipes.geometry.parameters.openEnded,
+    'Real drainage pipes need hollow ends, not solid rods');
+  for(const culvert of channel.outlets){
+    assert.ok(culvert.axis.y<0,
+      'Only downhill pipes may drain gravity-fed water');
+    assert.ok(!drainage.nearConflict(culvert.mouth),
+      'No culvert may emerge under a bridge or at a junction');
+  }
   assert.ok(channel.runoff.geometry.index.count>0,
     'Runoff from wet shoulders must be visibly channeled into grates');
   assert.equal(channel.runoff.visible,false,
@@ -58,6 +81,9 @@ for(let i=0;i<1000;i++)drainage.update(.05,1,1);
 assert.ok(drainage.level>.35,'Rain feeds a growing flow through gutters');
 assert.ok(drainage.channels.every(c=>c.water.visible),
   'Rain-fed water flow must be visible on both sides');
+assert.ok(drainage.channels.some(c=>c.outletFlow.visible&&
+  c.outletFlow.geometry.index.count>0),
+  'Stormwater must visibly run from culvert pipes into the grassy verge');
 assert.ok(drainage.channels.every(c=>c.runoff.visible),
   'Rain must run across the verge into real drainage inlets');
 const paused=drainage.level;
@@ -67,6 +93,8 @@ for(let i=0;i<4500;i++)drainage.update(.07,0,0);
 assert.ok(drainage.level<.025,'Drainage must empty after rain stops');
 assert.ok(drainage.channels.every(c=>!c.water.visible));
 assert.ok(drainage.channels.every(c=>!c.runoff.visible));
+assert.ok(drainage.channels.every(c=>!c.outletFlow.visible),
+  'Culvert water must stop flowing after the rain has drained away');
 const bodies=physics.bodies.length;
 drainage.dispose();
 assert.ok(!scene.children.includes(drainage.group));
