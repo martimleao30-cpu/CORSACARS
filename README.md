@@ -456,6 +456,46 @@ Os testes de regressão estão em \`tests/river-system.mjs\` e
 \`tests/road-environments.mjs\`. O resultado visual e a fluidez continuam
 a exigir inspeção no jogo real, sobretudo nos encontros rio/terreno.
 
+## Reengenharia de estradas e estabilização das encostas
+
+O antigo pavimento seguia o relevo lateral *ponto a ponto*. Numa subida de
+montanha, o lado esquerdo da faixa podia acabar significativamente mais alto
+do que o lado direito. Agora \`src/road-grading.js\` cria um **alinhamento
+vertical controlado** para cada estrada, incluindo a circular e rampas.
+
+- Declives longitudinais máximos de projeto: **6,5% autoestrada; 8,5%
+  rampas/urbano; 7,5% estrada circular; 9,5% rural; 10,5% montanha;
+  13% caminhos de terra**. Estes são limites de jogabilidade, não uma
+  certificação de engenharia rodoviária. Se dois pontos de ligação fixos
+  tiverem cotas incompatíveis com o limite, o traçado regista a inclinação
+  mínima necessária em vez de deixar um buraco físico.
+- Suavização das subidas com preservação dos pontos de ligação, reduzindo
+  rampas repentinas nas cristas e vales. O pavimento tem coroa suave
+  (aproximadamente 1,5–2,5% de declive transversal) em vez de herdar a
+  inclinação natural do declive da encosta.
+- A estrada, as valetas, as bermas, a sinalização e as tampas usam o
+  **mesmo perfil de altura**; a colisão do asfalto e a sua malha visível
+  continuam a partilhar exatamente os mesmos triângulos.
+- \`World.fitTerrainToRoads()\` reconstrói o heightfield para executar
+  **cortes e aterros suaves** em ambos os lados da via. Reconstrói
+  igualmente o respetivo \`CANNON.Heightfield\`, evitando zonas que parecem
+  planas mas são atravessadas pelas rodas.
+- \`src/road-slope-protection.js\` cria **muros de contenção de encostas**
+  com painéis, juntas e fundações em zonas de taludes muito difíceis.
+  Têm colisão \`CANNON.Box\` em grupos espaciais curtos para limitar o
+  trabalho da física, e modelos visuais \`InstancedMesh\` para reduzir
+  as chamadas à GPU. Não cria túneis falsos cujo interior continue
+  bloqueado pelo terreno.
+- \`src/map-audit.js\` mede agora os **declives máximos longitudinais e
+  transversais** e sinaliza os segmentos que excedem os limites; os testes
+  \`tests/road-grading.mjs\` e \`tests/road-slope-protection.mjs\` cobrem
+  desníveis artificiais acentuados e a presença de colisões.
+
+A topografia geral, o percurso horizontal das ligações existentes, a
+estação de serviço e os destinos GPS foram preservados. São necessários
+testes de condução visual e medição de FPS num PC real para afinar os
+taludes e eventuais interseções pontuais.
+
 ## Iluminação LED moderna — ruas, estradas e acessos
 
 `src/modern-road-lighting.js` substitui os postes simples da estrada
