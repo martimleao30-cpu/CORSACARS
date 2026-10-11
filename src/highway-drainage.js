@@ -111,8 +111,39 @@ export class HighwayDrainage{
       // These local translucent runoff channels use their own shading.
       fog:false
     });
+    this.splashMat=new THREE.ShaderMaterial({
+      uniforms:{uTime:{value:0},uRain:{value:0},uLevel:{value:0}},
+      vertexShader:`
+        varying vec2 vUv;
+        void main(){
+          vUv=uv;
+          gl_Position=projectionMatrix*modelViewMatrix*
+            instanceMatrix*vec4(position,1.0);
+        }`,
+      fragmentShader:`
+        uniform float uTime;uniform float uRain;uniform float uLevel;
+        varying vec2 vUv;
+        void main(){
+          vec2 q=(vUv-.5)*vec2(1.4,1.7);
+          float radius=length(q);
+          float mask=(1.0-smoothstep(.36,.65,radius));
+          float ring=sin(radius*35.0-uTime*9.0);
+          float droplets=sin(vUv.x*39.0+uTime*5.2)*
+            sin(vUv.y*47.0-uTime*6.1);
+          float foam=pow(max(0.0,ring),4.0)*.41+
+            pow(max(0.0,droplets),8.0)*.16;
+          float alpha=mask*foam*(.23+.77*uRain)*
+            (.30+.70*uLevel);
+          if(alpha<.012)discard;
+          gl_FragColor=vec4(.81,.90,.92,alpha);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+      transparent:true,depthWrite:false,depthTest:true,
+      side:THREE.DoubleSide,fog:false
+    });
     this.materials.push(this.concrete,this.grateMat,this.waterMat,
-      this.pipeMat,this.rimMat,this.apertureMat);
+      this.pipeMat,this.rimMat,this.apertureMat,this.splashMat);
     this.build();
   }
   nearConflict(p){
@@ -133,15 +164,29 @@ export class HighwayDrainage{
     this.geometry.push(inletGeometry);
     const basinGeometry=new THREE.PlaneGeometry(1.12,.57);
     basinGeometry.rotateX(-Math.PI/2);
+    const splashGeometry=new THREE.PlaneGeometry(1.03,.53);
+    splashGeometry.rotateX(-Math.PI/2);
     const pipeGeometry=new THREE.CylinderGeometry(.42,.42,1,18,1,true);
     pipeGeometry.rotateZ(Math.PI/2);
     const rimGeometry=new THREE.TorusGeometry(.45,.078,8,22);
     rimGeometry.rotateY(Math.PI/2);
     const apertureGeometry=new THREE.CircleGeometry(.38,22);
     apertureGeometry.rotateY(Math.PI/2);
-    const headwallGeometry=new THREE.BoxGeometry(.23,1.02,1.24);
-    this.geometry.push(basinGeometry,pipeGeometry,rimGeometry,
-      apertureGeometry,headwallGeometry);
+    // Real circular culvert cut-out, not a painted black circle over a cube.
+    const wallShape=new THREE.Shape();
+    wallShape.moveTo(-.70,-.55);wallShape.lineTo(.70,-.55);
+    wallShape.lineTo(.70,.55);wallShape.lineTo(-.70,.55);
+    wallShape.closePath();
+    const hole=new THREE.Path();
+    hole.absarc(0,0,.445,0,Math.PI*2,true);
+    wallShape.holes.push(hole);
+    const headwallGeometry=new THREE.ExtrudeGeometry(wallShape,{
+      depth:.23,steps:1,curveSegments:20,bevelEnabled:true,
+      bevelThickness:.012,bevelSize:.02,bevelSegments:1
+    });
+    headwallGeometry.rotateY(Math.PI/2);
+    this.geometry.push(basinGeometry,splashGeometry,pipeGeometry,
+      rimGeometry,apertureGeometry,headwallGeometry);
     const axisX=new THREE.Vector3(1,0,0);
     for(const road of this.network.roads){
       if(road.id!=='autoestrada'||road.points?.length<2)continue;
@@ -242,22 +287,28 @@ export class HighwayDrainage{
             // drops into the collector. All inlets share ONE combined
             // animated geometry to avoid per-gully GPU draw calls.
             const span=offset-(road.width*.5+profile.outerShoulder+.8);
-            const base=runoffPos.length/3;
-            for(let j=0;j<=7;j++){
-              const t=j/7,lateral=offset-span*(1-t);
-              const rx=p.x+side.x*lateral*sign;
-              const rz=p.z+side.z*lateral*sign;
-              const elevation=this.terrainY(rx,rz)+.061+
-                .20*Math.pow(1-t,1.4);
-              for(const across of [-.12,.12]){
-                runoffPos.push(rx+side.dx*across,elevation,
-                  rz+side.dz*across);
-                runoffUv.push(across/.24+.5,t*4.1);
-                runoffDir.push(1);
-              }
-              if(j>0){
-                const v=base+(j-1)*2,w=base+j*2;
-                runoffIndices.push(v,w,v+1,v+1,w,w+1);
+            // Three independently flowing tributaries converge towards the
+            // grate, so stormwater is seen moving *from* the road edge rather
+            // than spawning as one artificial stripe in the ditch.
+            for(const feeder of [-1,0,1]){
+              const base=runoffPos.length/3;
+              for(let j=0;j<=10;j++){
+                const t=j/10,lateral=offset-span*(1-t);
+                const along=feeder*(.21+1.08*(1-t));
+                const rx=p.x+side.x*lateral*sign+side.dx*along;
+                const rz=p.z+side.z*lateral*sign+side.dz*along;
+                const elevation=this.terrainY(rx,rz)+.061+
+                  .20*Math.pow(1-t,1.4);
+                for(const across of [-.067,.067]){
+                  runoffPos.push(rx+side.dx*across,elevation,
+                    rz+side.dz*across);
+                  runoffUv.push(across/.134+.5,t*4.1+feeder*.19);
+                  runoffDir.push(1);
+                }
+                if(j>0){
+                  const v=base+(j-1)*2,w=base+j*2;
+                  runoffIndices.push(v,w,v+1,v+1,w,w+1);
+                }
               }
             }
           }
@@ -336,6 +387,22 @@ export class HighwayDrainage{
         basins.count=inlets.length;basins.instanceMatrix.needsUpdate=true;
         if(basins.count)basins.computeBoundingSphere();
         this.group.add(basins);
+        const splashes=new THREE.InstancedMesh(splashGeometry,
+          this.splashMat,Math.max(1,inlets.length));
+        splashes.name='Chuva e salpicos nas grelhas pluviais';
+        for(let k=0;k<inlets.length;k++){
+          obj.position.copy(inlets[k].position);
+          obj.position.y+=.062;
+          obj.rotation.set(0,inlets[k].yaw,0);
+          obj.scale.set(1,1,1);obj.updateMatrix();
+          splashes.setMatrixAt(k,obj.matrix);
+        }
+        splashes.count=inlets.length;
+        splashes.instanceMatrix.needsUpdate=true;
+        if(splashes.count)splashes.computeBoundingSphere();
+        splashes.renderOrder=4;
+        splashes.visible=false;
+        this.group.add(splashes);
         // One set of geometry/materials for ALL culverts on both shoulders.
         // The outlet end is a proper circular cast lip and dark throat.
         const batch=(name,geo,mat,mode)=>{
@@ -392,7 +459,7 @@ export class HighwayDrainage{
           outletIndices.length/6;
         this.meshCount++;
         this.channels.push({road,sign,mesh,water,runoff,grates,basins,
-          pipes,headwalls,apertures,rims,outletFlow,outlets,
+          pipes,headwalls,apertures,rims,outletFlow,outlets,splashes,
           segmentCount:indices.length/6,offset});
       }
     }
@@ -410,6 +477,9 @@ export class HighwayDrainage{
     this.waterMat.uniforms.uTime.value=this.time;
     this.waterMat.uniforms.uRain.value=this.rainfall;
     this.waterMat.uniforms.uLevel.value=this.level;
+    this.splashMat.uniforms.uTime.value=this.time;
+    this.splashMat.uniforms.uRain.value=this.rainfall;
+    this.splashMat.uniforms.uLevel.value=this.level;
     const show=this.level>.025;
     for(const channel of this.channels){
       channel.water.visible=show;
@@ -417,6 +487,7 @@ export class HighwayDrainage{
       // concrete swales persists briefly as the road dries.
       channel.runoff.visible=show&&this.rainfall>.035;
       channel.outletFlow.visible=show&&this.rainfall>.035;
+      channel.splashes.visible=show&&this.rainfall>.085;
     }
   }
   dispose(){
