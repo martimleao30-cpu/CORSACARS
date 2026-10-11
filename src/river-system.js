@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
+import {createNaturalShrubGeometry,createWeatheredRockGeometry} from './natural-assets.js';
 
 // High mountain headwaters descend through the east valley into the central
 // lowlands. The previous reversed route ended *uphill* in the mountains,
@@ -125,6 +126,8 @@ export class RiverSystem {
       bridgeCount:this.crossings.length,
       boulders:this.rocks,
       bankPlants:this.bankPlants,
+      bankShrubs:this.bankShrubs,
+      bankColliders:this.bankColliderCount,
       riverSections:this.points.length-1
     };
   }
@@ -310,30 +313,30 @@ export class RiverSystem {
           float fresnel=pow(1.0-clamp(dot(normal,viewDir),0.0,1.0),4.0);
           float bank=smoothstep(.55,1.0,vBank);
           float depth=1.0-bank;
-          vec3 deep=vec3(.025,.135,.17);
-          vec3 shallow=vec3(.14,.32,.31);
+          vec3 deep=vec3(.025,.083,.088);
+          vec3 shallow=vec3(.105,.205,.172);
           vec3 water=mix(deep,shallow,.25+bank*.53+waves*.30);
           // Deep water stays darker; banks become shallow emerald-green.
-          vec3 sky=vec3(.38,.56,.64)+vec3(.19,.18,.12)*max(0.0,uSun.y);
-          water=mix(water,sky,.09+fresnel*.55);
+          vec3 sky=vec3(.17,.28,.31)+vec3(.12,.12,.08)*max(0.0,uSun.y);
+          water=mix(water,sky,.07+fresnel*.40);
           float sparkle=pow(max(0.0,dot(reflect(-normalize(uSun),normal),
             viewDir)),76.0);
           float sunGlints=sparkle*(.25+.75*depth)*
             (.56+.44*smoothstep(.35,.84,normal.y));
-          water+=vec3(1.0,.96,.82)*sunGlints*.75;
+          water+=vec3(.70,.73,.62)*sunGlints*.24;
           float flowFoam=smoothstep(.69,.98,abs(fine*.72+
             broad*.33+capillary*.16))*(.035+.09*uRain);
-          flowFoam+=bank*(.12+.065*abs(broad));
+          flowFoam+=bank*(.035+.026*abs(broad));
           flowFoam+=smoothstep(1.1,2.3,vSpeed)*.12*
             smoothstep(.44,.9,abs(fine*.7+broad*.45));
           // Rivulets accelerate at the lip and swirl into bright whitewater.
-          water=mix(water,vec3(.77,.89,.87),clamp(flowFoam,0.0,.48));
+          water=mix(water,vec3(.64,.73,.65),clamp(flowFoam,0.0,.20));
           float rainPits=sin(current.x*57.0+uTime*6.4)*
             sin(current.y*32.0-uTime*8.1);
           water+=vec3(.13,.16,.17)*rainPits*.065*uRain;
           // Gradual waterline replaces the unnaturally sharp painted edge.
-          float edgeAlpha=1.0-smoothstep(.93,1.0,vBank)*.18;
-          gl_FragColor=vec4(water,.945*edgeAlpha);
+          float edgeAlpha=1.0-smoothstep(.76,1.0,vBank)*.40;
+          gl_FragColor=vec4(water,.88*edgeAlpha);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }`,
@@ -370,7 +373,10 @@ export class RiverSystem {
       const magnitude=Math.hypot(nx,nz)||1;
       const sx=nx/magnitude,sz=nz/magnitude;
       for(let k=0;k<=across;k++){
-        const u=k/across,lateral=(u*2-1)*halfWidth;
+        const u=k/across;
+        // Match every surrounding river ribbon section, including the lip.
+        const sectionWidth=THREE.MathUtils.lerp(a.width,b.width,f);
+        const lateral=(u*2-1)*sectionWidth;
         const turbulence=(Math.sin(u*19+t*23)*.085*(1-t)+
           Math.sin(u*44-t*31)*.05)*Math.sin(Math.PI*t);
         pos.push(x+sx*lateral-sz*turbulence,
@@ -539,53 +545,80 @@ export class RiverSystem {
     this.group.add(stones);this.waterfallRocks=stones;
   }
   buildBanks(){
+    // A single continuous seven-band riparian corridor on *each* shore.
+    // A narrow 3-band overlay was previously hanging in the air over the
+    // coarse world heightfield, creating the flat angular slabs in screenshots.
+    // Its first ring now sits BELOW water, the exterior seals into terrain.
     const positions=[],colors=[],indices=[];
-    const bankMaterial=new THREE.MeshStandardMaterial({
-      vertexColors:true,roughness:.97,metalness:0,side:THREE.DoubleSide
-    });
-    this.materials.push(bankMaterial);
+    const bands=[
+      {delta:-.95,color:0x414f47},
+      {delta:-.15,color:0x495a50},
+      {delta:.85,color:0x5e685a},
+      {delta:2.6,color:0x696d5d},
+      {delta:5.8,color:0x767867},
+      {delta:11.5,color:0x626d53},
+      {delta:19.5,color:0x59674e},
+      {delta:27.9,color:0x667454}
+    ];
     for(const side of [-1,1]){
       const offset=positions.length/3;
       for(const p of this.points){
-        // Three bands: submerged waterline, moist gravel and grassy verge.
-        // Sample the same channelHeight() used to deform/collide the terrain,
-        // avoiding floating green stripes and hard rectangular bank edges.
-        for(const [distance,color] of [
-          [p.width+.9,0x68736a],[p.width+6,0x807e70],
-          [p.width+23,0x67735d]
-        ]){
+        for(let b=0;b<bands.length;b++){
+          const band=bands[b],distance=Math.max(.01,p.width+band.delta);
           const x=p.x+p.nx*distance*side,z=p.z+p.nz*distance*side;
-          const y=this.channelHeight(this.terrainY(x,z),
-            this.lookup(x,z))+.026;
+          const nearest=this.lookup(x,z);
+          // Same erosion function as the heightfield. A small recessed
+          // overlap stops z-fighting at the distant seam with the hillside.
+          const ground=this.channelHeight(this.terrainY(x,z),nearest);
+          const y=b===0?Math.min(ground,p.y-.27):
+            b===1?Math.min(ground,p.y-.085):
+            ground+(b===bands.length-1?.008:.052);
           positions.push(x,y,z);
-          const c=new THREE.Color(color);
-          colors.push(c.r,c.g,c.b);
+          const c=new THREE.Color(band.color);
+          const d=.91+.07*Math.sin(p.along*.09+b*.7+side*.3);
+          colors.push(c.r*d,c.g*d,c.b*d);
         }
       }
+      const stride=bands.length;
       for(let i=0;i<this.points.length-1;i++){
-        const a=offset+i*3,b=a+3;
-        for(let j=0;j<2;j++)
-          indices.push(a+j,b+j,a+j+1,a+j+1,b+j,b+j+1);
+        const a=offset+i*stride,b=a+stride;
+        for(let k=0;k<stride-1;k++){
+          if(side<0)indices.push(a+k,b+k,a+k+1,a+k+1,b+k,b+k+1);
+          else indices.push(a+k,a+k+1,b+k,a+k+1,b+k+1,b+k);
+        }
       }
     }
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-    geo.setIndex(indices);geo.computeVertexNormals();
-    geo.computeBoundingSphere();this.geometries.push(geo);
-    const mesh=new THREE.Mesh(geo,bankMaterial);
-    mesh.name='Margens do rio · taludes naturais em ambas as encostas';
-    mesh.receiveShadow=true;this.group.add(mesh);
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    geo.computeBoundingBox();geo.computeBoundingSphere();
+    geo.userData.corsaRiverBank='continuous-collision-corridor';
+    this.geometries.push(geo);
+    const mat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,
+      metalness:0,side:THREE.DoubleSide});
+    this.materials.push(mat);
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.name='Margens naturais contínuas · lodo seixos e prado húmido';
+    mesh.receiveShadow=true;
+    this.group.add(mesh);
     this.bankMesh=mesh;
+    // The visual riparian corridor is now also a real static physics surface.
+    // This closes the gap between the narrow detailed strip and the coarser
+    // global terrain grid so tyres cannot fall through the bank.
+    const body=new CANNON.Body({mass:0,material:new CANNON.Material('river-bank')});
+    body.addShape(new CANNON.Trimesh(positions,indices));
+    this.physics.addBody(body);this.bodies.push(body);
+    this.bankColliderCount=1;
   }
-
   buildRocks(){
     const random=seedRandom(96355);
     const density=this.quality==='low'?.10:this.quality==='ultra'?.40:.24;
     const count=Math.floor(this.points.length*density);
-    const geo=new THREE.IcosahedronGeometry(1,1);
+    const geo=createWeatheredRockGeometry(1);
     const material=new THREE.MeshStandardMaterial({
-      color:0xc1c2b6,roughness:.96,flatShading:true
+      color:0xa1a49b,vertexColors:true,roughness:.97,metalness:0
     });
     this.geometries.push(geo);this.materials.push(material);
     const mesh=new THREE.InstancedMesh(geo,material,count);
@@ -673,58 +706,107 @@ export class RiverSystem {
     this.group.add(wakes);this.foam=wakes;
   }
   buildBankVegetation(){
-    // Reeds and rushes are genuinely located on riverbanks, not scattered
-    // inside the water or on road bridges. One geometry/material draw batch.
+    // Riparian vegetation belongs in bands: water-edge reeds and sedges,
+    // then small willows/alders and broadleaf shrubs on higher moist soil.
+    // Earlier three-triangle clumps were scattered arbitrarily 4–20 m away.
     const random=seedRandom(20261018);
-    const samples=Math.floor(this.points.length*
-      (this.quality==='low'?.54:this.quality==='ultra'?1.6:1.05));
+    const blades=this.quality==='low'?4:this.quality==='ultra'?8:6;
     const positions=[],colors=[],indices=[];
-    // Three crossed tapering leaves per plant (a tiny 3D reed cluster).
-    for(let blade=0;blade<3;blade++){
-      const angle=blade*Math.PI/3;
-      const dx=Math.cos(angle)*.20,dz=Math.sin(angle)*.20;
+    for(let k=0;k<blades;k++){
+      const angle=k*2.39996323,ca=Math.cos(angle),sa=Math.sin(angle);
       const base=positions.length/3;
-      positions.push(-dx,0,-dz,dx,0,dz,
-        Math.sin(angle*3+1)*.12,1.0,Math.cos(angle*3+1)*.12);
-      colors.push(.16,.25,.10,.24,.37,.14,.30,.43,.18);
-      indices.push(base,base+1,base+2);
+      const height=.65+.52*(k%3)/2,width=.075+.021*(k%2);
+      // Bent tapered lanceolate leaf with real fold/volume.
+      positions.push(-sa*width,0,ca*width,
+        sa*width,0,-ca*width,
+        ca*.13+sa*.035,height*.56,sa*.13-ca*.035,
+        ca*.21,height,sa*.21);
+      const green=[.21+.018*(k%3),.32+.024*(k%2),.12+.019*(k%3)];
+      for(let v=0;v<4;v++)colors.push(
+        green[0]*(v===3?1.13:1),
+        green[1]*(v===3?1.19:1),
+        green[2]*(v===3?1.21:1));
+      indices.push(base,base+1,base+2,base+1,base+3,base+2);
     }
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
     geo.setIndex(indices);geo.computeVertexNormals();
+    geo.userData.corsaRiparian='sedges-and-reeds';
     const mat=new THREE.MeshStandardMaterial({vertexColors:true,
-      side:THREE.DoubleSide,roughness:.94,metalness:0});
+      roughness:.98,metalness:0,side:THREE.DoubleSide});
     this.geometries.push(geo);this.materials.push(mat);
-    const mesh=new THREE.InstancedMesh(geo,mat,Math.max(1,samples));
-    mesh.name='Juncos e vegetação ripícola nas margens';
-    const dummy=new THREE.Object3D();
-    let count=0;
-    for(let i=0;i<samples*3&&count<samples;i++){
+    const target=Math.floor(this.points.length*
+      (this.quality==='low'?1.65:this.quality==='ultra'?3.4:2.5));
+    const reeds=new THREE.InstancedMesh(geo,mat,target);
+    reeds.name='Vegetação ripícola · juncos e ervas húmidas';
+    const obj=new THREE.Object3D();
+    let made=0;
+    for(let i=0;i<target*4&&made<target;i++){
       const p=this.points[Math.floor(random()*this.points.length)];
       const side=random()<.5?-1:1;
-      const offset=p.width+4+random()*16;
-      const x=p.x+p.nx*side*offset,z=p.z+p.nz*side*offset;
+      const spread=p.width+.65+random()*7.2;
+      const x=p.x+p.nx*spread*side,z=p.z+p.nz*spread*side;
       const near=this.lookup(x,z);
-      if(!near||near.distance<near.width+2.5)continue;
+      if(!near||near.distance<=near.width+.25)continue;
       const road=this.network.query?.(x,z);
-      // query() returns a *road name string*, not a road specification.
-      // A conservative clearance protects even wide carriageways.
-      if(road&&road.distance<20)continue;
-      const height=this.channelHeight(this.terrainY(x,z),near);
-      const scale=.50+random()*1.18;
-      dummy.position.set(x,height+.045,z);
-      dummy.rotation.set(0,random()*Math.PI*2,0);
-      dummy.scale.set(scale,scale*(.7+random()*.6),scale);
-      dummy.updateMatrix();mesh.setMatrixAt(count++,dummy.matrix);
+      if(road&&road.distance<16)continue;
+      const ground=this.channelHeight(this.terrainY(x,z),near);
+      if(ground<near.waterY-.14)continue; // no reeds under the water
+      const scale=.63+random()*1.42;
+      obj.position.set(x,ground+.035,z);
+      obj.rotation.set(0,random()*Math.PI*2,0);
+      obj.scale.set(scale,scale*(.8+random()*.5),scale);
+      obj.updateMatrix();reeds.setMatrixAt(made++,obj.matrix);
     }
-    mesh.count=count;
-    mesh.instanceMatrix.needsUpdate=true;
-    mesh.frustumCulled=true;
-    mesh.computeBoundingSphere();
-    mesh.receiveShadow=true;
-    this.group.add(mesh);
-    this.bankVegetation=mesh;this.bankPlants=count;
+    reeds.count=made;reeds.instanceMatrix.needsUpdate=true;
+    if(reeds.count)reeds.computeBoundingSphere();
+    reeds.receiveShadow=true;
+    this.group.add(reeds);
+    this.bankVegetation=reeds;this.bankPlants=made;
+    // Bushes are individual 3D leaf meshes batched by a single GPU instance,
+    // larger trunks receive Cannon collision just like riverside boulders.
+    const shrubGeo=createNaturalShrubGeometry(this.quality==='low'?'low':'high');
+    const shrubMat=new THREE.MeshStandardMaterial({
+      color:0xa2b69b,vertexColors:true,side:THREE.DoubleSide,roughness:.96
+    });
+    this.geometries.push(shrubGeo);this.materials.push(shrubMat);
+    const targetShrubs=Math.floor(this.points.length*
+      (this.quality==='low'?.27:this.quality==='ultra'?.72:.48));
+    const shrubs=new THREE.InstancedMesh(shrubGeo,shrubMat,Math.max(1,targetShrubs));
+    shrubs.name='Vegetação ripícola · arbustos de salgueiro e amieiro';
+    let planted=0;
+    for(let i=0;i<targetShrubs*6&&planted<targetShrubs;i++){
+      const p=this.points[Math.floor(random()*this.points.length)];
+      const side=random()<.5?-1:1;
+      const spread=p.width+5.5+random()*21;
+      const x=p.x+p.nx*spread*side,z=p.z+p.nz*spread*side;
+      const near=this.lookup(x,z);
+      if(!near||near.distance<near.width+3.0)continue;
+      const road=this.network.query?.(x,z);
+      if(road&&road.distance<19)continue;
+      if(this.crossings.some(hit=>Math.hypot(x-hit.x,z-hit.z)<20))continue;
+      const y=this.channelHeight(this.terrainY(x,z),near);
+      const scale=.9+random()*2.1;
+      obj.position.set(x,y+.015,z);
+      obj.rotation.set(0,random()*Math.PI*2,0);
+      obj.scale.set(scale,scale*(.8+random()*.52),scale);
+      obj.updateMatrix();shrubs.setMatrixAt(planted++,obj.matrix);
+      if(scale>1.62&&planted%5===0){
+        // Only sturdy bushes have significant colliders; individual
+        // grass blades stay visual-only for stable vehicle physics.
+        const body=new CANNON.Body({mass:0,material:new CANNON.Material('riparian-shrub')});
+        body.addShape(new CANNON.Cylinder(.31*scale,.26*scale,.95*scale,8));
+        body.position.set(x,y+.47*scale,z);
+        this.physics.addBody(body);this.bodies.push(body);
+        this.bankColliderCount++;
+      }
+    }
+    shrubs.count=planted;shrubs.instanceMatrix.needsUpdate=true;
+    if(shrubs.count)shrubs.computeBoundingSphere();
+    shrubs.castShadow=this.quality==='ultra';
+    shrubs.receiveShadow=true;this.group.add(shrubs);
+    this.bankShrubMesh=shrubs;this.bankShrubs=planted;
   }
   buildBridges(){
     const concrete=new THREE.MeshStandardMaterial({color:0xaaa9a0,roughness:.90});
