@@ -12,6 +12,8 @@ globalThis.document={
   }
 };
 const {RoadNetwork,REGIONAL_LINKS}=await import('../src/road-network.js');
+const {roadGradeStatistics,gradeLimit,ROAD_MAX_CROSS_SLOPE}=
+  await import('../src/road-grading.js');
 const {WorldSectors}=await import('../src/world-sectors.js');
 const {RoadsideClearance}=await import('../src/roadside-clearance.js');
 const {DrivingTestArea}=await import('../src/driving-test-area.js');
@@ -27,6 +29,18 @@ assert.equal(network.roads.length,REGIONAL_LINKS.length+4);
 assert.equal(physics.bodies.length,network.roads.length-1,'All new roads need real collision bodies');
 assert.ok(network.cells.size>30,'Surface lookups should use spatial hashing');
 for(const road of network.roads){
+  if(road.id!=='circular'){
+    const stats=roadGradeStatistics(road.points);
+    assert.ok(stats.maxGrade<=gradeLimit(road)+.009,
+      'No absurd longitudinal gradients: '+road.id+' '+stats.maxGrade);
+    const rows=(road.sourceGeometry||road.mesh.geometry).getAttribute('position');
+    let highestCrossfall=0;
+    for(let i=0;i<road.points.length;i+=4)
+      highestCrossfall=Math.max(highestCrossfall,
+        Math.abs(rows.getY(i*7)-rows.getY(i*7+6))/road.width);
+    assert.ok(highestCrossfall<ROAD_MAX_CROSS_SLOPE+.012,
+      'No dangerously tilted horizontal lanes: '+road.id+' '+highestCrossfall);
+  }
   if(road.id==='circular')continue;
   if(road.from!==undefined)assert.equal(road.points[0].x,ring[road.from].center.x);
   assert.ok(road.mesh.geometry.index.count>30);

@@ -1,3 +1,4 @@
+import {ROAD_MAX_CROSS_SLOPE} from './road-grading.js';
 // Deterministic map inspection: no rendering, no object creation and no
 // scene mutation. Runs once at boot, not during the driving loop.
 const length2=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -7,7 +8,8 @@ export function auditMap({network,terrainY,river=null,railway=null,
   forest=null,signage=null}){
   const issues=[],metrics={roads:0,roadSegments:0,junctions:0,
     clippedJunctions:0,physicsDecks:0,bridgeCrossings:0,
-    forestSamples:0,signMeshes:0,railSamples:0};
+    forestSamples:0,signMeshes:0,railSamples:0,
+    maxGradePercent:0,maxCrossSlopePercent:0};
   const add=(kind,roadId,location,detail)=>issues.push({
     kind,roadId,x:location?.x??0,z:location?.z??0,detail
   });
@@ -29,8 +31,10 @@ export function auditMap({network,terrainY,river=null,railway=null,
       if(!Number.isFinite(a.y)||!Number.isFinite(b.y))
         add('road-height',road.id,a,'Altura inválida');
       const centerGrade=gap>0?Math.abs(b.y-a.y)/gap:0;
-      if(centerGrade>.34)add('road-grade',road.id,a,
-        'Inclinação local superior a 34%');
+      metrics.maxGradePercent=Math.max(metrics.maxGradePercent,centerGrade*100);
+      const limit=road.grading?.maxGrade??.15;
+      if(centerGrade>limit+.012)add('road-grade',road.id,a,
+        'Inclinação longitudinal excede o perfil limitado da via');
     }
     if(!road.mesh)continue;
     const geo=road.mesh.geometry;
@@ -55,6 +59,21 @@ export function auditMap({network,terrainY,river=null,railway=null,
       if(!geo.userData.junctionClipped)
         add('junction-clip',road.id,center(road.points[0]),
           'Troço secundário não foi recortado no cruzamento');
+    }
+    // Check transverse camber on the actual generated asphalt, not only
+    // its centreline: older meshes had one wheel-side metres higher.
+    const profileSource=(road.sourceGeometry||road.mesh.geometry)
+      ?.getAttribute('position');
+    if(profileSource?.count===road.points.length*7){
+      for(let row=0;row<road.points.length;row+=Math.max(1,Math.floor(road.points.length/300))){
+        const left=profileSource.getY(row*7),right=profileSource.getY(row*7+6);
+        const crossSlope=Math.abs(left-right)/road.width;
+        metrics.maxCrossSlopePercent=Math.max(
+          metrics.maxCrossSlopePercent,crossSlope*100);
+        if(crossSlope>ROAD_MAX_CROSS_SLOPE+.008)
+          add('road-crossfall',road.id,center(road.points[row]),
+            'Inclinação lateral do pavimento superior a 3,3%');
+      }
     }
     // Sample only representative triangles, including the last segment,
     // avoiding costly full-mesh validation during startup.
