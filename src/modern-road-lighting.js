@@ -44,7 +44,6 @@ export function sampleLampStations(road,spacing=ROAD_LAMP_SPACING_METRES){
 export function lampNightFactor(hour){
   return hour>=19||hour<6?1:0;
 }
-const lineGeometry=new THREE.BoxGeometry(1,1,1);
 function rotationFor(inward){
   return Math.atan2(-inward.z,inward.x);
 }
@@ -61,9 +60,15 @@ export class ModernRoadLighting{
       head:new THREE.MeshStandardMaterial({color:0x454f57,roughness:.52,metalness:.69}),
       trim:new THREE.MeshStandardMaterial({color:0x9fa9ab,roughness:.38,metalness:.71}),
       lens:new THREE.MeshStandardMaterial({
-        color:0xf9eee2,emissive:0xffe6c9,emissiveIntensity:0,
-        roughness:.21,metalness:.03,side:THREE.DoubleSide
-      })
+        color:0xf5f4e8,emissive:0xffedd2,emissiveIntensity:0,
+        roughness:.19,metalness:.02,side:THREE.DoubleSide
+      }),
+      dark:new THREE.MeshStandardMaterial({color:0x263139,roughness:.67,metalness:.51}),
+      concrete:new THREE.MeshStandardMaterial({color:0x999d98,roughness:.97,metalness:.02}),
+      reflector:new THREE.MeshStandardMaterial({color:0xd1d3cd,roughness:.23,metalness:.72}),
+      optic:new THREE.MeshStandardMaterial({color:0xe1e7e5,roughness:.21,metalness:.1,
+        emissive:0xfff2de,emissiveIntensity:0}),
+      rubber:new THREE.MeshStandardMaterial({color:0x1a2124,roughness:.88,metalness:.04})
     };
     this.glowMaterial=this.materials.lens;
     this.buildPlacements();
@@ -150,64 +155,137 @@ export class ModernRoadLighting{
     }
   }
   buildGeometry(){
-    // All posts share a single frustum, arms share one cube, housings share
-    // another, reducing hundred-plus detailed poles to a few GPU draw calls.
-    const segments=this.quality==='ultra'?24:this.quality==='high'?18:12;
+    // Architectural fixtures, not primitive boxes: tapered galvanised masts,
+    // bolted plinths, curved forged arms and bevelled die-cast LED luminaires.
+    // Every detail is instanced by part for low draw-call cost on the 4.1 km map.
+    const segments=this.quality==='ultra'?24:this.quality==='high'?16:12;
+    const bodyShape=new THREE.Shape();
+    bodyShape.moveTo(-1.05,-.29);
+    bodyShape.lineTo(-.91,-.46);
+    bodyShape.lineTo(.78,-.46);
+    bodyShape.lineTo(1.18,-.28);
+    bodyShape.lineTo(1.22,0);
+    bodyShape.lineTo(1.12,.27);
+    bodyShape.lineTo(.76,.42);
+    bodyShape.lineTo(-.89,.42);
+    bodyShape.lineTo(-1.05,.22);
+    bodyShape.closePath();
+    const shell=new THREE.ExtrudeGeometry(bodyShape,{
+      depth:.21,steps:1,bevelEnabled:true,bevelSegments:2,
+      bevelThickness:.045,bevelSize:.05,curveSegments:4
+    });
+    shell.rotateX(Math.PI/2);
+    // Local arm origin at mast collar. Ends bend upward under the luminaire.
+    const armCurve=new THREE.CatmullRomCurve3([
+      new THREE.Vector3(.0,0,0),
+      new THREE.Vector3(.21,.02,0),
+      new THREE.Vector3(.52,.26,0),
+      new THREE.Vector3(.78,.37,0),
+      new THREE.Vector3(1.03,.39,0)
+    ],false,'centripetal');
     const geometries={
-      pole:new THREE.CylinderGeometry(.6,1,1,segments),
-      foot:new THREE.CylinderGeometry(1,1,1,segments),
-      arm:lineGeometry.clone(),
-      clamp:new THREE.CylinderGeometry(1,1,1,segments),
-      housing:new THREE.SphereGeometry(.6,segments,8),
-      lens:new THREE.SphereGeometry(.52,segments,8),
-      cap:new THREE.SphereGeometry(.57,segments,8)
+      pole:new THREE.CylinderGeometry(.55,1,1,segments),
+      base:new THREE.CylinderGeometry(1,1,1,segments),
+      plinth:new THREE.CylinderGeometry(1.06,1.13,1,segments),
+      flange:new THREE.TorusGeometry(.26,.032,7,segments),
+      bolt:new THREE.CylinderGeometry(.043,.043,.065,8),
+      hatch:new THREE.BoxGeometry(.16,.36,.026),
+      collar:new THREE.CylinderGeometry(1,1,1,segments),
+      arm:new THREE.TubeGeometry(armCurve,14,.062,8,false),
+      joint:new THREE.SphereGeometry(.12,10,8),
+      housing:shell,
+      gasket:new THREE.BoxGeometry(1.96,.025,.73),
+      reflector:new THREE.BoxGeometry(1.84,.025,.67),
+      lens:new THREE.BoxGeometry(1.80,.024,.64),
+      diode:new THREE.SphereGeometry(.032,8,5),
+      fin:new THREE.BoxGeometry(.035,.075,.67),
+      cap:new THREE.BoxGeometry(.16,.18,.13)
     };
     this.geometries=Object.values(geometries);
-    const batches={pole:[],foot:[],arm:[],clamp:[],housing:[],lens:[],cap:[]};
+    const batches=Object.fromEntries(Object.keys(geometries).map(k=>[k,[]]));
     const temp=new THREE.Object3D();
     for(const p of this.placements){
       const co=Math.cos(p.yaw),si=Math.sin(p.yaw);
       const part=(kind,x,y,z,sx,sy,sz,rx=0,rz=0)=>{
-        // Proper THREE Y rotation: x'=cos*x + sin*z, z'=-sin*x + cos*z.
         temp.position.set(p.x+co*x+si*z,p.y+y,p.z-si*x+co*z);
         temp.rotation.order='YXZ';
         temp.rotation.set(rx,p.yaw,rz);
         temp.scale.set(sx,sy,sz);
-        temp.updateMatrix();
-        batches[kind].push(temp.matrix.clone());
+        temp.updateMatrix();batches[kind].push(temp.matrix.clone());
       };
       const H=p.height,L=p.arm;
-      // Tapered mast, proper footing, elbow collar and gently rising arm.
-      part('pole',0,H*.5,0,.165,H,.165);
-      part('foot',0,.14,0,.31,.28,.31);
-      part('clamp',0,H-.56,0,.21,.20,.21);
-      part('arm',L*.5,H-.14,0,L,.13,.13,0,.12);
-      part('housing',L+.36,H-.38,0,1.18,.23,.42,0,-.07);
-      part('cap',L+.36,H-.265,0,1.02,.10,.44);
-      part('lens',L+.36,H-.52,0,.97,.05,.32);
-      p.lampX=p.x+co*(L+.36);
-      p.lampY=p.y+H-.56;
-      p.lampZ=p.z-si*(L+.36);
+      const headScale=p.kind==='highway'?1.16:
+        p.kind==='mountain'||p.kind==='rural'?.88:1;
+      // Both sides of a motorway receive taller masts and broad optics;
+      // rural, urban and access roads use progressively shorter housings.
+      part('plinth',0,.19,0,.37,.38,.37);
+      part('base',0,.40,0,.26,.48,.26);
+      part('pole',0,H*.5,0,.19,H,.19);
+      part('flange',0,.44,0,1,1,1,Math.PI/2);
+      part('collar',0,H-.85,0,.23,.23,.23);
+      part('hatch',.197,1.65,0,1,1,1);
+      for(const bx of [-.225,.225])for(const bz of [-.225,.225])
+        part('bolt',bx,.42,bz,1,1,1);
+      part('arm',0,H-.69,0,L,1,1);
+      part('joint',0,H-.69,0,1,1,1);
+      part('joint',L*.98,H-.30,0,.78,.78,.78);
+      const hx=L+.32,hy=H-.42;
+      part('housing',hx,hy,0,headScale,1,headScale);
+      part('gasket',hx,hy-.235,0,headScale,1,headScale);
+      part('reflector',hx,hy-.258,0,headScale,1,headScale);
+      part('lens',hx,hy-.282,0,headScale,1,headScale);
+      // Twelve independent optic dots read as genuine LED modules up close.
+      for(const ix of [-.60,-.20,.20,.60])
+        for(const iz of [-.21,0,.21])
+          part('diode',hx+ix*headScale,hy-.308,iz*headScale,
+            1,.39,1);
+      for(const fin of [-.70,-.35,0,.35,.70])
+        part('fin',hx+fin*headScale,hy+.068,.0,headScale,1,headScale);
+      part('cap',hx-1.02*headScale,hy+.085,0,1,1,1);
+      // Highway heads receive a shorter service-side auxiliary optic,
+      // mounted on the opposite side of the same *roadside* mast.
+      if(p.kind==='highway'){
+        const aux=-L*.38;
+        part('arm',0,H-.92,0,-L*.43,.62,.72);
+        part('housing',aux,H-.73,0,.54,.80,.74);
+        part('gasket',aux,H-.945,0,.54,1,.74);
+        part('lens',aux,H-.975,0,.54,1,.74);
+      }
+      p.lampX=p.x+co*hx;
+      p.lampY=p.y+hy-.33;
+      p.lampZ=p.z-si*hx;
+      p.architecture=p.kind==='highway'?'dual-led':p.kind==='urban'?'city-led':
+        p.kind==='rural'||p.kind==='mountain'?'regional-led':'express-led';
     }
-    const materialFor={pole:this.materials.pole,foot:this.materials.head,
-      arm:this.materials.pole,clamp:this.materials.trim,
-      housing:this.materials.head,lens:this.materials.lens,cap:this.materials.trim};
+    const materialFor={
+      pole:this.materials.pole,base:this.materials.head,
+      plinth:this.materials.concrete,flange:this.materials.trim,
+      bolt:this.materials.reflector,hatch:this.materials.dark,
+      collar:this.materials.trim,arm:this.materials.pole,
+      joint:this.materials.trim,housing:this.materials.head,
+      gasket:this.materials.rubber,reflector:this.materials.reflector,
+      lens:this.materials.lens,diode:this.materials.optic,
+      fin:this.materials.trim,cap:this.materials.dark
+    };
+    this.stats.details={};
     for(const [kind,mats] of Object.entries(batches)){
       if(!mats.length)continue;
       const batch=new THREE.InstancedMesh(geometries[kind],materialFor[kind],mats.length);
-      batch.name='Candeeiro LED moderno · '+kind;
+      batch.name='Candeeiro LED arquitetónico · '+kind;
       for(let i=0;i<mats.length;i++)batch.setMatrixAt(i,mats[i]);
       batch.instanceMatrix.needsUpdate=true;
-      batch.castShadow=kind==='pole'&&this.quality!=='low';
+      batch.castShadow=(kind==='pole'||kind==='housing')&&this.quality!=='low';
       batch.receiveShadow=true;
       batch.computeBoundingSphere();
       this.scene.add(batch);this.meshes.push(batch);
+      this.stats.details[kind]=mats.length;
     }
   }
   update(dt,hour,carPosition){
     this.timer+=Math.max(0,Math.min(.12,dt||0));
     const night=lampNightFactor(hour);
-    this.materials.lens.emissiveIntensity=night?3.3:0;
+    this.materials.lens.emissiveIntensity=night?3.15:0;
+    this.materials.optic.emissiveIntensity=night?2.25:0;
     // Real downward-directed SpotLights illuminate only the nearest road.
     // Hundreds of remote fixture meshes remain inexpensive GPU instances.
     if(!night||!carPosition){
