@@ -22,6 +22,39 @@ assert.ok(system.waterfallMesh.geometry.index.count>1200,
   'Waterfall needs detailed flowing water geometry');
 assert.ok(system.bankMesh.geometry.index.count>2800,
   'Both physical riverbanks must be joined with the watercourse');
+assert.equal(system.bankMesh.geometry.userData.corsaRiverBank,
+  'continuous-collision-corridor',
+  'No disconnected floating triangles or painted bank overlay');
+assert.ok(system.bankMesh.geometry.index.count>10000,
+  'Detailed shoreline should have submerged edges and broad, natural banks');
+assert.ok(system.bodies.some(body=>body.shapes.some(shape=>
+  shape instanceof CANNON.Trimesh)),
+  'Riverside ground must have real Cannon trimesh collision');
+assert.ok(system.statistics.bankColliders>1,
+  'Sturdy riparian plants should have colliders, not just visual geometry');
+assert.ok(system.statistics.bankShrubs>20,
+  'Moist riverbanks need substantial leafy shrubs, not only sparse tiny reeds');
+assert.ok(system.bankShrubMesh?.isInstancedMesh &&
+  system.bankShrubMesh.geometry.userData.corsaNatural==='leafy-shrub',
+  'Riverbank bushes must be genuine 3D leafy vegetation');
+assert.equal(system.bankVegetation.geometry.userData.corsaRiparian,
+  'sedges-and-reeds');
+
+// Both shoreline ribbons must actually meet the water, rather than
+// starting metres away from the surface as in the original broken mesh.
+const bankPositions=system.bankMesh.geometry.getAttribute('position');
+const samplesPerSide=system.points.length*8;
+for(const i of [10,87,167,300,system.points.length-11]){
+  const p=system.points[i];
+  for(let side=0;side<2;side++){
+    const idx=side*samplesPerSide+i*8+1;
+    const x=bankPositions.getX(idx),y=bankPositions.getY(idx),z=bankPositions.getZ(idx);
+    assert.ok(Math.abs(Math.hypot(x-p.x,z-p.z)-(p.width-.15))<.025,
+      'Bank shoreline ring must align with the actual water ribbon');
+    assert.ok(y<=p.y+.04,
+      'Submerged shoreline must not protrude as an artificial wall');
+  }
+}
 const upper=system.points[system.waterfall.start];
 const lower=system.points[system.waterfall.end];
 assert.ok(system.points.every((point,i)=>i===0||
@@ -67,6 +100,10 @@ assert.ok(Array.from(flows.array).every(speed=>speed>=.7&&speed<=2.31),
   'Current must adapt to the changing valley slope');
 assert.match(system.waterMaterial.vertexShader,/uTime\*2\.8\*vSpeed/);
 assert.match(system.waterMaterial.fragmentShader,/whitewater|flowFoam/);
+assert.match(system.waterMaterial.fragmentShader,/edgeAlpha/,
+  'The waterline must fade into soil rather than ending in a hard blue polygon');
+assert.match(system.waterMaterial.fragmentShader,/vec3\(\.025,\.083,\.088\)/,
+  'Deep river water must use a muted natural pigment, not an electric cyan strip');
 assert.ok(system.lookup(535,430)?.distance<2,
   'The river must pass through the known valley crossing X=535, Z=430');
 assert.ok(system.crossings.length>=1,
