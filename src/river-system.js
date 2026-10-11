@@ -114,6 +114,7 @@ export class RiverSystem {
         }
     }
     this.crossings=this.findCrossings();
+    this.buildWaterVolume();
     this.buildWater();
     this.buildWaterfall();
     this.buildBanks();
@@ -130,7 +131,8 @@ export class RiverSystem {
       bankPlants:this.bankPlants,
       bankShrubs:this.bankShrubs,
       bankColliders:this.bankColliderCount,
-      riverSections:this.points.length-1
+      riverSections:this.points.length-1,
+      enclosedWaterSections:this.waterVolumeSections
     };
   }
   lookup(x,z){
@@ -231,6 +233,69 @@ export class RiverSystem {
       }
     }
     return hits;
+  }
+  buildWaterVolume(){
+    // Physical-looking, completely closed opaque river volume beneath the
+    // animated surface. The old river was a single alpha-blended plane:
+    // from low camera angles it vanished and exposed the landscape/sky.
+    // The cavity now has an opaque riverbed, real sidewalls and two end caps.
+    // Do NOT add rigid-body collision to water; the already collidable
+    // eroded bed and banks remain the driveable solid surfaces.
+    const positions=[],colors=[],indices=[];
+    const steps=8,stride=(steps+1)*2;
+    for(let i=0;i<this.points.length;i++){
+      const p=this.points[i];
+      for(let j=0;j<=steps;j++){
+        const lateral=(j/steps*2-1)*(p.width-.24);
+        const x=p.x+p.nx*lateral,z=p.z+p.nz*lateral;
+        const top=p.y+.043;
+        const floor=p.y-1.56;
+        positions.push(x,top,z,x,floor,z);
+        const edge=Math.abs(j/steps*2-1);
+        colors.push(.075+edge*.055,.19+edge*.035,.158+edge*.028);
+        colors.push(.025+edge*.013,.075+edge*.020,.074+edge*.012);
+      }
+      if(i===this.points.length-1)continue;
+      const row=i*stride,next=row+stride;
+      // Opaque submerged floor (8 longitudinal bands).
+      for(let j=0;j<steps;j++){
+        const a=row+j*2+1,b=next+j*2+1;
+        indices.push(a,a+2,b,a+2,b+2,b);
+      }
+      // Sidewalls must be continuous: top to bed on both banks.
+      for(const j of [0,steps]){
+        const a=row+j*2,b=next+j*2;
+        indices.push(a,b,a+1,a+1,b,b+1);
+      }
+    }
+    // Seal upstream and downstream ends so no camera can look through the
+    // water cavity from a low angle or under a bridge.
+    for(const i of [0,this.points.length-1]){
+      const row=i*stride;
+      for(let j=0;j<steps;j++){
+        const a=row+j*2,b=a+2;
+        if(i===0)indices.push(a,a+1,b,a+1,b+1,b);
+        else indices.push(a,b,a+1,a+1,b,b+1);
+      }
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    geometry.setIndex(indices);geometry.computeVertexNormals();
+    geometry.computeBoundingSphere();
+    geometry.userData.corsaRiverVolume='sealed-bottom-banks-and-ends';
+    const material=new THREE.MeshStandardMaterial({
+      color:0xffffff,vertexColors:true,roughness:.91,metalness:0,
+      side:THREE.DoubleSide,transparent:false,depthWrite:true
+    });
+    this.geometries.push(geometry);this.materials.push(material);
+    const mesh=new THREE.Mesh(geometry,material);
+    mesh.name='Rio · volume opaco com fundo e paredes submersas';
+    mesh.receiveShadow=true;
+    mesh.renderOrder=0;
+    this.group.add(mesh);
+    this.waterVolume=mesh;
+    this.waterVolumeSections=this.points.length-1;
   }
   buildWater(){
     const pos=[],uv=[],indices=[],bank=[],speeds=[];
@@ -337,8 +402,14 @@ export class RiverSystem {
             sin(current.y*32.0-uTime*8.1);
           water+=vec3(.13,.16,.17)*rainPits*.065*uRain;
           // Gradual waterline replaces the unnaturally sharp painted edge.
-          float edgeAlpha=1.0-smoothstep(.76,1.0,vBank)*.40;
-          gl_FragColor=vec4(water,.88*edgeAlpha);
+          float edgeAlpha=1.0-smoothstep(.76,1.0,vBank)*.32;
+          // Transparent face is backed by sealed water volume, never empty sky.
+          // Underwater faces are opaque so the river cannot resemble a sheet.
+          if(!gl_FrontFacing){
+            gl_FragColor=vec4(water*.52,1.0);
+          }else{
+            gl_FragColor=vec4(water,.93*edgeAlpha);
+          }
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }`,
