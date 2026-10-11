@@ -19,6 +19,7 @@ import {RegionalRailway} from './regional-railway.js';
 import {RiverSystem} from './river-system.js';
 import {HighwayDrainage} from './highway-drainage.js';
 import {engineerRoadGrade,roadGradeTerrain,ROAD_MAX_GRADE} from './road-grading.js';
+import {RoadSlopeProtection} from './road-slope-protection.js';
 import {WildGroundcover} from './wild-groundcover.js';
 import {RainStreaks} from './atmosphere-effects.js';
 import {WeatherSystem} from './weather-system.js';
@@ -164,6 +165,10 @@ export class DrivingWorld {
       this.terrainBody=createTerrainCollider(this.physics,
         this.terrainMesh.geometry,this.terrainMaterial);
     }
+    // Reinforced rock cuts and raised embankments are collision-backed;
+    // use contour roads and terrain cuts rather than fake blocked tunnels.
+    this.slopeProtection=new RoadSlopeProtection(this.scene,this.physics,
+      this.network,groundHeight,this.river,this.quality);
     // Roads, junctions and POI entrances share ONE clearance mask.
     this.sectors=new WorldSectors(this.scene,this.physics,this.network,groundHeight);
     this.roadside=new RoadsideClearance(this.network,this.sectors.regions,this.river);
