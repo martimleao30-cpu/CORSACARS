@@ -118,6 +118,7 @@ export class RiverSystem {
     this.buildWaterfall();
     this.buildBanks();
     this.buildRocks();
+    this.buildShorePebbles();
     this.buildBankVegetation();
     this.buildBridges();
     this.statistics={
@@ -125,6 +126,7 @@ export class RiverSystem {
       riverLengthM:Math.round(route.getLength()),
       bridgeCount:this.crossings.length,
       boulders:this.rocks,
+      shorePebbles:this.shorePebbles,
       bankPlants:this.bankPlants,
       bankShrubs:this.bankShrubs,
       bankColliders:this.bankColliderCount,
@@ -704,6 +706,49 @@ export class RiverSystem {
     wakes.count=index;wakes.instanceMatrix.needsUpdate=true;
     wakes.renderOrder=2;
     this.group.add(wakes);this.foam=wakes;
+  }
+  buildShorePebbles(){
+    // Tiny gravel, smoothed river cobbles and damp stones belong right at
+    // the waterline. One batched draw call replaces barren flat band textures.
+    const rng=seedRandom(20261020);
+    const count=Math.floor(this.points.length*
+      (this.quality==='low'?1.65:this.quality==='ultra'?3.4:2.65));
+    const geo=createWeatheredRockGeometry(1);
+    const mat=new THREE.MeshStandardMaterial({color:0xa4a39a,
+      vertexColors:true,roughness:.98,metalness:0});
+    this.geometries.push(geo);this.materials.push(mat);
+    const mesh=new THREE.InstancedMesh(geo,mat,count);
+    mesh.name='Margens do rio · pedras roladas e seixos húmidos';
+    const temp=new THREE.Object3D();
+    const palette=[0x74786b,0x898a78,0x676d65,0x9c9685,0x606c5a];
+    let added=0;
+    for(let i=0;i<count*4&&added<count;i++){
+      const p=this.points[Math.floor(rng()*this.points.length)];
+      const sign=rng()<.5?-1:1;
+      const offset=p.width+.22+rng()*7;
+      const x=p.x+p.nx*offset*sign,z=p.z+p.nz*offset*sign;
+      const closest=this.lookup(x,z);
+      if(!closest||closest.distance<closest.width+.04)continue;
+      const road=this.network.query?.(x,z);
+      if(road&&road.distance<12)continue;
+      const y=this.channelHeight(this.terrainY(x,z),closest);
+      const size=.075+Math.pow(rng(),2.0)*.36;
+      // Mostly rounded and flattened, with some irregular exposed stones.
+      temp.position.set(x,y+size*.14,z);
+      temp.rotation.set(rng()*.38,rng()*Math.PI*2,rng()*.31);
+      temp.scale.set(size*(.75+rng()*.6),size*(.36+rng()*.38),
+        size*(.65+rng()*.8));
+      temp.updateMatrix();
+      mesh.setMatrixAt(added,temp.matrix);
+      mesh.setColorAt(added++,new THREE.Color(
+        palette[Math.floor(rng()*palette.length)]));
+    }
+    mesh.count=added;mesh.instanceMatrix.needsUpdate=true;
+    if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+    if(mesh.count)mesh.computeBoundingSphere();
+    mesh.receiveShadow=true;
+    this.group.add(mesh);
+    this.shorePebbleMesh=mesh;this.shorePebbles=added;
   }
   buildBankVegetation(){
     // Riparian vegetation belongs in bands: water-edge reeds and sedges,
