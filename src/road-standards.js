@@ -30,8 +30,8 @@ export const ROAD_PROFILES=Object.freeze({
 });
 export const PROFILE_FOR_ROAD=Object.freeze({
   circular:'ring',nacional:'national',autoestrada:'highway',
-  montanha:'mountain',rural:'rural',gravilha:'gravel',terra:'farm',
-  provas:'test','serra-norte':'mountain','planicie-sul':'rural',
+  'tunel-serra':'rural',rural:'rural',gravilha:'gravel',terra:'farm',
+  provas:'test','planicie-sul':'rural',
   'vale-leste':'rural','campos-oeste':'rural',
   'rua-lateral':'urban','rampa-entrada':'ramp','rampa-saida':'ramp'
 });
