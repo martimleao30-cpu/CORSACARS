@@ -82,7 +82,10 @@ export class HighwayDrainage{
           #include <colorspace_fragment>
         }`,
       transparent:true,side:THREE.DoubleSide,depthWrite:false,
-      fog:true
+      // Raw ShaderMaterial has no Three.js fog uniforms; fog:true made
+      // WebGLRenderer.refreshFogUniforms access an undefined .value at runtime.
+      // These local translucent runoff channels use their own shading.
+      fog:false
     });
     this.materials.push(this.concrete,this.grateMat,this.waterMat);
     this.build();

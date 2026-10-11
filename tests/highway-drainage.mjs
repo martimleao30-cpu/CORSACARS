@@ -13,6 +13,10 @@ const network={roads:[highway],junctions:[{
 }]};
 const terrain=(x,z)=>.018*x+Math.sin(z*.004)*.4;
 const drainage=new HighwayDrainage(scene,network,terrain);
+assert.equal(drainage.waterMat.fog,false,
+  'Custom water shaders must not enable engine fog without fog uniforms');
+assert.equal(drainage.waterMat.uniforms.fogColor,undefined,
+  'Runoff has local colour grading; it does not supply engine fog uniforms');
 assert.equal(drainage.channels.length,2,
   'Motorway should have two independent concrete drainage channels');
 assert.ok(drainage.inletCount>4,
