@@ -442,6 +442,36 @@ serviço mantém a sua iluminação específica. Tudo é configurável por
 qualidade gráfica; o teste `tests/modern-road-lighting.mjs` valida
 posicionamento, geometria, alternância dia/noite e limpeza dos recursos.
 
+### Arquitetura LED e drenagem pluvial 2.0
+
+- Os postes passaram a usar **plintos de betão com quatro parafusos, mastro
+  metálico afunilado, flange, tampa de manutenção, braços curvos tubulares,
+  juntas, carcaças LED extrudidas e biseladas, vedante, refletor, doze
+  lentes óticas por cabeça e aletas de dissipação térmica**. Existem dimensões
+  regionais, urbanas e conjuntos de iluminação dupla nas autoestradas.
+- As peças repetidas continuam a partilhar geometria/material através de
+  `THREE.InstancedMesh`. Só uma pequena quantidade de luminárias próximas
+  emite luz dinâmica; as restantes usam emissão visual LED ao anoitecer.
+- `src/highway-drainage.js` constrói **valetas trapezoidais 3D** com
+  vertentes inclinadas e colisões `CANNON.Trimesh`, grelhas metálicas vazadas
+  com fixações, coletores escurecidos, **bueiros tubulares ocos** orientados
+  pela inclinação real e cabeceiras em betão com orifício circular aberto.
+  As saídas são recusadas junto a cruzamentos, pontes e quando não existe
+  inclinação para a água escoar por gravidade.
+- Na chuva, **três pequenos afluentes animados** avançam da berma para cada
+  grelha, produzindo salpicos animados nos coletores. A água corre pela
+  canaleta, entra no coletor e surge nas saídas dos bueiros em taludes
+  compatíveis, com faixas de água e ondulação guiadas por shader GPU.
+  O caudal reage progressivamente à intensidade da chuva e humidade, persiste
+  brevemente após a chuva e desaparece quando a drenagem seca.
+- As animações param quando a simulação está em pausa. Os canais e bueiros
+  respeitam as máscaras de junções e da linha de água e não criam corpos de
+  colisão adicionais por cada partícula.
+- O sistema é uma aproximação visual/física leve para WebGL, **não simula
+  volumes incompressíveis de água ou hidráulica 3D completa**; a qualidade
+  gráfica e o desempenho devem ser confirmados num PC real. Testes:
+  `tests/modern-road-lighting.mjs` e `tests/highway-drainage.mjs`.
+
 
 ## Pavimento de cruzamentos e prevenção de estradas sobrepostas
 
