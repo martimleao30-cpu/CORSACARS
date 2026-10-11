@@ -9,12 +9,12 @@ import {buildRuralSettlement} from './rural-settlements.js';
 const DESCRIPTORS = [
   {id:'service',name:'Área de Serviço Vale',kind:'service',road:'autoestrada',at:.49,side:-1},
   {id:'town',name:'Vila Nova · Praça Central',kind:'town',road:'nacional',at:.55,side:1},
-  {id:'mountain',name:'Miradouro Serra Alta',kind:'lookout',road:'montanha',at:.46,side:-1},
+  {id:'mountain',name:'Miradouro do Túnel da Serra',kind:'lookout',road:'tunel-serra',at:.12,side:-1},
   {id:'farm',name:'Quinta do Pinhal',kind:'farm',road:'rural',at:.54,side:1},
   {id:'quarry',name:'Zona Industrial · Pedreira',kind:'industrial',road:'gravilha',at:.57,side:-1},
   {id:'herdade',name:'Herdade do Souto',kind:'farmstead',road:'planicie-sul',at:.49,side:1},
   {id:'ribeira',name:'Quinta da Ribeira',kind:'farmstead',road:'vale-leste',at:.49,side:-1},
-  {id:'aldeia',name:'Aldeia da Serra Norte',kind:'hamlet',road:'serra-norte',at:.52,side:1},
+  {id:'aldeia',name:'Aldeia da Serra Norte',kind:'hamlet',road:'tunel-serra',at:.90,side:1},
   {id:'aldeia-sul',name:'Aldeia das Herdades',kind:'hamlet',road:'planicie-sul',at:.76,side:-1},
   {id:'aldeia-leste',name:'Aldeia da Ribeira',kind:'hamlet',road:'vale-leste',at:.77,side:1},
   {id:'campos',name:'Quinta dos Campos do Oeste',kind:'farmstead',road:'campos-oeste',at:.51,side:1}
