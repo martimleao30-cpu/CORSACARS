@@ -54,10 +54,10 @@ assert.ok(lighting.stats.details.diode>=lighting.stats.total*12,
 assert.ok(lighting.stats.details.bolt>=lighting.stats.total*4,
   'Each mast must visibly be anchored with a four-bolt plinth');
 assert.ok(lighting.meshes.some(mesh=>mesh.name.includes('housing')&&
-  mesh.geometry.isExtrudeGeometry),
+  mesh.geometry.type==='ExtrudeGeometry'),
   'Aerodynamic LED heads must be physically bevelled, not stretched spheres');
 assert.ok(lighting.meshes.some(mesh=>mesh.name.includes('arm')&&
-  mesh.geometry.isTubeGeometry),
+  mesh.geometry.type==='TubeGeometry'),
   'Lighting arms must be curved 3D metal tubing, not rigid rectangular sticks');
 assert.ok(lighting.meshes.every(m=>m.isInstancedMesh),'Fixture should use GPU instancing');
 assert.ok(lighting.lights.every(l=>l.isSpotLight),

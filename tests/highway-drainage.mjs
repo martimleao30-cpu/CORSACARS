@@ -58,8 +58,8 @@ for(const channel of drainage.channels){
     'Collector chambers must match all surface grates');
   assert.ok(channel.grates.geometry.getAttribute('position').count>150,
     'Grates must have real open slats and bolted metal detailing');
-  assert.ok(channel.pipes.geometry.isCylinderGeometry&&
-    channel.pipes.geometry.parameters.openEnded,
+  assert.ok(channel.pipes.geometry.type==='CylinderGeometry'&&
+    channel.pipes.geometry.parameters.openEnded===true,
     'Real drainage pipes need hollow ends, not solid rods');
   for(const culvert of channel.outlets){
     assert.ok(culvert.axis.y<0,
