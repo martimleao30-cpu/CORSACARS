@@ -27,6 +27,8 @@ const lower=system.points[system.waterfall.end];
 assert.ok(system.points.every((point,i)=>i===0||
   point.y<=system.points[i-1].y+1e-6),
   'A river flowing from mountain headwaters must never climb uphill');
+assert.ok(system.points.every(p=>p.y<=1.5),
+  'River water cannot hover above the original 3m terrain at test locations');
 assert.ok(system.statistics.bankPlants>30,
   'Both riverbanks need water-edge vegetation');
 assert.ok(system.bankVegetation.isInstancedMesh,

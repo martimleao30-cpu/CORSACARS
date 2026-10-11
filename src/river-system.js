@@ -75,7 +75,7 @@ export class RiverSystem {
     const fallEnd=fallStart+Math.max(5,Math.round(sampleCount*.005));
     this.waterfall={start:fallStart,end:fallEnd,drop:3.7};
     const profile=new Float64Array(horizontal.length);
-    profile[0]=softened[0];
+    profile[0]=Math.min(softened[0],heights[0]-.2);
     for(let i=1;i<profile.length;i++){
       const length=Math.max(.001,chain[i]-chain[i-1]);
       const previous=profile[i-1];
@@ -86,7 +86,8 @@ export class RiverSystem {
         profile[i]=previous-this.waterfall.drop*
           (smooth(t)-smooth(oldT));
       }else{
-        profile[i]=Math.min(softened[i],previous-length*.0007);
+        profile[i]=Math.min(softened[i],heights[i]-.2,
+          previous-length*.0007);
       }
     }
     this.points=horizontal.map((p,i)=>{
@@ -347,7 +348,9 @@ export class RiverSystem {
   buildWaterfall(){
     const {start,end,drop}=this.waterfall;
     const upper=this.points[start],lower=this.points[end];
-    const halfWidth=Math.min(upper.width,lower.width)*.94;
+    // Match the entire water ribbon at each end of the cascade: a 94%
+    // curtain used to leave two conspicuous empty slits at the banks.
+    const halfWidth=Math.min(upper.width,lower.width);
     const pos=[],uv=[],indices=[];
     const layers=30,across=22;
     // Flowing waterfall curtain between the upper lip and the lower pool.
@@ -705,7 +708,9 @@ export class RiverSystem {
       const near=this.lookup(x,z);
       if(!near||near.distance<near.width+2.5)continue;
       const road=this.network.query?.(x,z);
-      if(road&&road.distance<(road.road?.width||9)*.5+5)continue;
+      // query() returns a *road name string*, not a road specification.
+      // A conservative clearance protects even wide carriageways.
+      if(road&&road.distance<20)continue;
       const height=this.channelHeight(this.terrainY(x,z),near);
       const scale=.50+random()*1.18;
       dummy.position.set(x,height+.045,z);
