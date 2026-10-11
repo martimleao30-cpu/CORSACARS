@@ -20,6 +20,7 @@ import {RiverSystem} from './river-system.js';
 import {HighwayDrainage} from './highway-drainage.js';
 import {engineerRoadGrade,roadGradeTerrain,ROAD_MAX_GRADE} from './road-grading.js';
 import {RoadSlopeProtection} from './road-slope-protection.js';
+import {RoadTunnels} from './road-tunnels.js';
 import {WildGroundcover} from './wild-groundcover.js';
 import {RainStreaks} from './atmosphere-effects.js';
 import {WeatherSystem} from './weather-system.js';
@@ -154,6 +155,15 @@ export class DrivingWorld {
       this.network.roads[0],this.ringGradeTerrain,this.network.junctions);
     this.network.roads[0].profileGeometry=this.ringProfileGeometry;
     this.fitTerrainToRoads();
+    // A real bore through the mountain must REMOVE the visual + physical
+    // ground beneath the arch. The roof is rebuilt as a separate landform.
+    this.tunnels=new RoadTunnels(this.scene,this.physics,
+      this.network,groundHeight,this.quality);
+    if(this.tunnels.carveTerrain(this.terrainMesh.geometry)){
+      this.physics.removeBody(this.terrainBody);
+      this.terrainBody=createTerrainCollider(this.physics,
+        this.terrainMesh.geometry,this.terrainMaterial);
+    }
     // A continuous geographical river carves the SAME visual/physical
     // heightfield. Roads remain intact and receive supported bridge spans
     // wherever their true centreline crosses the river.
@@ -595,6 +605,7 @@ export class DrivingWorld {
     this.highwayDrainage?.update(dt,this.weatherState.rain,wetness,paused);
     this.roadEnvironment?.update(dt,paused);
     this.railway?.update(dt,paused);
+    this.tunnels?.update(vehiclePosition);
     this.river?.update(dt,paused,this.weatherState.rain>.32,this.atmosphere?.sunDirection);
     this.updateAtmosphere();
     this.volumetricMist?.update(dt,this.weatherState,this.atmosphere,paused);
