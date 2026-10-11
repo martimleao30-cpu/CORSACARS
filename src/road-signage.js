@@ -252,6 +252,85 @@ export function createArrowGeometry(sampler,distance,lateral=0,direction='straig
   return g;
 }
 
+
+/**
+ * Plan markings from the junctions that are actually connected at road level.
+ * Priority traffic never receives a false STOP line. A through secondary road
+ * has an approach from each side; a terminating T-road has only one.
+ * Distances use the same protected paint envelopes as all other lane lines.
+ */
+export function planJunctionApproaches(sampler,junctions=[]){
+  const road=sampler.road;
+  if(road.surface==='dirt'||road.surface==='gravel'||road.category==='test')
+    return [];
+  const gaps=junctionPaintGaps(sampler,junctions);
+  const result=[];
+  for(const join of junctions){
+    if(join.secondary!==road)continue;
+    const ownGap=junctionPaintGaps(sampler,[join])[0];
+    if(!ownGap)continue;
+    const kind=road.category==='highway-ramp'&&join.primary.category==='highway'
+      ?'merge-guide':'give-way';
+    // +1 traffic follows the sampled polyline on its right-hand (negative
+    // lateral) lane. -1 traffic approaches from the opposite, positive lane.
+    for(const [direction,distance] of [
+      [1,ownGap[0]-1.15],[-1,ownGap[1]+1.15]
+    ]){
+      if(distance<6||distance>sampler.total-6)continue;
+      // Avoid placing a transverse marking inside another nearby junction.
+      if(gaps.some(([a,b])=>distance>=a-.10&&distance<=b+.10))continue;
+      if(result.some(p=>p.direction===direction&&
+        Math.abs(p.distance-distance)<5))continue;
+      result.push({distance,direction,kind,junction:join.kind,
+        roadId:road.id,priorityRoadId:join.primary.id});
+    }
+  }
+  return result.sort((a,b)=>a.distance-b.distance);
+}
+
+/**
+ * Portuguese-style cedência de passagem (transverse row of white triangular
+ * teeth, pointing towards approaching traffic) or interrupted guide strokes
+ * at motorway acceleration lanes. No painted traffic lights/STOP obligation
+ * is invented where the network has no corresponding regulatory sign.
+ */
+export function createJunctionMarkingGeometry(sampler,plan){
+  const out=canvasBuffer(),w=sampler.road.width;
+  if(plan.kind==='merge-guide'){
+    // A ramp flows into the motorway: use short longitudinal guide strokes,
+    // never a transverse barrier that would imply vehicles must stop.
+    const lateral=plan.direction===1?-w*.43:w*.43;
+    for(let k=0;k<3;k++){
+      const at=plan.distance-plan.direction*(2+3.35*k);
+      if(at-1.05<0||at+1.05>sampler.total)continue;
+      out.strip(sampler,at-1.05,at+1.05,lateral,.15,.45);
+    }
+  }else if(plan.kind==='give-way'){
+    // Only the inbound half-carriageway is marked; the outgoing lane remains
+    // unobstructed. The triangular tips face the arriving driver in both
+    // travel directions. All triangles follow the actual crowned asphalt.
+    const left=plan.direction===1?-w*.5+.48:.24;
+    const right=plan.direction===1?-.24:w*.5-.48;
+    const available=right-left;
+    if(available<.65)return null;
+    const count=Math.max(1,Math.floor(available/.8));
+    for(let i=0;i<count;i++){
+      const lateral=left+available*(i+.5)/count;
+      const half=Math.min(.29,available/count*.36);
+      out.polygon(sampler,[
+        [plan.distance+plan.direction*.34,lateral-half],
+        [plan.distance+plan.direction*.34,lateral+half],
+        [plan.distance-plan.direction*.52,lateral]
+      ]);
+    }
+  }else throw new Error('Unknown junction marking: '+plan.kind);
+  const geometry=out.build();
+  if(geometry)geometry.userData={kind:plan.kind,distance:plan.distance,
+    direction:plan.direction,junction:plan.junction,roadId:plan.roadId,
+    priorityRoadId:plan.priorityRoadId};
+  return geometry;
+}
+
 function crosswalkIndices(road){
   const last=road.points.length-1;
   return road.id==='nacional'?[26,68,106].filter(i=>i<last-2):
@@ -266,6 +345,7 @@ export class RoadSignage {
     this.meshes=[];
     this.samplers=new Map();
     this.statistics={continuous:0,dashed:0,double:0,arrows:0,crosswalks:0,
+      junctionApproaches:0,yieldLines:0,mergeGuides:0,
       geometries:0,roadCount:0};
     for(const road of network.roads) {
       if(road.surface==='dirt'||road.surface==='gravel')continue;
@@ -298,6 +378,11 @@ export class RoadSignage {
     this.statistics.geometries++;
     if(meshGeometry.userData.kind==='arrow')this.statistics.arrows++;
     else if(meshGeometry.userData.kind==='crosswalk')this.statistics.crosswalks++;
+    else if(meshGeometry.userData.kind==='give-way'){
+      this.statistics.junctionApproaches++;this.statistics.yieldLines++;
+    }else if(meshGeometry.userData.kind==='merge-guide'){
+      this.statistics.junctionApproaches++;this.statistics.mergeGuides++;
+    }
     return mesh;
   }
 
@@ -404,6 +489,15 @@ export class RoadSignage {
         for(const lateral of lanes)this.add(createArrowGeometry(sampler,d,lateral,
           connector?'right':'straight'),road.name+' · Seta de orientação');
       }
+    }
+    // Every detected, driveable T/X/oblique road join is handled from its
+    // actual geometry rather than from a hard-coded map coordinate.
+    for(const plan of planJunctionApproaches(sampler,this.network.junctions||[])){
+      const label=plan.kind==='give-way'
+        ?'Cedência de passagem no cruzamento'
+        :'Guias de inserção na autoestrada';
+      this.add(createJunctionMarkingGeometry(sampler,plan),
+        road.name+' · '+label);
     }
   }
 
