@@ -218,6 +218,57 @@ export class RoadTunnels{
     geo.userData.corsaTunnel='open-road-portal';
     this.addGeometry(geo,this.portalConcrete,'Portal do Túnel · pórtico monumental',
       {collide:true});
+    // Light tracing the genuine arch contour, not a floating rectangular glow.
+    const curvePoints=[];
+    for(let k=0;k<=36;k++){
+      const theta=Math.PI*(1-k/36),w=half+1.02;
+      curvePoints.push(new THREE.Vector3(
+        p.x+n.x*w*Math.cos(theta)+back.x*.13,
+        p.y-.23+(r.height+1.05)*Math.sin(theta),
+        p.z+n.z*w*Math.cos(theta)+back.z*.13));
+    }
+    const trim=new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3(curvePoints,false,'centripetal'),72,.083,6,false);
+    this.addGeometry(trim,this.lamp,'Entrada do túnel · arco LED de segurança');
+    // Monumental solid nameplate aligned with the carriageway above the arch.
+    const plateGeometry=new THREE.BoxGeometry(9.5,1.05,.32);
+    const plate=new THREE.Mesh(plateGeometry,this.panel);
+    plate.name='Portal monumental · placa TÚNEL DA SERRA';
+    plate.position.set(p.x+back.x*.85,p.y+r.height+1.63,p.z+back.z*.85);
+    plate.rotation.y=Math.atan2(n.tx,n.tz);
+    plate.castShadow=true;plate.receiveShadow=true;
+    this.scene.add(plate);this.meshes.push(plate);
+    this.geometries.push(plateGeometry);
+    // The visible sign is optional in environments with no HTML canvas
+    // (unit tests, headless builds), but always appears in the running game.
+    if(globalThis.document?.createElement){
+      const canvas=document.createElement('canvas');
+      canvas.width=1024;canvas.height=128;
+      const ctx=canvas.getContext('2d');
+      if(ctx){
+        ctx.clearRect(0,0,1024,128);
+        ctx.fillStyle='#dde6e2';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.font='bold 82px sans-serif';
+        ctx.fillText('TÚNEL DA SERRA',512,66);
+        const map=new THREE.CanvasTexture(canvas);
+        map.colorSpace=THREE.SRGBColorSpace;
+        map.anisotropy=4;
+        const textMat=new THREE.MeshBasicMaterial({
+          map,transparent:true,side:THREE.DoubleSide,depthWrite:false
+        });
+        const nameGeo=new THREE.PlaneGeometry(8.75,.94);
+        const name=new THREE.Mesh(nameGeo,textMat);
+        name.name='Portal monumental · letreiro TÚNEL DA SERRA';
+        name.position.copy(plate.position);
+        name.position.addScaledVector(
+          new THREE.Vector3(back.x,0,back.z),sign>0?.18:-.18);
+        name.rotation.y=plate.rotation.y+(sign>0?Math.PI:0);
+        this.scene.add(name);this.meshes.push(name);
+        this.geometries.push(nameGeo);this.materials.push(textMat);
+        this.textures??=[];this.textures.push(map);
+      }
+    }
     this.portals.push({x:p.x,y:p.y,z:p.z,index,sign});
     this.statistics.portals++;
   }
@@ -345,6 +396,7 @@ export class RoadTunnels{
     for(const mesh of this.meshes)this.scene.remove(mesh);
     for(const geometry of this.geometries)geometry.dispose();
     for(const material of this.materials)material.dispose();
+    for(const texture of this.textures||[])texture.dispose();
     this.meshes.length=0;this.bodies.length=0;this.lights.length=0;
   }
 }
