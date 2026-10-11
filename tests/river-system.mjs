@@ -24,7 +24,14 @@ assert.ok(system.bankMesh.geometry.index.count>2800,
   'Both physical riverbanks must be joined with the watercourse');
 const upper=system.points[system.waterfall.start];
 const lower=system.points[system.waterfall.end];
-assert.ok(upper.y-lower.y>2.9,
+assert.ok(system.points.every((point,i)=>i===0||
+  point.y<=system.points[i-1].y+1e-6),
+  'A river flowing from mountain headwaters must never climb uphill');
+assert.ok(system.statistics.bankPlants>30,
+  'Both riverbanks need water-edge vegetation');
+assert.ok(system.bankVegetation.isInstancedMesh,
+  'Riparian plants must be batched without hundreds of draw calls');
+assert.ok(upper.y-lower.y>3.5,
   'Waterfall must have an actual altitude drop in the river profile');
 for(const i of [2,40,101,205,system.points.length-3]){
   const a=system.points[Math.max(0,i-1)],b=system.points[Math.min(i+1,system.points.length-1)];
@@ -71,6 +78,8 @@ assert.ok(system.findCrossings().some(hit=>
 system.network.roads=originalRoads;
 assert.ok(system.crossings.every(p=>p.roadId===road.id&&
   p.x>=445&&p.x<=645),'Bridge cannot be positioned randomly');
+assert.ok(system.crossings.every(p=>Number.isFinite(p.deckY)),
+  'Every road bridge must inherit its real road elevation');
 assert.ok(system.bodies.length>=system.crossings.length*2,
   'Bridge guardrails and substantial river boulders need physical collision');
 const bridgePiers=system.group.children.filter(mesh=>
@@ -131,4 +140,4 @@ assert.ok(oldBodies>0);
 system.dispose();ground.dispose();
 assert.equal(physics.bodies.length,0);
 assert.equal(scene.children.length,0);
-console.log('PASS: deterministic river, flowing water, rocky banks, carved terrain, real bridge crossing and cleanup.');
+console.log('PASS: downhill river, 3D riparian plants, continuous waterfall, flowing water, carved terrain, bridges and cleanup.');

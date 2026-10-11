@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 
-// The river is a geographical feature, not arbitrary ponds. Its centreline
-// flows through the eastern valley and intersects roads at actual coordinates.
+// High mountain headwaters descend through the east valley into the central
+// lowlands. The previous reversed route ended *uphill* in the mountains,
+// burying water under terrain and leaving disconnected-looking banks.
+// Keep the established crossing near (535,430) for the road network.
 export const RIVER_WAYPOINTS=Object.freeze([
-  [690,1310],[735,1090],[675,865],[625,650],[535,430],
-  [490,245],[545,40],[675,-185],[745,-435],
-  [870,-695],[1060,-910],[1260,-1120],[1410,-1400]
+  [1260,-1120],[1170,-1025],[1060,-910],[870,-695],
+  [745,-435],[675,-185],[545,40],[490,245],[535,430],
+  [430,505],[330,485],[250,380],[165,280],[65,175]
 ]);
 const clamp=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
 const smooth=x=>{const t=clamp(x,0,1);return t*t*(3-2*t);};
@@ -45,45 +47,58 @@ export class RiverSystem {
       RIVER_WAYPOINTS.map(([x,z])=>new THREE.Vector3(x,0,z)),
       false,'centripetal',.45);
     const sampleCount=quality==='ultra'?1100:quality==='low'?420:780;
-    // Spaced points are arc-length sampled; getTangentAt(i/N) is NOT
-    // sampled by arc length and can twist riverbanks into the water.
+    // Parameterisation by *physical distance* is independent of polygon LOD.
     const horizontal=route.getSpacedPoints(sampleCount);
-    const originalHeights=horizontal.map(p=>terrainY(p.x,p.z)-1.3);
-    const softened=originalHeights.map((value,i)=>{
-      let weighted=0,weights=0;
-      for(let d=-7;d<=7;d++){
-        const j=clamp(i+d,0,sampleCount),weight=8-Math.abs(d);
-        weighted+=originalHeights[j]*weight;weights+=weight;
+    const chain=[0];
+    for(let i=1;i<horizontal.length;i++)
+      chain[i]=chain[i-1]+Math.hypot(horizontal[i].x-horizontal[i-1].x,
+        horizontal[i].z-horizontal[i-1].z);
+    const heights=horizontal.map(p=>terrainY(p.x,p.z)-1.3);
+    // Smooth by metres, not by number of vertices. This stops low/ultra mode
+    // from shifting the banks and stops the water surface following each bump.
+    const softened=heights.map((_,i)=>{
+      let weighted=0,total=0;
+      for(let j=i;j>=0&&chain[i]-chain[j]<40;j--){
+        const w=1-(chain[i]-chain[j])/40;
+        weighted+=heights[j]*w;total+=w;
       }
-      return weighted/weights;
+      for(let j=i+1;j<heights.length&&chain[j]-chain[i]<40;j++){
+        const w=1-(chain[j]-chain[i])/40;
+        weighted+=heights[j]*w;total+=w;
+      }
+      return weighted/total;
     });
-    // A real fixed drop across the upper valley, followed by a lower
-    // riverbed. Keep its position fixed in arc-length, irrespective of LOD.
-    const fallStart=Math.round(sampleCount*.215);
+    // Water must travel downhill; do not generate lakes on uphill sections.
+    // A fixed fall is integrated into the grade instead of tacked on to a
+    // height field after the waterfall (which previously made visible seams).
+    const fallStart=Math.round(sampleCount*.30);
     const fallEnd=fallStart+Math.max(5,Math.round(sampleCount*.005));
     this.waterfall={start:fallStart,end:fallEnd,drop:3.7};
-    const upperLip=softened[fallStart];
-    const lowerPool=upperLip-this.waterfall.drop;
-    const downstreamShift=lowerPool-softened[fallEnd];
-    // Distances, meanders and width must stay identical across Low/Ultra.
-    // Using sample index here made the shoreline oscillate differently when
-    // graphical quality changed, moving rocks/bridges relative to water.
-    let travelled=0;
+    const profile=new Float64Array(horizontal.length);
+    profile[0]=softened[0];
+    for(let i=1;i<profile.length;i++){
+      const length=Math.max(.001,chain[i]-chain[i-1]);
+      const previous=profile[i-1];
+      if(i>fallStart&&i<=fallEnd){
+        // Only the waterfall is allowed a sharp drop.
+        const t=(i-fallStart)/(fallEnd-fallStart);
+        const oldT=(i-fallStart-1)/(fallEnd-fallStart);
+        profile[i]=previous-this.waterfall.drop*
+          (smooth(t)-smooth(oldT));
+      }else{
+        profile[i]=Math.min(softened[i],previous-length*.0007);
+      }
+    }
     this.points=horizontal.map((p,i)=>{
-      if(i)travelled+=Math.hypot(p.x-horizontal[i-1].x,
-        p.z-horizontal[i-1].z);
       const before=horizontal[Math.max(0,i-1)];
       const after=horizontal[Math.min(sampleCount,i+1)];
       const dx=after.x-before.x,dz=after.z-before.z;
       const len=Math.hypot(dx,dz)||1;
-      const width=8.6+2.05*Math.sin(travelled*.009)+.82*Math.sin(travelled*.021);
-      const fallProgress=smooth((i-fallStart)/(fallEnd-fallStart));
-      const riverLevel=i<fallStart?softened[i]:
-        i<=fallEnd?THREE.MathUtils.lerp(upperLip,lowerPool,fallProgress):
-        softened[i]+downstreamShift;
-      return {x:p.x,z:p.z,y:riverLevel,along:travelled,
+      const width=8.6+2.05*Math.sin(chain[i]*.009)+.82*Math.sin(chain[i]*.021);
+      return {x:p.x,z:p.z,y:profile[i],along:chain[i],
         width:Math.max(6.5,width),nx:-dz/len,nz:dx/len};
     });
+    // The shoreline and trench now use the same decreasing water level.
     this.bucketSize=42;this.buckets=new Map();
     for(let i=0;i<this.points.length-1;i++){
       const a=this.points[i],b=this.points[i+1],margin=49;
@@ -101,12 +116,14 @@ export class RiverSystem {
     this.buildWaterfall();
     this.buildBanks();
     this.buildRocks();
+    this.buildBankVegetation();
     this.buildBridges();
     this.statistics={
       waterfallDropM:this.waterfall.drop,
       riverLengthM:Math.round(route.getLength()),
       bridgeCount:this.crossings.length,
       boulders:this.rocks,
+      bankPlants:this.bankPlants,
       riverSections:this.points.length-1
     };
   }
@@ -198,7 +215,11 @@ export class RiverSystem {
           if(hits.some(h=>h.roadId===road.id&&
             Math.hypot(h.x-hit.x,h.z-hit.z)<55))continue;
           const d=Math.hypot(b.x-a.x,b.z-a.z)||1;
-          hits.push({...hit,roadId:road.id,road,
+          // Use the real drivable road deck, not a fresh sample of the
+          // original terrain (different at cut slopes and bridge spans).
+          const f=clamp(Math.hypot(hit.x-a.x,hit.z-a.z)/d,0,1);
+          const deckY=THREE.MathUtils.lerp(a.y,b.y,f);
+          hits.push({...hit,roadId:road.id,road,deckY,
             direction:{x:(b.x-a.x)/d,z:(b.z-a.z)/d}});
         }
       }
@@ -499,8 +520,9 @@ export class RiverSystem {
       const p=this.points[Math.round(THREE.MathUtils.lerp(start-4,end+5,t))];
       const scale=.8+random()*2.4;
       const bank=p.width+random()*3.5;
-      dummy.position.set(p.x+p.nx*bank*side,p.y+scale*.09,
-        p.z+p.nz*bank*side);
+      const sx=p.x+p.nx*bank*side,sz=p.z+p.nz*bank*side;
+      const land=this.channelHeight(this.terrainY(sx,sz),this.lookup(sx,sz));
+      dummy.position.set(sx,land+scale*.12,sz);
       dummy.rotation.set(random()*.8,random()*6.28,random()*.8);
       dummy.scale.set(scale*(.8+random()*.5),scale*.82,scale*(.65+random()*.7));
       dummy.updateMatrix();stones.setMatrixAt(i,dummy.matrix);
@@ -647,6 +669,58 @@ export class RiverSystem {
     wakes.renderOrder=2;
     this.group.add(wakes);this.foam=wakes;
   }
+  buildBankVegetation(){
+    // Reeds and rushes are genuinely located on riverbanks, not scattered
+    // inside the water or on road bridges. One geometry/material draw batch.
+    const random=seedRandom(20261018);
+    const samples=Math.floor(this.points.length*
+      (this.quality==='low'?.54:this.quality==='ultra'?1.6:1.05));
+    const positions=[],colors=[],indices=[];
+    // Three crossed tapering leaves per plant (a tiny 3D reed cluster).
+    for(let blade=0;blade<3;blade++){
+      const angle=blade*Math.PI/3;
+      const dx=Math.cos(angle)*.20,dz=Math.sin(angle)*.20;
+      const base=positions.length/3;
+      positions.push(-dx,0,-dz,dx,0,dz,
+        Math.sin(angle*3+1)*.12,1.0,Math.cos(angle*3+1)*.12);
+      colors.push(.16,.25,.10,.24,.37,.14,.30,.43,.18);
+      indices.push(base,base+1,base+2);
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    geo.setIndex(indices);geo.computeVertexNormals();
+    const mat=new THREE.MeshStandardMaterial({vertexColors:true,
+      side:THREE.DoubleSide,roughness:.94,metalness:0});
+    this.geometries.push(geo);this.materials.push(mat);
+    const mesh=new THREE.InstancedMesh(geo,mat,Math.max(1,samples));
+    mesh.name='Juncos e vegetação ripícola nas margens';
+    const dummy=new THREE.Object3D();
+    let count=0;
+    for(let i=0;i<samples*3&&count<samples;i++){
+      const p=this.points[Math.floor(random()*this.points.length)];
+      const side=random()<.5?-1:1;
+      const offset=p.width+4+random()*16;
+      const x=p.x+p.nx*side*offset,z=p.z+p.nz*side*offset;
+      const near=this.lookup(x,z);
+      if(!near||near.distance<near.width+2.5)continue;
+      const road=this.network.query?.(x,z);
+      if(road&&road.distance<(road.road?.width||9)*.5+5)continue;
+      const height=this.channelHeight(this.terrainY(x,z),near);
+      const scale=.50+random()*1.18;
+      dummy.position.set(x,height+.045,z);
+      dummy.rotation.set(0,random()*Math.PI*2,0);
+      dummy.scale.set(scale,scale*(.7+random()*.6),scale);
+      dummy.updateMatrix();mesh.setMatrixAt(count++,dummy.matrix);
+    }
+    mesh.count=count;
+    mesh.instanceMatrix.needsUpdate=true;
+    mesh.frustumCulled=true;
+    mesh.computeBoundingSphere();
+    mesh.receiveShadow=true;
+    this.group.add(mesh);
+    this.bankVegetation=mesh;this.bankPlants=count;
+  }
   buildBridges(){
     const concrete=new THREE.MeshStandardMaterial({color:0xaaa9a0,roughness:.90});
     const steel=new THREE.MeshStandardMaterial({color:0x888f91,roughness:.40,metalness:.70});
@@ -665,7 +739,8 @@ export class RiverSystem {
       if(!near)continue;
       const length=near.width*2+13,width=hit.road.width;
       const yaw=Math.atan2(hit.direction.x,hit.direction.z);
-      const deckY=this.terrainY(hit.x,hit.z)+.205;
+      const deckY=Number.isFinite(hit.deckY)
+        ?hit.deckY:this.terrainY(hit.x,hit.z)+.205;
       add('Ponte rodoviária · viga inferior',
         hit.x,deckY-.50,hit.z,width+.70,.58,length,yaw,concrete);
       for(const sign of [-1,1]){
