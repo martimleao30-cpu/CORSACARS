@@ -58,7 +58,8 @@ for(const p of covers.placements){
 }
 assert.ok(environment.statistics.parkingSpaces>0);
 assert.ok(environment.statistics.highwayBarriers>0);
-assert.equal(environment.statistics.mountainBarriers,0);
+assert.equal(environment.statistics.mountain,0,
+  'No physical mountain-category roads remain in the game');
 assert.equal(environment.statistics.mountainMarkers,0);
 const wBeams=environment.objects.filter(m=>m.name==='Barreira de proteção');
 const posts=environment.objects.filter(m=>m.name==='Barreira metálica · suportes');
