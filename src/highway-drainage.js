@@ -321,9 +321,78 @@ export class HighwayDrainage{
         grates.count=inlets.length;grates.instanceMatrix.needsUpdate=true;
         if(grates.count)grates.computeBoundingSphere();
         this.group.add(grates);
+        // Dark collector throat is visible between the actual open steel bars.
+        // Neither the aperture nor the flowing water is an extra collider.
+        const basins=new THREE.InstancedMesh(basinGeometry,
+          this.apertureMat,Math.max(1,inlets.length));
+        basins.name='Coletores pluviais · aberturas escuras sob grelhas';
+        for(let k=0;k<inlets.length;k++){
+          obj.position.copy(inlets[k].position);
+          obj.position.y-=.052;
+          obj.rotation.set(0,inlets[k].yaw,0);
+          obj.scale.set(1,1,1);obj.updateMatrix();
+          basins.setMatrixAt(k,obj.matrix);
+        }
+        basins.count=inlets.length;basins.instanceMatrix.needsUpdate=true;
+        if(basins.count)basins.computeBoundingSphere();
+        this.group.add(basins);
+        // One set of geometry/materials for ALL culverts on both shoulders.
+        // The outlet end is a proper circular cast lip and dark throat.
+        const batch=(name,geo,mat,mode)=>{
+          const inst=new THREE.InstancedMesh(geo,mat,Math.max(1,outlets.length));
+          inst.name=name;
+          for(let k=0;k<outlets.length;k++){
+            const o=outlets[k];
+            obj.position.copy(mode==='pipe'?o.center:o.mouth);
+            obj.quaternion.copy(o.quaternion);
+            if(mode==='pipe')obj.scale.set(o.length,1,1);
+            else if(mode==='aperture')obj.position.addScaledVector(o.axis,.085);
+            else if(mode==='headwall')obj.position.addScaledVector(o.axis,-.12);
+            obj.scale.set(mode==='pipe'?o.length:1,1,1);
+            obj.updateMatrix();inst.setMatrixAt(k,obj.matrix);
+          }
+          inst.count=outlets.length;
+          inst.instanceMatrix.needsUpdate=true;
+          if(inst.count)inst.computeBoundingSphere();
+          inst.receiveShadow=true;
+          this.group.add(inst);
+          return inst;
+        };
+        const pipes=batch('Bueiros · tubos circulares em betão',
+          pipeGeometry,this.pipeMat,'pipe');
+        const headwalls=batch('Saídas de drenagem · muros de proteção',
+          headwallGeometry,this.concretePlain||this.pipeMat,'headwall');
+        const apertures=batch('Saídas de drenagem · garganta aberta',
+          apertureGeometry,this.apertureMat,'aperture');
+        const rims=batch('Saídas de drenagem · anéis metálicos de reforço',
+          rimGeometry,this.rimMat,'rim');
+        const outletGeo=new THREE.BufferGeometry();
+        outletGeo.setAttribute('position',
+          new THREE.Float32BufferAttribute(outletPos,3));
+        outletGeo.setAttribute('uv',new THREE.Float32BufferAttribute(outletUv,2));
+        outletGeo.setAttribute('flowDirection',
+          new THREE.Float32BufferAttribute(outletDir,1));
+        outletGeo.setIndex(outletIndices);
+        if(outletIndices.length){
+          outletGeo.computeVertexNormals();
+          outletGeo.computeBoundingSphere();
+        }
+        this.geometry.push(outletGeo);
+        const outletFlow=new THREE.Mesh(outletGeo,this.waterMat);
+        outletFlow.name='Água a sair dos tubos e a escorrer pelo talude';
+        outletFlow.renderOrder=3;
+        outletFlow.visible=false;
+        this.group.add(outletFlow);
         this.inletCount+=inlets.length;
+        this.outletCount+=outlets.length;
+        this.geometryStats.channels++;
+        this.geometryStats.grates+=inlets.length;
+        this.geometryStats.culverts+=outlets.length;
+        this.geometryStats.runoffRibbons+=runoffIndices.length/6+
+          outletIndices.length/6;
         this.meshCount++;
-        this.channels.push({road,sign,mesh,water,runoff,grates,
+        this.channels.push({road,sign,mesh,water,runoff,grates,basins,
+          pipes,headwalls,apertures,rims,outletFlow,outlets,
           segmentCount:indices.length/6,offset});
       }
     }
@@ -344,7 +413,10 @@ export class HighwayDrainage{
     const show=this.level>.025;
     for(const channel of this.channels){
       channel.water.visible=show;
-      channel.runoff.visible=show&&this.rainfall>.08;
+      // Sheet flow only while rain feeds the shoulder, while water in the
+      // concrete swales persists briefly as the road dries.
+      channel.runoff.visible=show&&this.rainfall>.035;
+      channel.outletFlow.visible=show&&this.rainfall>.035;
     }
   }
   dispose(){
