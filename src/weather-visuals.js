@@ -5,7 +5,8 @@ import {roadDeckHeight} from './road-upgrades.js';
 // world-space animated noise and depth testing: no high-cost full-screen
 // ray marching, and no billboard triangles inside the player's windscreen.
 const fogVertex=`
-attribute vec3 instanceColor;
+// Three.js injects instanceColor for InstancedMesh with per-instance colours.
+// Re-declaring it causes a GLSL compilation failure (redefinition).
 varying vec2 vUv;
 varying vec3 vWorld;
 varying vec3 vTint;

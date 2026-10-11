@@ -5,6 +5,10 @@ const scene=new THREE.Scene(),terrain=()=>3;
 const fog=new VolumetricMist(scene,terrain,'low');
 assert.equal(fog.mesh.visible,false);
 assert.ok(fog.mesh.isInstancedMesh);
+assert.ok(fog.mesh.instanceColor,'Fog instances have an injected color attribute');
+assert.doesNotMatch(fog.material.vertexShader,/attribute\\s+vec3\\s+instanceColor\\s*;/,
+  'Do not redeclare Three.js supplied instanceColor in ShaderMaterial');
+assert.match(fog.material.vertexShader,/vTint=instanceColor/);
 assert.match(fog.material.fragmentShader,/layered|noise\(p/);
 fog.update(.2,{fog:.75},{fogColor:new THREE.Color(0xaabacc)});
 assert.equal(fog.mesh.visible,true);
