@@ -366,8 +366,8 @@ crepúsculo, chuva, nevoeiro, noite, céu e sombras.
 ## Estradas limpas, vegetação sem invasões e cercas com aberturas
 
 `src/roadside-clearance.js` cria uma máscara de ocupação para **todas** as
-vias transitáveis: circular, autoestrada, estrada nacional, rural, montanha,
-terra, pistas de teste, rampas e rua lateral. Deteta entroncamentos e
+vias transitáveis: circular, autoestrada, estrada nacional, rural,
+túnel coberto, terra, pistas de teste, rampas e rua lateral. Deteta entroncamentos e
 cruzamentos pela geometria das estradas, além dos acessos à quinta, vila,
 área de serviço, miradouro e pedreira. Relva, flores, arbustos, árvores,
 pedras nas bermas e vegetação rural passam por esta máscara antes de serem
@@ -445,7 +445,7 @@ A distribuição exclui o interior do rio, vias próximas e zonas de
 pontes, mantendo a maioria dos pequenos elementos GPU-instanciados.
 
 \`src/road-manholes.js\` acrescenta tampas circulares embutidas no
-**asfalto urbano, rural, de montanha e da estrada circular**. O planeamento
+**asfalto urbano, rural e da estrada circular**. O planeamento
 usa a altura real do pavimento, evita interseções e respeita a proximidade
 do rio. **Nunca acrescenta tampas à autoestrada, às rampas, aos caminhos
 de terra ou à pista de testes**. As tampas têm aro, ferro fundido e
@@ -456,6 +456,51 @@ Os testes de regressão estão em \`tests/river-system.mjs\` e
 \`tests/road-environments.mjs\`. O resultado visual e a fluidez continuam
 a exigir inspeção no jogo real, sobretudo nos encontros rio/terreno.
 
+## Túnel Monumental da Serra — galeria rodoviária subterrânea
+
+Foram **retiradas da rede as estradas antigas \`montanha\` e
+\`serra-norte\`**. Em vez dessas duas subidas expostas, foi construída a
+ligação \`tunel-serra\`, entre os mesmos acessos da estrada circular, com um
+grande tramo coberto que representa cerca de 60% da ligação. O miradouro e
+a aldeia ficaram ligados às aproximações exteriores, fora do interior do
+túnel, e continuam a existir no mapa e no GPS.
+
+A classe \`RoadTunnels\` em \`src/road-tunnels.js\` gera geometrias de verdade:
+
+- Secção abobadada com cerca de **13,2 m de largura interior** e **7,3 m de
+  altura de pé-direito**, incluindo paredes, teto e revestimento exterior
+  de betão; o traçado conserva duas faixas de rodagem.
+- Portais de entrada e saída **com vãos realmente abertos**, pórticos de
+  betão espessos, arcos LED, placas de identificação e sinalização visível.
+- Linhas de luminárias LED, refletores laterais, reforços estruturais,
+  ventilação e postos de emergência distribuídos ao longo da galeria.
+  Apenas seis luzes próximas do veículo usam iluminação dinâmica real.
+- **Colisões \`CANNON.Trimesh\`** em segmentos curtos da abóbada e nos portais,
+  juntamente com as colisões normais do pavimento e os limites de declive.
+- **Escavação da malha de terreno e do seu Heightfield físico**, antes da
+  criação do rio, com cobertura exterior e taludes a envolverem a galeria.
+  O interior não fica bloqueado pelo terreno invisível como aconteceria com
+  um túnel decorativo por cima da montanha.
+
+O sistema foi concebido para **Three.js/Cannon-es/WebGL** (não utiliza
+Unity). Os testes automáticos validam a passagem pelo vão, a escavação,
+a iluminação, a existência de colisores e a limpeza dos recursos.
+O aspeto das transições para o terreno e a fluidez necessitam ainda de
+validação visual no PC do jogador.
+
+## Rio com água fechada e fundo visível
+
+O rio deixou de ser apenas um plano com transparência. Em
+\`src/river-system.js\` a malha \`buildWaterVolume()\` produz um **fundo
+opaco, paredes submersas contínuas e duas extremidades fechadas**.
+A superfície superior conserva as ondulações e a corrente animada, mas
+as faces vistas por baixo são opacas e escuras. Isto impede ver o céu
+ou vazios por baixo daquela antiga camada fina de água. As margens,
+rochas e a colisão do terreno continuam separadas da água, de modo a não
+introduzir barreiras invisíveis na condução.
+
+Testes: \`tests/road-tunnels.mjs\` e \`tests/river-system.mjs\`.
+
 ## Reengenharia de estradas e estabilização das encostas
 
 O antigo pavimento seguia o relevo lateral *ponto a ponto*. Numa subida de
@@ -464,7 +509,7 @@ do que o lado direito. Agora \`src/road-grading.js\` cria um **alinhamento
 vertical controlado** para cada estrada, incluindo a circular e rampas.
 
 - Declives longitudinais máximos de projeto: **6,5% autoestrada; 8,5%
-  rampas/urbano; 7,5% estrada circular; 9,5% rural; 10,5% montanha;
+  rampas/urbano; 7,5% estrada circular e túnel; 9,5% rural;
   13% caminhos de terra**. Estes são limites de jogabilidade, não uma
   certificação de engenharia rodoviária. Se dois pontos de ligação fixos
   tiverem cotas incompatíveis com o limite, o traçado regista a inclinação
