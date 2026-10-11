@@ -20,7 +20,7 @@ assert.ok(system.waterfallMesh.material.isShaderMaterial,
 assert.equal(system.statistics.waterfallDropM,3.7);
 assert.ok(system.waterfallMesh.geometry.index.count>1200,
   'Waterfall needs detailed flowing water geometry');
-assert.ok(system.bankMesh.geometry.index.count>1400,
+assert.ok(system.bankMesh.geometry.index.count>2800,
   'Both physical riverbanks must be joined with the watercourse');
 const upper=system.points[system.waterfall.start];
 const lower=system.points[system.waterfall.end];
@@ -31,6 +31,26 @@ for(const i of [2,40,101,205,system.points.length-3]){
   const dot=(b.x-a.x)*system.points[i].nx+(b.z-a.z)*system.points[i].nz;
   assert.ok(Math.abs(dot)<1e-5,
     'Both riverbanks must be perpendicular to arc-length river flow');
+}
+const foamShader=system.foam.material;
+assert.ok(foamShader.isShaderMaterial,'Foam must have feathered, flowing transparency');
+assert.match(foamShader.fragmentShader,/smoothstep/);
+assert.ok(system.points.every((p,i)=>i===0||
+  p.along>system.points[i-1].along),'Arc-length must be monotonic');
+const widths=system.points.map(p=>p.width);
+assert.ok(widths.every(w=>w>=6.5),'River width never collapses');
+for(const p of system.points.filter((_,i)=>i%31===0)){
+  const expected=8.6+2.05*Math.sin(p.along*.009)+.82*Math.sin(p.along*.021);
+  assert.ok(Math.abs(p.width-Math.max(6.5,expected))<.0001,
+    'Shore widths must be based on world metres, not mesh index');
+}
+for(let i=0;i<system.points.length;i+=23){
+  const a=system.points[i];
+  const side=(i%2?1:-1)*a.width*.52;
+  const x=a.x+a.nx*side,z=a.z+a.nz*side;
+  const nearest=system.lookup(x,z);
+  assert.ok(nearest&&nearest.distance<nearest.width,
+    'Visible water and the river locator must describe the same channel');
 }
 const flows=system.waterMesh.geometry.getAttribute('flowSpeed');
 assert.ok(flows?.count>3000,'Every flowing water vertex needs current velocity');
@@ -59,9 +79,7 @@ assert.equal(bridgePiers.length,system.crossings.length*4,
   'Each crossing needs two pillars on both river banks');
 for(const pillar of bridgePiers){
   const x=pillar.position.x,z=pillar.position.z,local=system.lookup(x,z);
-  const channel=local&&local.distance<local.width+8.5
-    ?local.waterY-1.55:3;
-  const footing=Math.min(3,channel)-.18;
+  const footing=system.channelHeight(3,local)-.18;
   assert.ok(Math.abs(pillar.position.y-pillar.scale.y*.5-footing)<.025,
     'Bridge supports must meet the post-excavation riverbed');
 }
@@ -102,6 +120,8 @@ assert.equal(system.waterMaterial.uniforms.uRain.value,1);
 assert.ok(system.waterfallMaterial.uniforms.uTime.value>waterfallBefore,
   'Waterfall must animate with the flowing river');
 assert.equal(system.waterfallFoamMaterial.uniforms.uRain.value,1);
+assert.equal(system.foamMaterial.uniforms.uRain.value,1);
+assert.equal(system.foamMaterial.uniforms.uTime.value,system.time);
 const after=system.waterMaterial.uniforms.uTime.value;
 system.update(.1,true,false);
 assert.equal(system.waterMaterial.uniforms.uTime.value,after,

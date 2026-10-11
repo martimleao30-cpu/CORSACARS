@@ -65,17 +65,23 @@ export class RiverSystem {
     const upperLip=softened[fallStart];
     const lowerPool=upperLip-this.waterfall.drop;
     const downstreamShift=lowerPool-softened[fallEnd];
+    // Distances, meanders and width must stay identical across Low/Ultra.
+    // Using sample index here made the shoreline oscillate differently when
+    // graphical quality changed, moving rocks/bridges relative to water.
+    let travelled=0;
     this.points=horizontal.map((p,i)=>{
+      if(i)travelled+=Math.hypot(p.x-horizontal[i-1].x,
+        p.z-horizontal[i-1].z);
       const before=horizontal[Math.max(0,i-1)];
       const after=horizontal[Math.min(sampleCount,i+1)];
       const dx=after.x-before.x,dz=after.z-before.z;
       const len=Math.hypot(dx,dz)||1;
-      const width=8.5+2.7*Math.sin(i*.033)+1.0*Math.sin(i*.13);
+      const width=8.6+2.05*Math.sin(travelled*.009)+.82*Math.sin(travelled*.021);
       const fallProgress=smooth((i-fallStart)/(fallEnd-fallStart));
       const riverLevel=i<fallStart?softened[i]:
         i<=fallEnd?THREE.MathUtils.lerp(upperLip,lowerPool,fallProgress):
         softened[i]+downstreamShift;
-      return {x:p.x,z:p.z,y:riverLevel,
+      return {x:p.x,z:p.z,y:riverLevel,along:travelled,
         width:Math.max(6.5,width),nx:-dz/len,nz:dx/len};
     });
     this.bucketSize=42;this.buckets=new Map();
@@ -211,7 +217,8 @@ export class RiverSystem {
       for(let j=0;j<=8;j++){
         const v=j/8,side=(v*2-1)*p.width;
         pos.push(p.x+p.nx*side,p.y+.08,p.z+p.nz*side);
-        uv.push(v,i/8);
+        // World-metre UVs prevent stretching/jitter as mesh density changes.
+        uv.push(v,p.along/8);
         bank.push(Math.abs(v*2-1));
         speeds.push(flow);
       }
@@ -245,9 +252,10 @@ export class RiverSystem {
         void main(){
           vUV=uv;vBank=bank;vSpeed=flowSpeed;
           vec3 p=position;
-          float wave=sin(uv.y*1.65-uTime*2.8*vSpeed+uv.x*16.0)*.045+
-            sin(uv.y*2.7-uTime*4.1*vSpeed-uv.x*23.0)*.023;
-          p.y+=wave*(1.0-bank*.35);
+          float wave=sin(uv.y*1.65-uTime*2.8*vSpeed+uv.x*16.0)*.042+
+            sin(uv.y*2.7-uTime*4.1*vSpeed-uv.x*23.0)*.021;
+          // Shore waves taper before meeting the real excavated riverbank.
+          p.y+=wave*(1.0-smoothstep(.68,1.0,bank)*.82);
           vec4 world=modelMatrix*vec4(p,1.0);
           vWorld=world.xyz;
           gl_Position=projectionMatrix*viewMatrix*world;
@@ -301,7 +309,9 @@ export class RiverSystem {
           float rainPits=sin(current.x*57.0+uTime*6.4)*
             sin(current.y*32.0-uTime*8.1);
           water+=vec3(.13,.16,.17)*rainPits*.065*uRain;
-          gl_FragColor=vec4(water,.945);
+          // Gradual waterline replaces the unnaturally sharp painted edge.
+          float edgeAlpha=1.0-smoothstep(.93,1.0,vBank)*.18;
+          gl_FragColor=vec4(water,.945*edgeAlpha);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }`,
@@ -323,16 +333,25 @@ export class RiverSystem {
     // It is geographical geometry, not a vertical billboard above the river.
     for(let j=0;j<=layers;j++){
       const t=j/layers;
-      const x=THREE.MathUtils.lerp(upper.x,lower.x,t);
-      const z=THREE.MathUtils.lerp(upper.z,lower.z,t);
-      const lip=THREE.MathUtils.lerp(upper.y,lower.y,t);
+      // Match the actual river centreline and smoothed drop at every row.
+      // A straight upper-to-lower chord twists the falling sheet around bends.
+      const segment=Math.min(end-1,Math.floor(start+t*(end-start)));
+      const f=clamp(start+t*(end-start)-segment,0,1);
+      const a=this.points[segment],b=this.points[segment+1];
+      const x=THREE.MathUtils.lerp(a.x,b.x,f);
+      const z=THREE.MathUtils.lerp(a.z,b.z,f);
+      const lip=THREE.MathUtils.lerp(a.y,b.y,f);
+      const nx=THREE.MathUtils.lerp(a.nx,b.nx,f);
+      const nz=THREE.MathUtils.lerp(a.nz,b.nz,f);
+      const magnitude=Math.hypot(nx,nz)||1;
+      const sx=nx/magnitude,sz=nz/magnitude;
       for(let k=0;k<=across;k++){
         const u=k/across,lateral=(u*2-1)*halfWidth;
-        const turbulence=Math.sin(u*19+t*23)*.085*(1-t)+
-          Math.sin(u*44-t*31)*.05;
-        pos.push(x+upper.nx*lateral+lower.nz*turbulence,
-          lip+.05+Math.sin(t*Math.PI)*.20,
-          z+upper.nz*lateral-upper.nx*turbulence);
+        const turbulence=(Math.sin(u*19+t*23)*.085*(1-t)+
+          Math.sin(u*44-t*31)*.05)*Math.sin(Math.PI*t);
+        pos.push(x+sx*lateral-sz*turbulence,
+          lip+.08+Math.sin(t*Math.PI)*.12,
+          z+sz*lateral+sx*turbulence);
         uv.push(u,t);
       }
       if(j===layers)continue;
@@ -378,7 +397,8 @@ export class RiverSystem {
     this.waterfallMesh.renderOrder=2;
     this.group.add(this.waterfallMesh);
     // Low-cost animated turbulent foam at the base of the fall.
-    const poolGeo=new THREE.PlaneGeometry(halfWidth*2.1,9,22,4);
+    // Confine the foam disc to the active channel (not the dry riverbanks).
+    const poolGeo=new THREE.PlaneGeometry(halfWidth*1.76,7.2,22,4);
     poolGeo.rotateX(-Math.PI/2);this.geometries.push(poolGeo);
     const poolMat=new THREE.ShaderMaterial({
       uniforms:{uTime:{value:0},uRain:{value:0}},
@@ -404,8 +424,8 @@ export class RiverSystem {
     const pool=new THREE.Mesh(poolGeo,poolMat);
     pool.name='Cascata · espuma e remoinhos no poço';
     const tangent=new THREE.Vector3(lower.x-upper.x,0,lower.z-upper.z).normalize();
-    pool.position.set(lower.x+tangent.x*4,lower.y+.15,
-      lower.z+tangent.z*4);
+    pool.position.set(lower.x+tangent.x*3.4,lower.y+.135,
+      lower.z+tangent.z*3.4);
     pool.rotation.y=Math.atan2(tangent.x,tangent.z);
     pool.renderOrder=3;this.group.add(pool);this.waterfallPool=pool;
     this.waterfallPosition=new THREE.Vector3(lower.x,lower.y,lower.z);
@@ -502,22 +522,25 @@ export class RiverSystem {
     for(const side of [-1,1]){
       const offset=positions.length/3;
       for(const p of this.points){
-        for(const t of [0,1]){
-          const distance=p.width+(t?16:1.6);
+        // Three bands: submerged waterline, moist gravel and grassy verge.
+        // Sample the same channelHeight() used to deform/collide the terrain,
+        // avoiding floating green stripes and hard rectangular bank edges.
+        for(const [distance,color] of [
+          [p.width+.9,0x68736a],[p.width+6,0x807e70],
+          [p.width+23,0x67735d]
+        ]){
           const x=p.x+p.nx*distance*side,z=p.z+p.nz*distance*side;
-          const terrain=this.terrainY(x,z);
-          const currentBank=this.channelHeight(terrain,this.lookup(x,z));
-          // Blend smoothly from the submerged gravel lip into the ACTUAL
-          // eroded ground, not the pre-excavation terrain elevation.
-          const y=t?currentBank+.022:Math.min(terrain,p.y-.17);
+          const y=this.channelHeight(this.terrainY(x,z),
+            this.lookup(x,z))+.026;
           positions.push(x,y,z);
-          const c=new THREE.Color(t?0x64705d:0x7b8074);
+          const c=new THREE.Color(color);
           colors.push(c.r,c.g,c.b);
         }
       }
       for(let i=0;i<this.points.length-1;i++){
-        const a=offset+i*2,b=a+2;
-        indices.push(a,b,a+1,a+1,b,b+1);
+        const a=offset+i*3,b=a+3;
+        for(let j=0;j<2;j++)
+          indices.push(a+j,b+j,a+j+1,a+j+1,b+j,b+j+1);
       }
     }
     const geo=new THREE.BufferGeometry();
@@ -575,8 +598,36 @@ export class RiverSystem {
     // Foamy eddies downstream of larger rocks, visibly advecting with flow.
     const foamGeo=new THREE.PlaneGeometry(1,1,3,4);
     foamGeo.rotateX(-Math.PI/2);this.geometries.push(foamGeo);
-    const foamMat=new THREE.MeshBasicMaterial({color:0xd4e5df,
-      transparent:true,opacity:.46,depthWrite:false,side:THREE.DoubleSide});
+    // Fragment mask prevents floating white foam rectangles. Subtle pulses
+    // travel with the water while the instances remain GPU-batched.
+    const foamMat=new THREE.ShaderMaterial({
+      uniforms:{uTime:{value:0},uRain:{value:0}},
+      vertexShader:`
+        varying vec2 vUv;
+        void main(){
+          vUv=uv;
+          gl_Position=projectionMatrix*modelViewMatrix*
+            instanceMatrix*vec4(position,1.0);
+        }`,
+      fragmentShader:`
+        varying vec2 vUv;
+        uniform float uTime;
+        uniform float uRain;
+        void main(){
+          vec2 q=(vUv-.5)*2.0;
+          float oval=1.0-smoothstep(.54,1.0,length(q*vec2(1.0,1.45)));
+          float wake=sin(q.y*11.0-uTime*3.8+sin(q.x*7.0)*.8);
+          float ripples=pow(max(0.0,wake),2.0)*.30+.27;
+          float alpha=oval*ripples*(.65+.35*uRain);
+          if(alpha<.008)discard;
+          gl_FragColor=vec4(.79,.90,.88,alpha);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+      transparent:true,depthWrite:false,depthTest:true,
+      side:THREE.DoubleSide
+    });
+    this.foamMaterial=foamMat;
     this.materials.push(foamMat);
     const wakes=new THREE.InstancedMesh(foamGeo,foamMat,Math.floor(count*.55));
     wakes.name='Espuma e corrente à volta das rochas';
@@ -584,13 +635,16 @@ export class RiverSystem {
     for(let i=0;i<count*2&&index<wakes.instanceMatrix.count;i++){
       const p=this.points[Math.floor(random()*this.points.length)];
       if(random()>.6)continue;
-      obj.position.set(p.x+p.nx*(random()*2-1)*p.width*.68,
-        p.y+.115,p.z+p.nz*(random()*2-1)*p.width*.68);
+      // One shared lateral value: independent random x/z offsets were
+      // drifting the foam onto the shore or outside the river entirely.
+      const side=(random()*2-1)*p.width*.63;
+      obj.position.set(p.x+p.nx*side,p.y+.108,p.z+p.nz*side);
       obj.rotation.set(0,Math.atan2(-p.nx,p.nz),0);
       obj.scale.set(.45+random()*.7,1,.65+random()*1.6);
       obj.updateMatrix();wakes.setMatrixAt(index++,obj.matrix);
     }
     wakes.count=index;wakes.instanceMatrix.needsUpdate=true;
+    wakes.renderOrder=2;
     this.group.add(wakes);this.foam=wakes;
   }
   buildBridges(){
@@ -624,11 +678,10 @@ export class RiverSystem {
           const z2=z+hit.direction.z*advance*(length*.36);
           const local=this.lookup(x2,z2);
           const naturalGround=this.terrainY(x2,z2);
-          const channelBed=local&&local.distance<local.width+8.5
-            ?local.waterY-1.55:naturalGround;
-          // These footings reach the terrain AFTER river excavation. The
-          // old supports ended around the water surface, visibly floating.
-          const baseY=Math.min(naturalGround,channelBed)-.18;
+          // Supports terminate at the *actual* excavated channel height.
+          // Subtracting 1.55 m everywhere buried the feet below sloped banks.
+          const actualGround=this.channelHeight(naturalGround,local);
+          const baseY=actualGround-.18;
           const underside=deckY-.72;
           const pillarHeight=Math.max(.7,underside-baseY);
           add('Ponte · apoio no leito rochoso',
@@ -646,6 +699,8 @@ export class RiverSystem {
   update(dt,paused=false,rain=false,sun=null){
     if(!paused)this.time+=Math.max(0,Math.min(dt,.08));
     this.waterMaterial.uniforms.uTime.value=this.time;
+    this.foamMaterial.uniforms.uTime.value=this.time;
+    this.foamMaterial.uniforms.uRain.value=rain?1:0;
     this.waterfallMaterial.uniforms.uTime.value=this.time;
     this.waterfallFoamMaterial.uniforms.uTime.value=this.time;
     this.waterfallSprayMaterial.uniforms.uTime.value=this.time;

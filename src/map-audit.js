@@ -99,8 +99,7 @@ export function auditMap({network,terrainY,river=null,railway=null,
     for(const pier of piers){
       const local=river.lookup?.(pier.position.x,pier.position.z);
       const original=terrainY(pier.position.x,pier.position.z);
-      const bed=local&&local.distance<local.width+8.5?
-        Math.min(original,local.waterY-1.55):original;
+      const bed=river.channelHeight(original,local);
       const footer=pier.position.y-pier.scale.y*.5;
       if(footer>bed+.10)
         add('floating-bridge','river',pier.position,
