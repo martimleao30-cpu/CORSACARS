@@ -29,7 +29,8 @@ assert.ok(lighting.stats.highway>=6,'Motorway access and services require LEDs')
 assert.ok(lighting.stats.ring>6,'Original ring should still be illuminated');
 assert.ok(lighting.stats.access>=2,'Motorway ramps need their own masts');
 assert.ok(lighting.stats.rural>=2,'Villages and rural junctions need new LEDs');
-assert.ok(lighting.stats.mountain>=1,'Mountain village approaches need night lighting');
+assert.equal(lighting.stats.mountain,0,
+  'Removed mountain roads must not generate light poles');
 assert.equal(lampNightFactor(12),0);
 assert.equal(lampNightFactor(18.99),0);
 assert.equal(lampNightFactor(19),1);
