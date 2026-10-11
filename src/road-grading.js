@@ -6,7 +6,7 @@ const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const ease=x=>{const t=clamp(x,0,1);return t*t*(3-2*t);};
 export const ROAD_MAX_GRADE=Object.freeze({
   highway:.065,'highway-ramp':.085,urban:.085,ring:.075,
-  mountain:.105,rural:.095,dirt:.13,test:.075
+  mountain:.105,rural:.095,tunnel:.075,dirt:.13,test:.075
 });
 export const ROAD_MAX_CROSS_SLOPE=.025;
 export const gradeLimit=road=>ROAD_MAX_GRADE[road.category]??.09;
