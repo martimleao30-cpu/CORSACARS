@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {roadDeckHeight} from './road-upgrades.js';
+import {RoadManholes} from './road-manholes.js';
 import {RoadsideInfrastructure} from './roadside-infrastructure.js';
 import {RoadsidePowerLines} from './roadside-power-lines.js';
 import {createNaturalShrubGeometry,createWeatheredRockGeometry} from './natural-assets.js';
@@ -92,6 +93,9 @@ export class RoadEnvironment {
             ring.points.length-6,5,'metal');
       }
     }
+    this.manholeNetwork=new RoadManholes(
+      this.scene,this.network,this.terrainY,this.clearance?.river);
+    this.statistics.manholes+=this.manholeNetwork.statistics.total;
     this.infrastructure=new RoadsideInfrastructure(
       this.scene,this.physics,this.network,this.terrainY,this.clearance,this.quality);
     Object.assign(this.statistics,this.infrastructure.stats);
@@ -189,7 +193,7 @@ export class RoadEnvironment {
         this.pavementRuns(road,side,78,n-9);
       }
     }
-    const manholes=[],drains=[],parking=[],parkTics=[];
+    const drains=[],parking=[],parkTics=[];
     const crossings=road.id==='nacional'?[26,68,106]:[Math.floor(n*.48)];
     for(const k of crossings){
       if(k>=n-2)continue;
@@ -198,13 +202,6 @@ export class RoadEnvironment {
       this.trafficLight(road,k,-1);
       this.trafficLight(road,k,1);
     }
-    for(let i=18;i<n-15;i+=18){
-      const p=position(road,i,road.width*.16,this.terrainY,.052);
-      manholes.push({...p});
-      this.statistics.manholes++;
-    }
-    this.instances('Tampas de saneamento',new THREE.CylinderGeometry(.42,.42,.025,16),
-      materials.steel,manholes);
     for(let i=15;i<n-12;i+=11){
       for(const side of [-1,1]){
         const p=position(road,i,side*(road.width*.5-.27),this.terrainY,.057);
@@ -720,6 +717,7 @@ export class RoadEnvironment {
     if(this.disposed)return;
     this.disposed=true;
     this.infrastructure?.dispose();
+    this.manholeNetwork?.dispose();
     this.powerLines?.dispose();
     for(const body of this.bodies)this.physics.removeBody(body);
     const shared=new Set(Object.values(materials));

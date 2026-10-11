@@ -38,6 +38,24 @@ for(const category of ['urban','highway','mountain','rural','dirt'])
 assert.ok(environment.statistics.sidewalks>=2,'Physical urban pavements required');
 assert.ok(environment.statistics.crosswalks>=3,'Zebra crossings required');
 assert.ok(environment.statistics.manholes>0 && environment.statistics.drains>0);
+const covers=environment.manholeNetwork;
+assert.ok(covers.statistics.total>28,
+  'Build many visible manhole covers on paved local roads');
+assert.ok(covers.coverMesh?.isInstancedMesh&&
+  covers.coverMesh.geometry.userData.corsaManhole==='cast-iron-inspection-cover');
+assert.equal(covers.statistics.motorway,0);
+assert.ok(covers.placements.every(p=>p.roadId!=='autoestrada'&&
+  p.category!=='highway'&&p.category!=='highway-ramp'));
+assert.ok(covers.placements.some(p=>p.roadId==='circular'),
+  'Ring road needs occasional service covers too');
+for(const p of covers.placements){
+  assert.ok(Math.abs(p.y-p.deckY-.015)<1e-6,
+    'Covers must be flush with the real crowned road deck');
+  assert.ok(!network.junctions.some(j=>
+    Math.hypot(j.x-p.x,j.z-p.z)<
+      Math.max(Math.max(j.halfU||0,j.halfV||0),4)+6),
+    'Manholes must not cover junction markings');
+}
 assert.ok(environment.statistics.parkingSpaces>0);
 assert.ok(environment.statistics.highwayBarriers>0);
 assert.ok(environment.statistics.mountainBarriers>0);
