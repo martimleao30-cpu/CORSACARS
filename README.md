@@ -424,6 +424,38 @@ Ficheiros: `src/highway-services.js`, `src/world-sectors.js`,
 Testes: `node tests/highway-services.mjs` e `npm run test:roads`.
 
 
+## Recuperação do rio e rede de tampas de saneamento
+
+O rio recebeu margens **contínuas de oito faixas em cada lado**, com
+transição de leito submerso para lodo, seixos, zona de humidade e prado
+ribeirinho. A malha de cada margem possui um corpo de colisão estático
+\`CANNON.Trimesh\` correspondente, para impedir que um automóvel atravesse
+a margem por falta de geometria física. Grandes pedras continuam com
+colisões; também existem colisores seletivos nos arbustos mais robustos.
+
+A água mantém uma corrente animada de acordo com o relevo, mas com
+materiais menos claros, brilho reduzido, reflexos mais discretos e margem
+translúcida. A cascata acompanha a largura real do rio em cada troço,
+reduzindo aberturas entre o canal e a queda de água.
+
+A vegetação das margens foi reposicionada por zonas naturais: juncos e
+ervas ribeirinhas muito perto da água, seixos e pedras pequenas nos leitos
+húmidos e arbustos folhosos de salgueiro/amieiro nas zonas mais altas.
+A distribuição exclui o interior do rio, vias próximas e zonas de
+pontes, mantendo a maioria dos pequenos elementos GPU-instanciados.
+
+\`src/road-manholes.js\` acrescenta tampas circulares embutidas no
+**asfalto urbano, rural, de montanha e da estrada circular**. O planeamento
+usa a altura real do pavimento, evita interseções e respeita a proximidade
+do rio. **Nunca acrescenta tampas à autoestrada, às rampas, aos caminhos
+de terra ou à pista de testes**. As tampas têm aro, ferro fundido e
+detalhe de relevo, mas não introduzem ressaltos físicos que perturbem
+a suspensão. A colisão de condução continua a ser a do asfalto sob a tampa.
+
+Os testes de regressão estão em \`tests/river-system.mjs\` e
+\`tests/road-environments.mjs\`. O resultado visual e a fluidez continuam
+a exigir inspeção no jogo real, sobretudo nos encontros rio/terreno.
+
 ## Iluminação LED moderna — ruas, estradas e acessos
 
 `src/modern-road-lighting.js` substitui os postes simples da estrada

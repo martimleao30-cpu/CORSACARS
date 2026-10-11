@@ -37,6 +37,12 @@ assert.ok(system.statistics.bankShrubs>20,
 assert.ok(system.bankShrubMesh?.isInstancedMesh &&
   system.bankShrubMesh.geometry.userData.corsaNatural==='leafy-shrub',
   'Riverbank bushes must be genuine 3D leafy vegetation');
+assert.ok(system.statistics.shorePebbles>350,
+  'The waterline needs dense gravel and small rounded stones');
+assert.equal(system.shorePebbleMesh.geometry.userData.corsaNatural,'weathered-rock',
+  'Pebbles must use real weathered rock geometry');
+assert.ok(system.shorePebbleMesh.isInstancedMesh,
+  'Small stones must be instanced, not one draw call per pebble');
 assert.equal(system.bankVegetation.geometry.userData.corsaRiparian,
   'sedges-and-reeds');
 
