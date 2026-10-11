@@ -50,12 +50,21 @@ for(const channel of drainage.channels){
   assert.equal(channel.water.visible,false,'Dry channels show no flowing water');
   assert.equal(channel.outletFlow.visible,false,
     'Culvert outlets cannot flow when the sky is dry');
+  assert.equal(channel.splashes.visible,false,
+    'Dry collectors must not show artificial splashes');
+  assert.ok(channel.runoff.geometry.index.count>=channel.grates.count*3*10*6,
+    'Each collector must receive three separate graded water tributaries');
   assert.equal(channel.pipes.count,channel.outlets.length,
     'Each downhill outlet should have one correctly oriented cylindrical pipe');
   assert.equal(channel.rims.count,channel.outlets.length,
     'Each pipe mouth needs a cast protective circular rim');
   assert.equal(channel.basins.count,channel.grates.count,
     'Collector chambers must match all surface grates');
+  assert.equal(channel.splashes.count,channel.grates.count,
+    'Every active collector needs an animated splash surface');
+  assert.ok(channel.headwalls.geometry.type==='ExtrudeGeometry'&&
+    channel.headwalls.geometry.parameters.shapes.holes?.length===1,
+    'Outfall headwalls must have true circular openings in their geometry');
   assert.ok(channel.grates.geometry.getAttribute('position').count>150,
     'Grates must have real open slats and bolted metal detailing');
   assert.ok(channel.pipes.geometry.type==='CylinderGeometry'&&
@@ -86,6 +95,8 @@ assert.ok(drainage.channels.some(c=>c.outletFlow.visible&&
   'Stormwater must visibly run from culvert pipes into the grassy verge');
 assert.ok(drainage.channels.every(c=>c.runoff.visible),
   'Rain must run across the verge into real drainage inlets');
+assert.ok(drainage.channels.every(c=>c.splashes.visible),
+  'Rain should cause animated splashing at every collector grate');
 const paused=drainage.level;
 drainage.update(1,0,0,true);
 assert.equal(drainage.level,paused,'Paused runoff must not change');
@@ -95,6 +106,8 @@ assert.ok(drainage.channels.every(c=>!c.water.visible));
 assert.ok(drainage.channels.every(c=>!c.runoff.visible));
 assert.ok(drainage.channels.every(c=>!c.outletFlow.visible),
   'Culvert water must stop flowing after the rain has drained away');
+assert.ok(drainage.channels.every(c=>!c.splashes.visible),
+  'Collector splash effects must disappear on dry roads');
 const bodies=physics.bodies.length;
 drainage.dispose();
 assert.ok(!scene.children.includes(drainage.group));
