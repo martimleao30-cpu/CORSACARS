@@ -229,28 +229,29 @@ export class RoadTunnels{
       const p=points[i],n=normal(points,i);
       const distance=r.chain[i]-r.chain[r.start];
       const yaw=Math.atan2(n.tx,n.tz);
+      const station=Math.floor((i-r.start-2)/3);
       const part=(out,x,y,z,sx,sy,sz)=>{
         out.push({x,y,z,sx,sy,sz,yaw});
       };
-      if(i%6===0){
+      if(station%2===0){
         part(lights,p.x,p.y+r.height-.37,p.z,2.6,.085,.34);
         this.positions.push(new THREE.Vector3(p.x,p.y+r.height-.62,p.z));
         this.statistics.lamps++;
       }
-      if(i%9===0){
+      if(station%3===0){
         for(const side of [-1,1]){
           part(guides,p.x+n.x*side*(r.halfWidth-.14),p.y+.77,
             p.z+n.z*side*(r.halfWidth-.14),.04,.1,.34);
         }
       }
-      if(i%18===0){
+      if(station%6===0){
         part(ribs,p.x,p.y+r.height-.42,p.z,r.halfWidth*1.45,.12,.25);
       }
-      if(i%27===0){
+      if(station%9===0){
         part(ventilation,p.x,p.y+r.height-.95,p.z,1.7,.37,1.7);
         this.statistics.ventilationUnits++;
       }
-      if(i%30===0){
+      if(station%10===0){
         const x=p.x+n.x*(r.halfWidth-.16),z=p.z+n.z*(r.halfWidth-.16);
         part(emergencies,x,p.y+1.37,z,.17,1.38,.78);
         this.statistics.emergencyStations++;
