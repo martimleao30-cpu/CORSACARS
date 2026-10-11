@@ -18,6 +18,7 @@ import {buildRoadProfileGeometry} from './road-profile-geometry.js';
 import {RegionalRailway} from './regional-railway.js';
 import {RiverSystem} from './river-system.js';
 import {HighwayDrainage} from './highway-drainage.js';
+import {engineerRoadGrade,roadGradeTerrain,ROAD_MAX_GRADE} from './road-grading.js';
 import {WildGroundcover} from './wild-groundcover.js';
 import {RainStreaks} from './atmosphere-effects.js';
 import {WeatherSystem} from './weather-system.js';
@@ -147,8 +148,9 @@ export class DrivingWorld {
     this.testRoadName=this.network.roads.find(r=>r.id==='provas')?.name;
     this.network.roads[0].mesh=this.roadMesh;
     this.network.roads[0].body=this.roadBody;
+    this.network.roads[0].gradeTerrain=this.ringGradeTerrain;
     this.ringProfileGeometry=buildRoadProfileGeometry(this.scene,
-      this.network.roads[0],groundHeight,this.network.junctions);
+      this.network.roads[0],this.ringGradeTerrain,this.network.junctions);
     this.network.roads[0].profileGeometry=this.ringProfileGeometry;
     this.fitTerrainToRoads();
     // A continuous geographical river carves the SAME visual/physical
@@ -276,43 +278,54 @@ export class DrivingWorld {
   }
 
   fitTerrainToRoads(){
-    // Settle the actual ground surface into the verges. The heightfield is
-    // rebuilt from the IDENTICAL vertices, so off-road tyres cannot hit an
-    // invisible earlier version of the hillside.
+    // Road construction is an engineering cut/fill operation, not a road
+    // painted across an untouched mountain. The SAME modified terrain
+    // vertices rebuild the Cannon Heightfield collider after the operation.
     const geometry=this.terrainMesh.geometry;
     const pos=geometry.getAttribute('position');
-    const network=this.network;
-    let changed=0;
+    const cells=this.network.cells,size=this.network.cellSize;
+    const ease=t=>{const q=Math.max(0,Math.min(1,t));return q*q*(3-2*q);};
+    let changed=0,deepestCut=0,highestFill=0;
     for(let i=0;i<pos.count;i++){
       const x=pos.getX(i),z=pos.getZ(i);
-      const cell=Math.floor(x/network.cellSize)+','+
-        Math.floor(z/network.cellSize);
-      const candidates=network.cells.get(cell)||[];
-      let nearest=Infinity,selected=null;
+      const key=Math.floor(x/size)+','+Math.floor(z/size);
+      const candidates=cells.get(key)||[];
+      let choice=null,nearest=Infinity;
       for(const item of candidates){
-        const road=item.road;
-        if(!(['rural','mountain','urban'].includes(road.category)||
-          road.id==='circular'))continue;
-        const dx=item.b.x-item.a.x,dz=item.b.z-item.a.z;
-        const length=dx*dx+dz*dz;
-        const fraction=length?Math.max(0,Math.min(1,
-          ((x-item.a.x)*dx+(z-item.a.z)*dz)/length)):0;
-        const distance=Math.hypot(x-item.a.x-dx*fraction,
-          z-item.a.z-dz*fraction);
-        const edge=distance-road.width*.5;
-        if(edge<nearest){nearest=edge;selected={road,distance};}
+        const road=item.road,dx=item.b.x-item.a.x,dz=item.b.z-item.a.z;
+        const denom=dx*dx+dz*dz;
+        const f=denom?Math.max(0,Math.min(1,
+          ((x-item.a.x)*dx+(z-item.a.z)*dz)/denom)):0;
+        const gap=Math.hypot(x-item.a.x-f*dx,z-item.a.z-f*dz);
+        const edge=gap-road.width*.5;
+        if(edge<nearest){
+          nearest=edge;
+          choice={road,grade:item.a.y+(item.b.y-item.a.y)*f};
+        }
       }
-      if(!selected||nearest>9.5)continue;
-      const adjustment=roadsideTerrainDelta(selected.distance,selected.road.width);
-      if(Math.abs(adjustment)<.001)continue;
-      pos.setY(i,pos.getY(i)+adjustment);changed++;
+      if(!choice||nearest>25)continue;
+      const old=pos.getY(i);
+      // Soil lies at least 0.18m below the physical road triangles; the
+      // carriageway cannot be buried by terrain crossing steep lateral slopes.
+      const grading=choice.grade-.21-.23+
+        roadsideTerrainDelta(Math.max(0,nearest+choice.road.width*.5),
+          choice.road.width);
+      const influence=nearest<=3?1:1-ease((nearest-3)/22);
+      const newHeight=old+(grading-old)*influence;
+      if(Math.abs(newHeight-old)<.003)continue;
+      pos.setY(i,newHeight);changed++;
+      deepestCut=Math.max(deepestCut,old-newHeight);
+      highestFill=Math.max(highestFill,newHeight-old);
     }
     if(!changed)return;
-    pos.needsUpdate=true;geometry.computeVertexNormals();
-    geometry.computeBoundingBox();geometry.computeBoundingSphere();
+    pos.needsUpdate=true;
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
     this.physics.removeBody(this.terrainBody);
     this.terrainBody=createTerrainCollider(this.physics,geometry,this.terrainMaterial);
     this.terrainVerticesAdapted=changed;
+    this.earthworks={modified:changed,deepestCut,highestFill};
   }
 
   buildRoad() {
@@ -337,7 +350,20 @@ export class DrivingWorld {
       const roadCenter=left.clone().add(right).multiplyScalar(.5);
       this.roadPoints.push({center:roadCenter,tangent,side,left,right});
     }
-    const bed=createRoadBed(this.roadPoints,this.roadWidth,groundHeight,29);
+    // Even the original 420-vertex circular highway must not inherit a
+    // ridiculous hillside crossfall from separate left/right terrain samples.
+    const loop=this.roadPoints.map(p=>p.center);
+    this.ringGrading=engineerRoadGrade(loop,groundHeight,{
+      maxGrade:ROAD_MAX_GRADE.ring,closed:true,smoothingMetres:33
+    });
+    for(const p of this.roadPoints){
+      p.left.y=p.center.y;p.right.y=p.center.y;
+    }
+    this.ringGradeTerrain=roadGradeTerrain(loop,groundHeight,this.roadWidth,{
+      shoulder:6,blend:22
+    });
+    const bed=createRoadBed(this.roadPoints,this.roadWidth,
+      this.ringGradeTerrain,29);
     this.roadMaterial=createAsphaltMaterial(this.quality,'aged');
     const roadMesh=new THREE.Mesh(bed.top,this.roadMaterial);
     roadMesh.name='Estrada Circular · Pavimento 3D';
@@ -345,7 +371,7 @@ export class DrivingWorld {
     this.scene.add(roadMesh);
     this.roadSides=addRoadSides(this.scene,bed.sides,'Estrada Circular');
     this.roadWear=addRoadWear(this.scene,this.roadPoints,this.roadWidth,
-      groundHeight,this.quality,29);
+      this.ringGradeTerrain,this.quality,29);
     this.roadBody=meshCollider(this.physics,bed.top,this.asphaltMaterial);
 
     // Surface-conforming road lines are built by RoadSignage after the network.
