@@ -33,7 +33,7 @@ const sectors=new WorldSectors(scene,physics,network,()=>0);
 const clearance=new RoadsideClearance(network,sectors.regions);
 const environment=new RoadEnvironment(scene,physics,network,()=>0,'low',clearance);
 assert.deepEqual(ROAD_CATEGORIES,['urban','highway','mountain','rural','dirt']);
-for(const category of ['urban','highway','mountain','rural','dirt'])
+for(const category of ['urban','highway','rural','dirt'])
   assert.ok(environment.statistics[category]>0,'Missing 3D road type: '+category);
 assert.ok(environment.statistics.sidewalks>=2,'Physical urban pavements required');
 assert.ok(environment.statistics.crosswalks>=3,'Zebra crossings required');
@@ -58,8 +58,8 @@ for(const p of covers.placements){
 }
 assert.ok(environment.statistics.parkingSpaces>0);
 assert.ok(environment.statistics.highwayBarriers>0);
-assert.ok(environment.statistics.mountainBarriers>0);
-assert.ok(environment.statistics.mountainMarkers>10,'Mountain reflectors should exist');
+assert.equal(environment.statistics.mountainBarriers,0);
+assert.equal(environment.statistics.mountainMarkers,0);
 const wBeams=environment.objects.filter(m=>m.name==='Barreira de proteção');
 const posts=environment.objects.filter(m=>m.name==='Barreira metálica · suportes');
 const spacers=environment.objects.filter(m=>m.name==='Barreira metálica · afastadores');
@@ -122,8 +122,7 @@ assert.ok(ruralPostMesh.geometry.parameters.radiusTop>=.9,
 
 const ruralShrubs=environment.objects.find(m=>m.name==='Vegetação junto à estrada rural');
 assert.equal(ruralShrubs.geometry.userData.corsaNatural,'leafy-shrub');
-const mountainRocks=environment.objects.find(m=>m.name==='Rochas · Serra');
-assert.equal(mountainRocks.geometry.userData.corsaNatural,'weathered-rock');
+assert.equal(environment.objects.some(m=>m.name==='Rochas · Serra'),false);
 assert.equal(environment.statistics.physicalJunctions,3);
 assert.ok(physics.bodies.length>physicalRoadBodies,'Sidewalks / barriers must collide');
 assert.ok(environment.trafficLights.length>=4,'Working traffic lights required');
