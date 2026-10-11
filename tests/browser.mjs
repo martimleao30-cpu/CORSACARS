@@ -37,7 +37,7 @@ page.on('response', response=>{
     failedHttpResponses.push(response.status()+' '+response.url());
 });
 const browserErrors = [];
-page.on('pageerror', err => browserErrors.push(err.message));
+page.on('pageerror', err => browserErrors.push(err.stack || err.message));
 page.on('console', message => {
   if (message.type() === 'error') browserErrors.push(message.text());
 });
