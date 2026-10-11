@@ -15,6 +15,16 @@ assert.ok(system.statistics.riverSections>400);
 assert.ok(system.statistics.riverLengthM>2000);
 assert.ok(system.statistics.boulders>20);
 assert.ok(system.waterMesh.material.isShaderMaterial);
+assert.equal(system.waterVolume.geometry.userData.corsaRiverVolume,
+  'sealed-bottom-banks-and-ends',
+  'Water cannot be an unclosed transparent polygon');
+assert.equal(system.waterVolume.material.transparent,false,
+  'Underwater surfaces must conceal the sky and empty space');
+assert.equal(system.waterVolume.material.depthWrite,true);
+assert.ok(system.waterVolume.geometry.index.count>system.points.length*32,
+  'The 3D volume must have a closed bottom and both sides for every segment');
+assert.match(system.waterMaterial.fragmentShader,/gl_FrontFacing/,
+  'Underwater river surface must render solid rather than disappear');
 assert.ok(system.waterfallMesh.material.isShaderMaterial,
   'The waterfall must be real animated geometry, not a decorative image');
 assert.equal(system.statistics.waterfallDropM,3.7);
