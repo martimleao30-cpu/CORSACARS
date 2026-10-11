@@ -17,9 +17,6 @@ export const REGIONAL_LINKS = Object.freeze([
   {id:'autoestrada',name:'A1 · Corredor Central',category:'highway',surface:'dry',width:19,
     from:116,to:240,
     via:[[-160,205],[-45,115],[55,85],[180,90],[310,125]]},
-  {id:'montanha',name:'Serra Alta · Miradouro',category:'mountain',surface:'dry',width:6,
-    from:165,to:215,
-    via:[[-70,505],[-95,595],[80,680],[215,600],[360,385]]},
   {id:'rural',name:'Caminho do Pinhal',category:'rural',surface:'dry',width:6.5,
     from:337,to:30,
     via:[[35,-480],[-165,-525],[-385,-465],[-455,-320]]},
@@ -34,10 +31,13 @@ export const REGIONAL_LINKS = Object.freeze([
     via:[[125,-470],[-65,-620],[-260,-650],[-440,-550],[-415,-375]]},
   // Road expansion: three connected excursions beyond the former 2 km map.
   // Old ring indices and spawn positions are stable for existing saves.
-  {id:'serra-norte',name:'Estrada da Serra Norte',category:'mountain',surface:'dry',
-    width:6,from:165,to:215,
-    via:[[-220,720],[-540,990],[-790,1260],[-1090,1120],
-      [-1040,820],[-750,600],[-360,480]]},
+  // One engineered tunnel through the northern massif replaces both exposed
+  // mountain roads. 60% of this scenic road lies inside the covered gallery.
+  {id:'tunel-serra',name:'Túnel Monumental da Serra',category:'tunnel',
+    surface:'dry',width:6.5,from:165,to:215,
+    tunnel:{start:.20,end:.80,halfWidth:6.6,clearance:7.3},
+    via:[[-210,680],[-450,925],[-730,1190],[-975,1135],
+      [-990,875],[-775,685],[-465,515],[-235,415]]},
   {id:'planicie-sul',name:'Estrada das Herdades',category:'rural',surface:'dry',
     width:6.5,from:337,to:30,
     via:[[-550,-620],[-850,-920],[-1190,-1210],[-1390,-1000],
