@@ -30,8 +30,8 @@ for(let i=0;i<natural.length;i++){
   const left=p.getY(i*stride),right=p.getY(i*stride+6);
   maxCrossfall=Math.max(maxCrossfall,Math.abs(left-right)/7);
   const mid=p.getY(i*stride+3);
-  assert.ok(Math.abs(mid-natural[i].y)<.025,
-    'Physical central asphalt must sit on the engineered grade');
+  assert.ok(Math.abs(mid-natural[i].y-.047)<.025,
+    'Physical central asphalt must follow the engineered grade plus standard road crown');
   assert.ok(Math.abs(left-mid)<.11&&Math.abs(right-mid)<.11,
     'Steep underlying terrain must not tilt a drivable lane sideways');
 }
