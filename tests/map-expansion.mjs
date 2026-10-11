@@ -4,7 +4,7 @@ import {WORLD_SIZE,WORLD_HALF,groundHeight} from '../src/world.js';
 import {REGIONAL_LINKS} from '../src/road-network.js';
 assert.equal(WORLD_SIZE,4100);
 assert.equal(WORLD_HALF,WORLD_SIZE/2);
-const outer=REGIONAL_LINKS.filter(r=>['serra-norte','planicie-sul',
+const outer=REGIONAL_LINKS.filter(r=>['tunel-serra','planicie-sul',
   'vale-leste','campos-oeste'].includes(r.id));
 assert.equal(outer.length,4);
 for(const road of outer){
