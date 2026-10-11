@@ -24,7 +24,7 @@ for(let i=0;i<=420;i++){
   ring.push({center:new THREE.Vector3(Math.cos(angle)*400,.2,Math.sin(angle)*400)});
 }
 const network=new RoadNetwork(scene,physics,()=>0,ring,13.5,'low');
-assert.equal(REGIONAL_LINKS.length,11);
+assert.equal(REGIONAL_LINKS.length,10);
 assert.equal(network.roads.length,REGIONAL_LINKS.length+4);
 assert.equal(physics.bodies.length,network.roads.length-1,'All new roads need real collision bodies');
 assert.ok(network.cells.size>30,'Surface lookups should use spatial hashing');
@@ -103,19 +103,24 @@ for(const road of network.roads){
   const middle=road.points[Math.floor(road.points.length*.57)];
   const queried=network.query(middle.x,middle.z,'clear');
   assert.notEqual(queried.surface,'grass','Road should be drivable: '+road.id);
-  if(road.id==='montanha'||road.id==='autoestrada'){
+  if(road.id==='tunel-serra'||road.id==='autoestrada'){
     assert.ok(['wet','dry'].includes(network.query(middle.x,middle.z,'rain').surface));
   }
 }
 assert.equal(network.query(4000,4000).surface,'grass');
-for(const id of ['serra-norte','planicie-sul','vale-leste','campos-oeste']){
+for(const id of ['tunel-serra','planicie-sul','vale-leste','campos-oeste']){
   const road=network.roads.find(r=>r.id===id);
   assert.ok(road&&road.points.length>=220,'New outer map road missing: '+id);
   assert.ok(road.points.some(p=>Math.max(Math.abs(p.x),Math.abs(p.z))>1050),
     'New route should explore territory outside the old terrain: '+id);
 }
 assert.deepEqual(new Set(REGIONAL_LINKS.map(r=>r.category)),
-  new Set(['urban','highway','mountain','rural','dirt','test']));
+  new Set(['urban','highway','tunnel','rural','dirt','test']));
+assert.ok(network.roads.every(r=>r.category!=='mountain'),
+  'Both steep exposed mountain roads have been removed');
+const tunnelRoad=network.roads.find(r=>r.id==='tunel-serra');
+assert.ok(tunnelRoad?.tunnel?.end-tunnelRoad?.tunnel?.start>=.58,
+  'The tunnel must occupy at least 58% of its connector');
 assert.equal(network.connectors.length,3,'Town side road plus motorway on/off ramps');
 assert.ok(network.junctions.length>=3,'At-grade X/T crossings must be detected');
 assert.ok(network.junctions.some(j=>j.secondary.id==='rua-lateral'),
